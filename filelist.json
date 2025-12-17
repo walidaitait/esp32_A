@@ -1,7 +1,6 @@
 [
   "main.py",
   "ota_update.py",
-  "wifi_config.py",
   "config.py",
   "debug.py",
   "state.py",
