@@ -1,123 +1,147 @@
 # ota_update.py
-import network #type: ignore
-import urequests #type: ignore
-import machine #type: ignore
+import network  # type: ignore
+import urequests  # type: ignore
+import machine  # type: ignore
 import time
 import os
-from machine import Pin #type: ignore
+from machine import Pin  # type: ignore
+
 from wifi_config import WIFI_SSID, WIFI_PASSWORD
 
-# --- Configurazioni ---
-UPDATE_BUTTON_PIN = 16        # GPIO del pulsante
-UPDATE_HOLD_TIME = 5          # secondi da tenere premuto
-NODE_RED_IP = "10.182.4.179"  # IP PC con Node-RED
-NODE_RED_PORT = 1880
-BASE_URL = f"http://{NODE_RED_IP}:{NODE_RED_PORT}/ota/"
+# ================== CONFIG ==================
 
-DEBUG_LOG_FILE = "debug_log.txt"
+BASE_URL = "https://raw.githubusercontent.com/walidaitait/esp32_A/main/"
 
-# --- Funzione log ---
+# OTA button
+UPDATE_BUTTON_PIN = 16
+UPDATE_HOLD_TIME = 5  # seconds
+
+# ================== LOG ==================
+
 def log(name, message):
     msg = "[{}] {}".format(name, message)
     print(msg)
     try:
-        with open(DEBUG_LOG_FILE, "a") as f:
+        with open("ota_log.txt", "a") as f:
             f.write(msg + "\n")
     except:
         pass
 
+# ================== WIFI ==================
 
-# --- Funzioni interne ---
 def _connect_wifi(timeout=15):
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+
     start = time.time()
     while not wlan.isconnected():
         if time.time() - start > timeout:
-            log("ota_update", "WiFi connection failed")
+            log("ota", "WiFi connection failed")
             return False
-        time.sleep(0.1)
-    log("ota_update", f"Connected to WiFi: {WIFI_SSID}")
+        time.sleep(0.2)
+
+    log("ota", "WiFi connected")
     return True
 
+# ================== BUTTON ==================
 
 def _check_button_pressed():
     btn = Pin(UPDATE_BUTTON_PIN, Pin.IN, Pin.PULL_UP)
     start = time.time()
+
     while time.time() - start < UPDATE_HOLD_TIME:
-        if btn.value() == 1:  # rilasciato
+        if btn.value() == 1:  # released
             return False
         time.sleep(0.05)
+
     return True
 
+# ================== FILESYSTEM ==================
 
-def _make_dirs(path):
-    parts = path.split("/")
-    for i in range(1, len(parts) + 1):
-        folder = "/".join(parts[:i])
+def _ensure_dirs(filepath):
+    if "/" not in filepath:
+        return
+
+    parts = filepath.split("/")[:-1]
+    path = ""
+    for p in parts:
+        path = p if path == "" else path + "/" + p
         try:
-            os.mkdir(folder)
+            os.mkdir(path)
         except OSError:
-            pass  # già esiste
+            pass
 
+# ================== OTA CORE ==================
 
 def _download_file(filename):
+    url = BASE_URL + filename
+    log("ota", "Downloading " + filename)
+
     try:
-        url = BASE_URL + "file/" + filename
-        log("ota_update", f"Downloading {filename} from {url}")
         r = urequests.get(url)
-        if r.status_code == 200:
-            if "/" in filename:
-                folder_path = "/".join(filename.split("/")[:-1])
-                _make_dirs(folder_path)
-            with open(filename, "w") as f:
-                f.write(r.text)
-            log("ota_update", f"{filename} updated successfully")
-        else:
-            log("ota_update", f"Failed to download {filename} (status {r.status_code})")
+        if r.status_code != 200:
+            log("ota", "HTTP error " + str(r.status_code))
+            r.close()
+            return False
+
+        _ensure_dirs(filename)
+
+        with open(filename, "w") as f:
+            f.write(r.text)
+
         r.close()
+        log("ota", "Updated " + filename)
+        return True
+
     except Exception as e:
-        log("ota_update", f"Exception downloading {filename}: {e}")
+        log("ota", "Download error: " + str(e))
+        return False
 
-
-def _get_files_list():
+def _get_file_list():
     try:
-        url = BASE_URL + "list"
-        r = urequests.get(url)
-        if r.status_code == 200:
-            data = r.json()
-            files = data.get("files", [])
-            r.close()
-            log("ota_update", f"Found {len(files)} file(s) on Node-RED")
-            return files
-        else:
-            log("ota_update", f"Failed to get file list (status {r.status_code})")
-            r.close()
+        r = urequests.get(BASE_URL + "filelist.json")
+        files = r.json()  # MUST be a list
+        r.close()
+
+        if not isinstance(files, list):
+            log("ota", "filelist.json is not a list")
             return []
+
+        return files
+
     except Exception as e:
-        log("ota_update", f"Exception getting file list: {e}")
+        log("ota", "Failed to read file list: " + str(e))
         return []
 
+# ================== PUBLIC ==================
 
-# --- Funzione pubblica ---
 def check_and_update():
-    """Controlla pulsante e avvia OTA se necessario"""
-    log("ota_update", "Checking update button...")
-    if _check_button_pressed():
-        log("ota_update", "Update button pressed. Starting OTA update.")
-        if not _connect_wifi():
-            log("ota_update", "OTA aborted due to WiFi failure")
-            return
-        files = _get_files_list()
-        if not files:
-            log("ota_update", "No files to update. Aborting OTA.")
-            return
-        for f in files:
-            _download_file(f)
-        log("ota_update", "OTA update completed. Rebooting...")
+    log("ota", "Checking update button")
+
+    if not _check_button_pressed():
+        log("ota", "Button not pressed, skipping OTA")
+        return
+
+    log("ota", "Update requested")
+
+    if not _connect_wifi():
+        log("ota", "OTA aborted (WiFi)")
+        return
+
+    files = _get_file_list()
+    if not files:
+        log("ota", "No files to update")
+        return
+
+    ok = True
+    for f in files:
+        if not _download_file(f):
+            ok = False
+
+    if ok:
+        log("ota", "OTA completed, rebooting")
         time.sleep(1)
         machine.reset()
     else:
-        log("ota_update", "Update button not pressed. Continuing normal execution.")
-
+        log("ota", "OTA finished with errors")
