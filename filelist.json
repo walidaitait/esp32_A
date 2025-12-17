@@ -5,7 +5,7 @@
   "debug.py",
   "state.py",
   "timers.py",
-  "timer_sync.py",
+  "time_sync.py",
   "simple.py",
 
   "logic/logic.py",
