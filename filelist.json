@@ -1,0 +1,24 @@
+[
+  "main.py",
+  "ota_update.py",
+  "wifi_config.py",
+  "config.py",
+  "debug.py",
+  "state.py",
+  "timers.py",
+  "simple.py",
+
+  "logic/logic.py",
+
+  "commands/commands.py",
+
+  "communications/mqtt_client.py",
+  "communications/communications.py",
+
+  "sensors/sensors_co.py",
+  "sensors/sensors_temperature.py",
+  "sensors/sensors_accelerometer.py",
+  "sensors/sensors_ultrasonic.py",
+
+  "simulate/simulate_sensors.py"
+]
