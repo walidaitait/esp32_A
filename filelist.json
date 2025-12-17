@@ -20,6 +20,5 @@
   "sensors/sensors_accelerometer.py",
   "sensors/sensors_ultrasonic.py",
 
-  "simulate/simulate_sensors.py",
-  "prova" 
+  "simulate/simulate_sensors.py"
 ]
