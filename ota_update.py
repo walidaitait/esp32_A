@@ -51,7 +51,7 @@ def _check_button_pressed():
     start = time.time()
 
     while time.time() - start < UPDATE_HOLD_TIME:
-        if btn.value() == 1:  # released
+        if btn.value() == 0:  # released
             return False
         time.sleep(0.05)
 

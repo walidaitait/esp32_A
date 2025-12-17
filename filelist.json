@@ -6,6 +6,7 @@
   "debug.py",
   "state.py",
   "timers.py",
+  "timer_sync.py",
   "simple.py",
 
   "logic/logic.py",
@@ -13,7 +14,7 @@
   "commands/commands.py",
 
   "communications/mqtt_client.py",
-  "communications/communications.py",
+  "communications/comms.py",
 
   "sensors/sensors_co.py",
   "sensors/sensors_temperature.py",
