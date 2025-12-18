@@ -11,15 +11,15 @@ from communications.comms import send_communications
 import state
 
 if SIMULATE_SENSORS:
-    from simulate.simulate_sensors import simulate_all as read_sensors
+    from simulate.sensors import simulate_all as read_sensors
     log("main", "Simulation mode: ON")
 else:
     log("main", "Simulation mode: OFF")
-#     from sensors_temperature import read_temperature
-    from sensors.sensors_co import read_co
-    from sensors.buttons import read_buttons
-    from sensors.sensors_accelerometer import read_accelerometer
-    from sensors.sensors_ultrasonic import init_ultrasonic, read_ultrasonic
+    from sensors.co import init_co, read_co
+    from sensors.buttons import init_buttons, read_buttons
+    from sensors.accelerometer import init_accelerometer, read_accelerometer
+    from sensors.ultrasonic import init_ultrasonic, read_ultrasonic
+    from sensors.temperature import init_temperature, read_temperature
 
 
 if MQTT_ENABLE:
@@ -45,18 +45,26 @@ def main():
     first_run = True
     onstart()
     
+    if not SIMULATE_SENSORS:
+        init_co()
+        init_buttons()
+        init_accelerometer()
+        init_ultrasonic()
+        init_temperature()
 
     while True:
         if first_run:
             log("main", "Main loop started")
             first_run = False
-        # Uncomment the following lines when the respective modules are implemented
-        read_buttons()
-        read_co()
-        read_accelerometer()
-        read_ultrasonic()
-#         read_temperature()
-#         read_sensors()
+        
+        if SIMULATE_SENSORS:
+            read_sensors()
+        else:
+            read_buttons()
+            read_co()
+            read_accelerometer()
+            read_ultrasonic()
+            read_temperature()
 
         evaluate_logic()
         update_output_commands()

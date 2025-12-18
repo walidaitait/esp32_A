@@ -15,10 +15,11 @@
   "communications/mqtt_client.py",
   "communications/comms.py",
 
-  "sensors/sensors_co.py",
-  "sensors/sensors_temperature.py",
-  "sensors/sensors_accelerometer.py",
-  "sensors/sensors_ultrasonic.py",
+  "sensors/co.py",
+  "sensors/temperature.py",
+  "sensors/accelerometer.py",
+  "sensors/ultrasonic.py",
+  "sensors/buttons.py",
 
-  "simulate/simulate_sensors.py"
+  "simulate/sensors.py"
 ]

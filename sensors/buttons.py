@@ -1,12 +1,16 @@
-from machine import Pin
+from machine import Pin  # type: ignore
 import config, state
 from timers import elapsed
 from debug import log
 
-_buttons = {
-    name: Pin(pin, Pin.IN, Pin.PULL_UP)
-    for name, pin in config.BUTTON_PINS.items()
-}
+_buttons = {}
+
+def init_buttons():
+    global _buttons
+    _buttons = {
+        name: Pin(pin, Pin.IN, Pin.PULL_UP)
+        for name, pin in config.BUTTON_PINS.items()
+    }
 
 def read_buttons():
     if not elapsed("buttons", config.BUTTON_INTERVAL):

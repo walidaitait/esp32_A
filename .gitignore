@@ -1,3 +1,29 @@
 wifi_config.py
 update.txt
 update.bat
+
+# File Python compilati e cache
+__pycache__/
+*.pyc
+*.pyo
+*$py.class
+
+# File generati (es. liste di file per upload)
+filelist.json
+
+# Ambiente virtuale (se ne crei uno)
+venv/
+env/
+ENV/
+
+# File IDE specifici (opzionale, se non vuoi condividerli)
+.vscode/
+.idea/
+
+# Log o file temporanei
+*.log
+*.tmp
+
+# File di sistema
+.DS_Store
+Thumbs.db
