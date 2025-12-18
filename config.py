@@ -41,22 +41,35 @@ ACC_INTERVAL = 100        # accelerometer read interval
 BUTTON_INTERVAL = 50      # button scan interval
 LOGIC_INTERVAL = 200      # logic evaluation interval
 PUBLISH_INTERVAL = 3000   # publish on nodered interval
+HEART_RATE_INTERVAL = 1000  # heart rate read interval
 
 # --------- LOGIC THRESHOLDS ---------
 
-# CO alarm threshold (raw ADC value, to calibrate)
-CO_ALARM_THRESHOLD = 2000
+# CO alarm threshold (voltage in V)
+CO_ALARM_THRESHOLD = 1.6
 
 # Temperature alarm threshold (°C, depends on sensor)
 TEMP_ALARM_THRESHOLD = 40.0
 
-# Accelerometer movement threshold (raw ADC delta)
-ACC_MOVEMENT_THRESHOLD = 500
+# Accelerometer movement threshold (g delta)
+ACC_MOVEMENT_THRESHOLD = 1.3
+
+# Heart rate sensor (MAX30100, I2C)
+HEART_RATE_SDA_PIN = 21
+HEART_RATE_SCL_PIN = 22
+
+# Heart rate thresholds
+BPM_LOW_THRESHOLD = 50
+BPM_HIGH_THRESHOLD = 120
+SPO2_THRESHOLD = 90
 
 # --------- SYSTEM FLAGS (for future expansion) ---------
 
 ENABLE_ESP_NOW = False
-ENABLE_DEBUG_PRINT = False
+ESP32_B_PEER_MAC = b'\xa4\xcf\x12\x9b\x01\x7f'
+ACK_TIMEOUT_MS = 200
+MAX_RETRIES = 3
+
 
 # -----------------------------
 # SIMULATION SETTINGS

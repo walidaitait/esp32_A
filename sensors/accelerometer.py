@@ -19,6 +19,8 @@ def read_accelerometer():
     if not elapsed("acc", config.ACC_INTERVAL):
         return
 
-    state.sensor_data["acc"]["x"] = _adc_x.read()
-    state.sensor_data["acc"]["y"] = _adc_y.read()
-    state.sensor_data["acc"]["z"] = _adc_z.read()
+    for axis, adc in [("x", _adc_x), ("y", _adc_y), ("z", _adc_z)]:
+        adc_val = adc.read()
+        voltage = adc_val * 3.3 / 4095
+        g = (voltage - 1.65) / 0.3
+        state.sensor_data["acc"][axis] = round(g, 2)

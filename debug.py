@@ -15,7 +15,9 @@ debug_flags = {
     "simple": False,
     "simulate_sensors": True,
     "state": True,
-    "timers": True
+    "timers": True,
+    "espnow": True,
+    "alarm": True
 }
 
 def log(name, message):

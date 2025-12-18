@@ -15,4 +15,5 @@ def read_co():
         return
 
     value = _adc.read()
-    state.sensor_data["co"] = value
+    voltage = value * 3.3 / 4095
+    state.sensor_data["co"] = round(voltage, 2)

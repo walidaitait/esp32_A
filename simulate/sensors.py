@@ -37,6 +37,16 @@ def simulate_buttons():
 def simulate_ultrasonic():
     state.ultrasonic_distance_cm = round(random.uniform(5, 200), 2)
 
+
+def simulate_heart_rate():
+    """Genera valori battito cardiaco e saturazione casuali"""
+    if not elapsed("hr", config.HEART_RATE_INTERVAL):
+        return
+    # BPM tra 50 e 120
+    state.sensor_data["heart_rate"]["bpm"] = round(random.uniform(50, 120), 1)
+    # SpO2 tra 90 e 100
+    state.sensor_data["heart_rate"]["spo2"] = round(random.uniform(90, 100), 1)
+
 def simulate_all():
     """Funzione unica per aggiornare tutti i sensori simulati"""
     simulate_temperature()
@@ -44,4 +54,5 @@ def simulate_all():
     simulate_accelerometer()
     simulate_buttons()
     simulate_ultrasonic()
+    simulate_heart_rate()
 

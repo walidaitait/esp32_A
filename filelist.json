@@ -20,6 +20,8 @@
   "sensors/accelerometer.py",
   "sensors/ultrasonic.py",
   "sensors/buttons.py",
+  "sensors/heart_rate.py",
+  "sensors/libs/max30100.py",
 
   "simulate/sensors.py"
 ]

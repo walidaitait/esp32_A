@@ -25,4 +25,15 @@ def evaluate_logic():
         abs(acc["y"]) > config.ACC_MOVEMENT_THRESHOLD or
         abs(acc["z"]) > config.ACC_MOVEMENT_THRESHOLD
     )
+
+    # Heart rate
+    hr = state.sensor_data["heart_rate"]
+    state.system_state["alarm_bpm"] = (
+        hr["bpm"] is not None and
+        (hr["bpm"] < config.BPM_LOW_THRESHOLD or hr["bpm"] > config.BPM_HIGH_THRESHOLD)
+    )
+    state.system_state["alarm_spo2"] = (
+        hr["spo2"] is not None and
+        hr["spo2"] < config.SPO2_THRESHOLD
+    )
     
