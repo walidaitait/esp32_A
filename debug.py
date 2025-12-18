@@ -11,6 +11,7 @@ debug_flags = {
     "sensors_accelerometer": True,
     "sensors_co": True,
     "sensors_temperature": True,
+    "sensors_ultrasonic": True,
     "simple": False,
     "simulate_sensors": True,
     "state": True,

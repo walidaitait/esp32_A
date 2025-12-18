@@ -1,4 +1,4 @@
-from mqtt_client import publish_data
+from communications.mqtt_client import publish_data
 import config
 from timers import elapsed
 import state
@@ -12,7 +12,7 @@ def log_sensor_data():
                 "temperature": state.sensor_data["temperature"],
                 "co": state.sensor_data["co"],
                 "acc": state.sensor_data["acc"],
-                "buttons": state.button_state
+                "buttons": state.button_state,
                 "ultrasonic_distance_cm": state.ultrasonic_distance_cm
             }
     publish_data(sensor_data)    

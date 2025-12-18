@@ -1,4 +1,4 @@
-import ntptime
+import ntptime #type: ignore
 import time
 
 TIMEZONE_OFFSET = 1 * 3600   # Italy = UTC+1 (no DST)
