@@ -1,0 +1,18 @@
+[
+  "main.py",
+  "ota_update.py",
+  "config.py",
+  "wifi_config.py",
+  "debug.py",
+  "state.py",
+  "timers.py",
+  
+  "sensors/temperature.py",
+  "sensors/co.py",
+  "sensors/accelerometer.py",
+  "sensors/ultrasonic.py",
+  "sensors/heart_rate.py",
+  "sensors/buttons.py",
+  "sensors/__init__.py",
+  "sensors/libs/max30100.py"
+]

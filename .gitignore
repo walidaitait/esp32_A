@@ -8,8 +8,6 @@ __pycache__/
 *.pyo
 *$py.class
 
-# File generati (es. liste di file per upload)
-filelist.json
 
 # Ambiente virtuale (se ne crei uno)
 venv/
