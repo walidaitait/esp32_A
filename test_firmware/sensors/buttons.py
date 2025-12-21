@@ -17,7 +17,8 @@ def init_buttons():
         # Wait for pins to stabilize
         time.sleep_ms(50)
         # Initialize state based on actual pin readings
-        _last_state = {name: not pin.value() for name, pin in _buttons.items()}
+        # Con PULL_UP: pin.value() == 1 quando NON premuto, 0 quando premuto
+        _last_state = {name: pin.value() == 0 for name, pin in _buttons.items()}
         # Update global state to match actual button state
         for name, pressed in _last_state.items():
             state.button_state[name] = pressed
@@ -37,7 +38,8 @@ def read_buttons():
         return
     try:
         for name, pin in _buttons.items():
-            pressed = not pin.value()
+            # Con PULL_UP: pin.value() == 1 quando NON premuto, 0 quando premuto
+            pressed = pin.value() == 0
             if pressed != _last_state[name]:
                 _last_state[name] = pressed
                 state.button_state[name] = pressed

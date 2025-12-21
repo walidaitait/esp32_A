@@ -44,13 +44,12 @@ def read_heart_rate():
         ir_value = _sensor.ir if _sensor.ir else 0
         
         # Se IR value è troppo basso, il dito non è presente o non è posizionato bene
-        if ir_value < 50000:  # Soglia tipica per rilevamento dito
+        if ir_value < 10000:  # Soglia ridotta per migliore rilevamento
             state.sensor_data["heart_rate"]["bpm"] = None
             state.sensor_data["heart_rate"]["spo2"] = None
+            if _readings_count == 0:
+                log("heart_rate", f"No finger detected (IR: {ir_value})")
             _readings_count = 0
-            # Log solo ogni 5 secondi per non sovraccaricare
-            if _readings_count % 5 == 0:
-                log("heart_rate", "No finger detected (IR too low)")
             return
         
         # Dito presente, procedi con la lettura

@@ -27,7 +27,11 @@ def read_co():
     try:
         value = _adc.read()
         voltage = value * 3.3 / 4095
-        state.sensor_data["co"] = round(voltage, 2)
+        # Converti voltage in PPM
+        # Formula tipica per sensori CO: PPM = (voltage - 0.1) * 1000 / 3.3
+        # Assumendo range 0-1000 PPM per 0-3.3V
+        ppm = max(0, (voltage - 0.1) * 1000 / 2.2)  # sottrai offset di 0.1V
+        state.sensor_data["co"] = round(ppm, 2)
     except Exception as e:
         log("co", f"Read error: {e}")
         state.sensor_data["co"] = None

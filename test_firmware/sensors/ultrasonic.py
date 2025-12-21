@@ -85,9 +85,11 @@ def read_ultrasonic():
         _measurement_pending = True
         _echo_start_time = 0
         _echo_duration = 0
-        # Send trigger pulse (10us) using timer for precision
+        # Send trigger pulse (10us minimo, 20us per sicurezza)
+        _trig.value(0)
+        time.sleep_us(2)
         _trig.value(1)
-        time.sleep_us(10)
+        time.sleep_us(20)
         _trig.value(0)
     except Exception as e:
         log("ultrasonic", f"Trigger error: {e}")
