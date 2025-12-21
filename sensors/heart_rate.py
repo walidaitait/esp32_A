@@ -9,12 +9,21 @@ _sensor = None
 
 def init_heart_rate():
     global _i2c, _sensor
-    _i2c = I2C(0, scl=Pin(config.HEART_RATE_SCL_PIN), sda=Pin(config.HEART_RATE_SDA_PIN))
-    _sensor = MAX30100(i2c=_i2c)
-    _sensor.enable_spo2()
-    log("heart_rate", "Heart rate sensor initialized")
+    try:
+        _i2c = I2C(0, scl=Pin(config.HEART_RATE_SCL_PIN), sda=Pin(config.HEART_RATE_SDA_PIN))
+        _sensor = MAX30100(i2c=_i2c)
+        _sensor.enable_spo2()
+        log("heart_rate", "Heart rate sensor initialized")
+        return True
+    except Exception as e:
+        print(f"[heart_rate] Initialization failed: {e}")
+        print("[heart_rate] Sensor disabled - system will continue without heart rate monitoring")
+        _sensor = None
+        return False
 
 def read_heart_rate():
+    if _sensor is None:
+        return
     if not elapsed("hr", config.HEART_RATE_INTERVAL):
         return
     try:

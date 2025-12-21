@@ -23,12 +23,20 @@ _measurement_ready = False
 
 def init_ultrasonic():
     global _trig, _echo
-    _trig = Pin(ULTRASONIC_TRIG_PIN, Pin.OUT)
-    _echo = Pin(ULTRASONIC_ECHO_PIN, Pin.IN)
-    _trig.value(0)
-    # Set up interrupt for echo pin
-    _echo.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=_echo_interrupt)
-    log("ultrasonic", "Ultrasonic sensor initialized (non-blocking)")
+    try:
+        _trig = Pin(ULTRASONIC_TRIG_PIN, Pin.OUT)
+        _echo = Pin(ULTRASONIC_ECHO_PIN, Pin.IN)
+        _trig.value(0)
+        # Set up interrupt for echo pin
+        _echo.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=_echo_interrupt)
+        log("ultrasonic", "Ultrasonic sensor initialized (non-blocking)")
+        return True
+    except Exception as e:
+        print(f"[ultrasonic] Initialization failed: {e}")
+        print("[ultrasonic] Sensor disabled - system will continue without ultrasonic monitoring")
+        _trig = None
+        _echo = None
+        return False
 
 
 def _echo_interrupt(pin):
@@ -47,6 +55,8 @@ def _echo_interrupt(pin):
 
 def read_ultrasonic():
     global _last_read_ms, _measurement_pending, _measurement_ready, _echo_duration
+    if _trig is None or _echo is None:
+        return
 
     now = time.ticks_ms()
     if time.ticks_diff(now, _last_read_ms) < READ_INTERVAL_MS:

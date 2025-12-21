@@ -129,10 +129,20 @@ class MAX30100(object):
         self.i2c.writeto_mem(I2C_ADDRESS, MODE_CONFIG, bytes([reg & 0x74])) # mask the SHDN bit
         self.i2c.writeto_mem(I2C_ADDRESS, MODE_CONFIG, bytes([reg | mode]))
 
-    def set_spo_config(self, sample_rate=100, pulse_width=1600):
-        reg = self.i2c.readfrom_mem(I2C_ADDRESS, SPO2_CONFIG, 1)[0]
-        reg = reg & 0xFC  # Set LED pulsewidth to 00
-        self.i2c.writeto_mem(I2C_ADDRESS, SPO2_CONFIG, bytes([reg | pulse_width]))
+    def set_spo_config(self, sample_rate=100, pulse_width=1600, spo2_hi_res=True):
+        # Valida e converte i parametri in valori bit
+        spo2_sample_rate = _get_valid(SAMPLE_RATE, sample_rate)
+        led_pulse_width = _get_valid(PULSE_WIDTH, pulse_width)
+        spo2_hi_res_bit = 1 if spo2_hi_res else 0
+        
+        # Costruisce il byte di configurazione con mascheramento sicuro
+        config = (
+            ((spo2_hi_res_bit & 0x01) << 6) |
+            ((spo2_sample_rate & 0x07) << 2) |
+            (led_pulse_width & 0x03)
+        ) & 0xFF
+        
+        self.i2c.writeto_mem(I2C_ADDRESS, SPO2_CONFIG, bytes([config]))
 
     def enable_spo2(self):
         self.set_mode(MODE_SPO2)

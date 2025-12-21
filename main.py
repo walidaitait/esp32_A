@@ -53,12 +53,29 @@ def main():
     onstart()
     
     if not config.SIMULATE_SENSORS:
-        init_co()
-        init_buttons()
-        init_accelerometer()
-        init_ultrasonic()
-        init_temperature()
-        init_heart_rate()
+        co_ok = init_co()
+        if not co_ok:
+            log("main", "CO sensor not available - continuing without it")
+        
+        btn_ok = init_buttons()
+        if not btn_ok:
+            log("main", "Buttons not available - continuing without them")
+        
+        acc_ok = init_accelerometer()
+        if not acc_ok:
+            log("main", "Accelerometer not available - continuing without it")
+        
+        ultra_ok = init_ultrasonic()
+        if not ultra_ok:
+            log("main", "Ultrasonic sensor not available - continuing without it")
+        
+        temp_ok = init_temperature()
+        if not temp_ok:
+            log("main", "Temperature sensor not available - continuing without it")
+        
+        hr_ok = init_heart_rate()
+        if not hr_ok:
+            log("main", "Heart rate sensor not available - continuing without it")
 
     while True:
         if first_run:
