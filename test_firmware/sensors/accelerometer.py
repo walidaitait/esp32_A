@@ -20,9 +20,7 @@ def init_accelerometer():
         
         from debug import log
         
-        # Verifica se il sensore è realmente collegato
-        time.sleep_ms(100)  # Attendi stabilizzazione
-        
+        # Verifica se il sensore è realmente collegato (senza delay bloccante)
         voltages = []
         for adc in (_adc_x, _adc_y, _adc_z):
             adc_val = adc.read()

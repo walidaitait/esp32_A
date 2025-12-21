@@ -2,6 +2,7 @@ from machine import Pin  # type: ignore
 import config, state
 from timers import elapsed
 from debug import log
+import time
 
 _buttons = {}
 _last_state = {}
@@ -13,7 +14,13 @@ def init_buttons():
             name: Pin(pin, Pin.IN, Pin.PULL_UP)
             for name, pin in config.BUTTON_PINS.items()
         }
-        _last_state = {name: False for name in config.BUTTON_PINS.keys()}
+        # Wait for pins to stabilize
+        time.sleep_ms(50)
+        # Initialize state based on actual pin readings
+        _last_state = {name: not pin.value() for name, pin in _buttons.items()}
+        # Update global state to match actual button state
+        for name, pressed in _last_state.items():
+            state.button_state[name] = pressed
         log("buttons", "Buttons initialized")
         return True
     except Exception as e:
