@@ -2,7 +2,6 @@
   "main.py",
   "ota_update.py",
   "config.py",
-  "wifi_config.py",
   "debug.py",
   "state.py",
   "timers.py",
