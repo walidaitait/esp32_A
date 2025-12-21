@@ -35,7 +35,7 @@ def simulate_buttons():
 
 
 def simulate_ultrasonic():
-    state.ultrasonic_distance_cm = round(random.uniform(5, 200), 2)
+    state.sensor_data["ultrasonic_distance_cm"] = round(random.uniform(5, 200), 2)
 
 
 def simulate_heart_rate():

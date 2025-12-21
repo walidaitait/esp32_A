@@ -2,19 +2,31 @@ from machine import Pin  # type: ignore
 import config, state
 from timers import elapsed
 from debug import log
+from logic import hooks
 
 _buttons = {}
+_last_state = {}
 
 def init_buttons():
-    global _buttons
+    global _buttons, _last_state
     _buttons = {
         name: Pin(pin, Pin.IN, Pin.PULL_UP)
         for name, pin in config.BUTTON_PINS.items()
     }
+    _last_state = {name: False for name in config.BUTTON_PINS.keys()}
 
 def read_buttons():
     if not elapsed("buttons", config.BUTTON_INTERVAL):
         return
     for name, pin in _buttons.items():
-        state.button_state[name] = not pin.value()
+        pressed = not pin.value()
+        if pressed != _last_state[name]:
+            _last_state[name] = pressed
+            state.button_state[name] = pressed
+            if pressed:
+                hooks.on_button_triggered(name)
+            else:
+                hooks.on_button_released(name)
+        else:
+            state.button_state[name] = pressed
 

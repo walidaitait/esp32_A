@@ -8,13 +8,9 @@ from debug import log
 def log_sensor_data():
     if not elapsed("publish", config.PUBLISH_INTERVAL):
         return
-    sensor_data = {
-                "temperature": state.sensor_data["temperature"],
-                "co": state.sensor_data["co"],
-                "acc": state.sensor_data["acc"],
-                "buttons": state.button_state,
-                "ultrasonic_distance_cm": state.ultrasonic_distance_cm
-            }
+    # Build a single payload with all sensor readings plus button state
+    sensor_data = dict(state.sensor_data)
+    sensor_data["buttons"] = state.button_state
     publish_data(sensor_data)    
 
 # def state_update():

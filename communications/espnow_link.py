@@ -22,7 +22,7 @@ class EspNowLink:
         state.tx_seq += 1
         payload["type"] = "cmd"
         payload["seq"] = state.tx_seq
-        self.e.send(self.peer, encode(payload), True)
+        self.e.send(self.peer, encode(payload), False)
 
         state.pending_ack["seq"] = state.tx_seq
         state.pending_ack["timestamp"] = time.ticks_ms()

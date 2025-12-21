@@ -5,8 +5,8 @@
 # --------- ANALOG SENSORS (ADC1 ONLY) ---------
 # Using only ADC1 pins to stay compatible with WiFi / ESP-NOW
 
-# Temperature sensor (analog, 3 wires)
-TEMP_PIN = 34      # GPIO34 - ADC1 (input only)
+# Temperature sensor (DS18B20, digital, OneWire)
+TEMP_PIN = 4      # GPIO4 - Digital I/O
 
 # Carbon Monoxide sensor (DFRobot, analog)
 CO_PIN = 35        # GPIO35 - ADC1 (input only)
@@ -75,4 +75,4 @@ MAX_RETRIES = 3
 # SIMULATION SETTINGS
 # -----------------------------
 
-SIMULATE_SENSORS = True   # True = genera dati random, False = usa sensori reali
+SIMULATE_SENSORS = False   # True = genera dati random, False = usa sensori reali

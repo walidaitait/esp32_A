@@ -27,7 +27,7 @@ else:
 
 if MQTT_ENABLE:
     log("main", "MQTT is enabled. Proceeding with wifi connection")
-    from communications.mqtt_client import connect_wifi, init_mqtt, publish_data
+    from communications.mqtt_client import connect_wifi, init_mqtt, publish_data, poll_mqtt
     from wifi_config import WIFI_SSID, WIFI_PASSWORD
 
 
@@ -64,6 +64,10 @@ def main():
         if first_run:
             log("main", "ESP32_A started")
             first_run = False
+        
+        # Poll MQTT for incoming debug commands
+        if MQTT_ENABLE:
+            poll_mqtt()
         
         espnow.poll()
 

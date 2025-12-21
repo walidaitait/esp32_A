@@ -9,6 +9,7 @@
   "simple.py",
 
   "logic/logic.py",
+  "logic/hooks.py",
 
   "commands/commands.py",
 

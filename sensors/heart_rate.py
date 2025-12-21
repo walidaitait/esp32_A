@@ -18,6 +18,7 @@ def read_heart_rate():
     if not elapsed("hr", config.HEART_RATE_INTERVAL):
         return
     try:
+        _sensor.read_sensor()
         bpm = _sensor.get_heart_rate()
         spo2 = _sensor.get_spo2()
         state.sensor_data["heart_rate"]["bpm"] = round(bpm, 1) if bpm else None
