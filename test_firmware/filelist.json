@@ -4,9 +4,15 @@
   "config.py",
   "debug.py",
   "state.py",
-  
-  "sensors/heart_rate.py",
+  "timers.py",
   "sensors/__init__.py",
+  "sensors/accelerometer.py",
+  "sensors/buttons.py",
+  "sensors/co.py",
+  "sensors/heart_rate.py",
+  "sensors/temperature.py",
+  "sensors/ultrasonic.py",
+  "sensors/libs/max30100.py",
   "sensors/libs/max30102/__init__.py",
   "sensors/libs/max30102/circular_buffer.py"
 ]
