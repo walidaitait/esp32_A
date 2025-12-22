@@ -4,7 +4,7 @@ sensor_data = {
     "temperature": None,
     "co": None,
     "acc": {"x": 0, "y": 0, "z": 0},
-    "heart_rate": {"bpm": None, "spo2": None},
+    "heart_rate": {"ir": None, "red": None, "status": "Not initialized"},
     "ultrasonic_distance_cm": None
 }
 
