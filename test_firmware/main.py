@@ -78,7 +78,7 @@ def print_sensor_data():
     
     # CO
     co_val = state.sensor_data.get("co")
-    print(f"CO Voltage:   {co_val if co_val is not None else 'N/A'} V")
+    print(f"CO Level:     {co_val if co_val is not None else 'N/A'} PPM")
     
     # Accelerometer
     acc = state.sensor_data.get("acc", {})
