@@ -9,6 +9,26 @@ _i2c = None
 _sensor = None
 _readings_count = 0
 
+# Buffers per analisi del segnale
+_ir_buffer = []
+_red_buffer = []
+_buffer_size = 100  # 100 campioni = 1 secondo a 100Hz
+
+# Variabili per calibrazione automatica
+_baseline_ir = 0
+_baseline_red = 0
+_finger_threshold = 5000  # Soglia calibrata automaticamente
+
+# Variabili per calcolo BPM
+_last_peak_time = 0
+_last_peak_value = 0
+_bpm_buffer = []
+_bpm_buffer_size = 5
+
+# Variabili per calcolo SpO2
+_spo2_buffer = []
+_spo2_buffer_size = 10
+
 def init_heart_rate():
     global _i2c, _sensor
     try:
@@ -53,11 +73,154 @@ def init_heart_rate():
         _sensor = None
         return False
 
+def _calibrate_baseline():
+    """Calibra il baseline quando non c'è il dito"""
+    global _baseline_ir, _baseline_red, _finger_threshold
+    
+    if len(_ir_buffer) < 20:
+        return False
+    
+    # Calcola media degli ultimi 20 campioni
+    recent_ir = _ir_buffer[-20:]
+    recent_red = _red_buffer[-20:]
+    
+    avg_ir = sum(recent_ir) / len(recent_ir)
+    avg_red = sum(recent_red) / len(recent_red)
+    
+    # Se i valori sono bassi (<3000), è baseline
+    if avg_ir < 3000:
+        _baseline_ir = avg_ir
+        _baseline_red = avg_red
+        _finger_threshold = _baseline_ir + 5000  # Soglia = baseline + 5000
+        return True
+    
+    return False
+
+def _detect_finger(ir_value):
+    """Rileva se il dito è presente"""
+    global _finger_threshold
+    
+    # Se non abbiamo ancora calibrato, usa soglia di default
+    if _baseline_ir == 0:
+        # Valori bassi = no finger, valori alti = finger
+        return ir_value > 5000
+    
+    # Usa soglia calibrata
+    return ir_value > _finger_threshold
+
+def _calculate_dc_component(buffer):
+    """Calcola componente DC (media) di un buffer"""
+    if len(buffer) < 10:
+        return 0
+    return sum(buffer[-50:]) / min(50, len(buffer))
+
+def _calculate_ac_component(buffer, dc_value):
+    """Calcola componente AC (variazione) di un buffer"""
+    if len(buffer) < 10:
+        return 0
+    
+    # AC = deviazione standard degli ultimi valori
+    recent = buffer[-50:]
+    variance = sum((x - dc_value) ** 2 for x in recent) / len(recent)
+    return variance ** 0.5
+
+def _detect_peak(ir_value):
+    """Rileva picchi per calcolare BPM"""
+    global _last_peak_time, _last_peak_value, _bpm_buffer
+    
+    if len(_ir_buffer) < 10:
+        return None
+    
+    # Un picco è un massimo locale
+    recent_values = _ir_buffer[-10:]
+    
+    # Il valore attuale deve essere maggiore dei vicini
+    if len(recent_values) >= 5:
+        mid_idx = len(recent_values) // 2
+        mid_value = recent_values[mid_idx]
+        
+        # Verifica se è un massimo locale
+        is_peak = True
+        for i in range(len(recent_values)):
+            if i != mid_idx and recent_values[i] >= mid_value:
+                is_peak = False
+                break
+        
+        if is_peak and mid_value > _last_peak_value * 0.8:
+            current_time = time.ticks_ms()
+            
+            # Se abbiamo un picco precedente, calcoliamo BPM
+            if _last_peak_time > 0:
+                time_diff = time.ticks_diff(current_time, _last_peak_time)
+                
+                # Filtra valori impossibili (BPM tra 40 e 200)
+                if 300 < time_diff < 1500:  # 300ms = 200BPM, 1500ms = 40BPM
+                    bpm = 60000 / time_diff
+                    _bpm_buffer.append(bpm)
+                    
+                    # Mantieni buffer limitato
+                    if len(_bpm_buffer) > _bpm_buffer_size:
+                        _bpm_buffer.pop(0)
+                    
+                    _last_peak_time = current_time
+                    _last_peak_value = mid_value
+                    return bpm
+            else:
+                _last_peak_time = current_time
+                _last_peak_value = mid_value
+    
+    return None
+
+def _calculate_bpm():
+    """Calcola BPM medio dal buffer"""
+    if len(_bpm_buffer) < 2:
+        return None
+    
+    # Media degli ultimi BPM rilevati
+    return sum(_bpm_buffer) / len(_bpm_buffer)
+
+def _calculate_spo2():
+    """Calcola SpO2 dal rapporto R"""
+    global _spo2_buffer
+    
+    if len(_ir_buffer) < 50 or len(_red_buffer) < 50:
+        return None
+    
+    # Calcola componenti DC e AC per IR e RED
+    dc_ir = _calculate_dc_component(_ir_buffer)
+    dc_red = _calculate_dc_component(_red_buffer)
+    ac_ir = _calculate_ac_component(_ir_buffer, dc_ir)
+    ac_red = _calculate_ac_component(_red_buffer, dc_red)
+    
+    # Verifica che i valori siano validi
+    if dc_ir == 0 or dc_red == 0 or ac_ir == 0:
+        return None
+    
+    # Calcola rapporto R = (AC_red/DC_red) / (AC_ir/DC_ir)
+    r = (ac_red / dc_red) / (ac_ir / dc_ir)
+    
+    # Formula empirica per SpO2 (da letteratura MAX30102)
+    # SpO2 = 110 - 25 * R
+    spo2 = 110 - 25 * r
+    
+    # Filtra valori impossibili (SpO2 tra 70 e 100)
+    if 70 <= spo2 <= 100:
+        _spo2_buffer.append(spo2)
+        
+        # Mantieni buffer limitato
+        if len(_spo2_buffer) > _spo2_buffer_size:
+            _spo2_buffer.pop(0)
+        
+        # Ritorna media
+        return sum(_spo2_buffer) / len(_spo2_buffer)
+    
+    return None
+
 def read_heart_rate():
-    global _readings_count
+    global _readings_count, _ir_buffer, _red_buffer
     if _sensor is None:
         return
-    if not elapsed("hr", 100):  # Lettura ogni 100ms
+    if not elapsed("hr", 10):  # Lettura ogni 10ms per 100Hz
         return
     try:
         # Check for new data from sensor
@@ -71,23 +234,66 @@ def read_heart_rate():
         ir_value = _sensor.pop_ir_from_storage()
         red_value = _sensor.pop_red_from_storage()
         
+        # Aggiungi ai buffer
+        _ir_buffer.append(ir_value)
+        _red_buffer.append(red_value)
+        
+        # Mantieni buffer di dimensione fissa
+        if len(_ir_buffer) > _buffer_size:
+            _ir_buffer.pop(0)
+        if len(_red_buffer) > _buffer_size:
+            _red_buffer.pop(0)
+        
         # Increment readings counter
         _readings_count += 1
         
-        # Store values in state (per compatibilità con main.py)
+        # Store raw values in state
         state.sensor_data["heart_rate"]["ir"] = ir_value
         state.sensor_data["heart_rate"]["red"] = red_value
         
-        # Check if finger is present (IR value should be > 50000 for good contact)
-        if ir_value < 50000:
+        # Calibra baseline se necessario
+        if _baseline_ir == 0 and _readings_count > 20:
+            if _calibrate_baseline():
+                log("heart_rate", f"Baseline calibrated: IR={_baseline_ir:.0f}, threshold={_finger_threshold:.0f}")
+        
+        # Rileva presenza dito
+        finger_detected = _detect_finger(ir_value)
+        
+        if not finger_detected:
             state.sensor_data["heart_rate"]["status"] = "No finger"
-            if _readings_count % 10 == 1:  # Log ogni 10 letture solo la prima volta
-                log("heart_rate", f"No finger detected (IR: {ir_value}, RED: {red_value})")
+            state.sensor_data["heart_rate"]["bpm"] = None
+            state.sensor_data["heart_rate"]["spo2"] = None
+            
+            # Reset buffers di calcolo
+            global _last_peak_time, _bpm_buffer, _spo2_buffer
+            _last_peak_time = 0
+            _bpm_buffer.clear()
+            _spo2_buffer.clear()
+            
+            if _readings_count % 50 == 1:
+                log("heart_rate", f"No finger (IR: {ir_value}, RED: {red_value})")
         else:
             state.sensor_data["heart_rate"]["status"] = "Reading"
-            # Log periodicamente i valori quando il dito è presente
-            if _readings_count % 5 == 0:  # Log ogni 5 letture
-                log("heart_rate", f"✓ IR: {ir_value:6d}, RED: {red_value:6d} (reading #{_readings_count})")
+            
+            # Rileva picchi per BPM
+            _detect_peak(ir_value)
+            
+            # Calcola BPM
+            bpm = _calculate_bpm()
+            if bpm:
+                state.sensor_data["heart_rate"]["bpm"] = int(bpm)
+            
+            # Calcola SpO2 ogni 10 letture
+            if _readings_count % 10 == 0:
+                spo2 = _calculate_spo2()
+                if spo2:
+                    state.sensor_data["heart_rate"]["spo2"] = int(spo2)
+            
+            # Log periodico
+            if _readings_count % 20 == 0:
+                bpm_str = f"{state.sensor_data['heart_rate']['bpm']} BPM" if bpm else "calculating..."
+                spo2_str = f"{state.sensor_data['heart_rate']['spo2']}%" if state.sensor_data['heart_rate']['spo2'] else "calculating..."
+                log("heart_rate", f"✓ IR: {ir_value:5d}, RED: {red_value:5d} | {bpm_str}, SpO2: {spo2_str}")
         
     except Exception as e:
         log("heart_rate", f"Read error: {e}")
