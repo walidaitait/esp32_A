@@ -128,25 +128,25 @@ def _detect_peak(ir_value):
     """Rileva picchi per calcolare BPM"""
     global _last_peak_time, _last_peak_value, _bpm_buffer
     
-    if len(_ir_buffer) < 10:
+    if len(_ir_buffer) < 3:
         return None
     
-    # Un picco è un massimo locale
-    recent_values = _ir_buffer[-10:]
-    
-    # Il valore attuale deve essere maggiore dei vicini
-    if len(recent_values) >= 5:
-        mid_idx = len(recent_values) // 2
-        mid_value = recent_values[mid_idx]
+    # Usa ultimi 3 valori per rilevare massimo locale in tempo reale
+    # [n-2, n-1, n] -> n-1 è picco se n-1 > n-2 e n-1 > n
+    if len(_ir_buffer) >= 3:
+        prev_prev = _ir_buffer[-3]
+        prev = _ir_buffer[-2]
+        current = _ir_buffer[-1]
         
-        # Verifica se è un massimo locale
-        is_peak = True
-        for i in range(len(recent_values)):
-            if i != mid_idx and recent_values[i] >= mid_value:
-                is_peak = False
-                break
+        # Il valore precedente è un picco se maggiore di entrambi i vicini
+        is_peak = prev > prev_prev and prev > current
         
-        if is_peak and mid_value > _last_peak_value * 0.8:
+        # Aggiungi una soglia minima per evitare piccole fluttuazioni
+        # Il picco deve avere un'ampiezza minima rispetto ai vicini
+        min_prominence = 100  # Differenza minima per considerarlo un picco
+        is_prominent = (prev - prev_prev > min_prominence) and (prev - current > min_prominence)
+        
+        if is_peak and is_prominent:
             current_time = time.ticks_ms()
             
             # Se abbiamo un picco precedente, calcoliamo BPM
@@ -163,11 +163,18 @@ def _detect_peak(ir_value):
                         _bpm_buffer.pop(0)
                     
                     _last_peak_time = current_time
-                    _last_peak_value = mid_value
+                    _last_peak_value = prev
+                    
+                    log("heart_rate", f"Peak detected! BPM: {bpm:.1f}, time_diff: {time_diff}ms")
                     return bpm
+                else:
+                    # Log picchi scartati per debug
+                    log("heart_rate", f"Peak rejected: time_diff={time_diff}ms (out of range)")
             else:
+                # Primo picco rilevato
                 _last_peak_time = current_time
-                _last_peak_value = mid_value
+                _last_peak_value = prev
+                log("heart_rate", f"First peak detected at {prev}")
     
     return None
 
