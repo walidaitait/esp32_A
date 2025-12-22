@@ -21,6 +21,7 @@ _measurement_pending = False
 _measurement_ready = False
 _measurement_count = 0
 _failed_measurements = 0
+_trigger_time_ms = 0  # Tempo di inizio della misurazione
 
 
 def init_ultrasonic():
@@ -57,7 +58,7 @@ def _echo_interrupt(pin):
 
 def read_ultrasonic():
     global _last_read_ms, _measurement_pending, _measurement_ready, _echo_duration
-    global _measurement_count, _failed_measurements
+    global _measurement_count, _failed_measurements, _trigger_time_ms
     
     if _trig is None or _echo is None:
         return
@@ -70,8 +71,8 @@ def read_ultrasonic():
 
     if _measurement_pending:
         # Still waiting for previous measurement
-        # Check timeout (>30ms = no echo received)
-        if time.ticks_diff(now, _last_read_ms) > 30:
+        # Check timeout (>50ms = no echo received, max 400cm = ~23ms)
+        if time.ticks_diff(now, _trigger_time_ms) > 50:
             # log("ultrasonic", "⚠️  Measurement timeout - no echo received")
             _measurement_pending = False
             _failed_measurements += 1
@@ -110,6 +111,7 @@ def read_ultrasonic():
     # Start new measurement
     try:
         _measurement_pending = True
+        _trigger_time_ms = now  # Salva il tempo di inizio della misurazione
         _echo_start_time = 0
         _echo_duration = 0
         # Send trigger pulse (10us minimo, 20us per sicurezza)

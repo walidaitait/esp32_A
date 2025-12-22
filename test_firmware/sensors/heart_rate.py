@@ -33,6 +33,8 @@ _spo2_buffer_size = 10
 def init_heart_rate():
     global _i2c, _sensor
     try:
+        print("[heart_rate] Initializing MAX30102 sensor...")
+        
         # Setup I2C using SoftI2C
         _i2c = SoftI2C(
             sda=Pin(config.HEART_RATE_SDA_PIN),
@@ -40,22 +42,39 @@ def init_heart_rate():
             freq=400000
         )
         
+        print(f"[heart_rate] I2C initialized on SDA={config.HEART_RATE_SDA_PIN}, SCL={config.HEART_RATE_SCL_PIN}")
+        
+        # Scan I2C bus
+        devices = _i2c.scan()
+        print(f"[heart_rate] I2C scan found {len(devices)} device(s): {[hex(d) for d in devices]}")
+        
         # Create sensor instance
         _sensor = MAX30102(i2c=_i2c)
+        print(f"[heart_rate] Sensor object created, expected address: {hex(_sensor.i2c_address)}")
         
         # Check if sensor is detected on I2C bus
-        if _sensor.i2c_address not in _i2c.scan():
-            print(f"[heart_rate] Sensor not found on I2C bus at address {hex(_sensor.i2c_address)}")
+        if _sensor.i2c_address not in devices:
+            print(f"[heart_rate] ERROR: Sensor not found at address {hex(_sensor.i2c_address)}")
+            print("[heart_rate] Check wiring: SDA, SCL, VCC, GND")
+            print("[heart_rate] Try different I2C addresses if available")
             _sensor = None
             return False
+        
+        print(f"[heart_rate] Sensor found at address {hex(_sensor.i2c_address)}")
         
         # Check part ID
-        if not _sensor.check_part_id():
-            print("[heart_rate] Device ID does not correspond to MAX30102 or MAX30105")
-            _sensor = None
-            return False
+        try:
+            part_id_ok = _sensor.check_part_id()
+            if not part_id_ok:
+                print("[heart_rate] WARNING: Device ID does not match MAX30102/MAX30105")
+                print("[heart_rate] Continuing anyway - might still work")
+                # Don't fail, just warn
+        except Exception as e:
+            print(f"[heart_rate] WARNING: Could not check part ID: {e}")
+            print("[heart_rate] Continuing anyway...")
         
         # Setup sensor - configurazione ottimale per leggere RED e IR
+        print("[heart_rate] Configuring sensor...")
         _sensor.setup_sensor(
             led_mode=2,  # RED + IR mode (mode 2)
             adc_range=16384,  # ADC range massimo per maggiore risoluzione
@@ -65,11 +84,13 @@ def init_heart_rate():
             pulse_width=411  # Pulse width 411us - massima sensibilità
         )
         
-        log("heart_rate", "MAX30102 initialized - Reading RED and IR values")
+        log("heart_rate", "MAX30102 initialized successfully - Reading RED and IR values")
         print("[heart_rate] Sensor ready. Place finger gently on sensor.")
         return True
     except Exception as e:
-        print(f"[heart_rate] Initialization failed: {e}")
+        print(f"[heart_rate] Initialization failed with exception: {e}")
+        import sys
+        sys.print_exception(e)
         print("[heart_rate] Sensor disabled")
         _sensor = None
         return False
