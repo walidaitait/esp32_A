@@ -72,15 +72,28 @@ def print_sensor_data():
     print(f"HEART RATE SENSOR DATA @ {now}ms")
     print("="*50)
     
-    # Heart Rate - Mostra RED e IR
+    # Heart Rate - Mostra RED, IR, BPM e SpO2
     hr = state.sensor_data.get("heart_rate", {})
     ir_value = hr.get("ir", "N/A")
     red_value = hr.get("red", "N/A")
     status = hr.get("status", "N/A")
+    bpm = hr.get("bpm", None)
+    spo2 = hr.get("spo2", None)
     
     print(f"Status:       {status}")
     print(f"IR Value:     {ir_value}")
     print(f"RED Value:    {red_value}")
+    
+    # Mostra BPM e SpO2 solo se disponibili
+    if bpm is not None:
+        print(f"Heart Rate:   {bpm} BPM")
+    else:
+        print(f"Heart Rate:   Calculating...")
+    
+    if spo2 is not None:
+        print(f"SpO2:         {spo2}%")
+    else:
+        print(f"SpO2:         Calculating...")
     
     print("="*50 + "\n")
 
