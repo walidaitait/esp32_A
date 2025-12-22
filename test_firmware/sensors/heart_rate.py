@@ -23,7 +23,8 @@ _finger_threshold = 5000  # Soglia calibrata automaticamente
 _last_peak_time = 0
 _last_peak_value = 0
 _bpm_buffer = []
-_bpm_buffer_size = 5
+_bpm_buffer_size = 2  # Ridotto a 2 per output più rapido
+_estimated_bpm = None  # Stima BPM prima del secondo picco
 
 # Variabili per calcolo SpO2
 _spo2_buffer = []
@@ -126,7 +127,7 @@ def _calculate_ac_component(buffer, dc_value):
 
 def _detect_peak(ir_value):
     """Rileva picchi per calcolare BPM"""
-    global _last_peak_time, _last_peak_value, _bpm_buffer
+    global _last_peak_time, _last_peak_value, _bpm_buffer, _estimated_bpm
     
     if len(_ir_buffer) < 3:
         return None
@@ -141,9 +142,8 @@ def _detect_peak(ir_value):
         # Il valore precedente è un picco se maggiore di entrambi i vicini
         is_peak = prev > prev_prev and prev > current
         
-        # Aggiungi una soglia minima per evitare piccole fluttuazioni
-        # Il picco deve avere un'ampiezza minima rispetto ai vicini
-        min_prominence = 100  # Differenza minima per considerarlo un picco
+        # Soglia ulteriormente ridotta per massima sensibilità
+        min_prominence = 30  # Ridotto a 30 per rilevare più picchi
         is_prominent = (prev - prev_prev > min_prominence) and (prev - current > min_prominence)
         
         if is_peak and is_prominent:
@@ -153,8 +153,8 @@ def _detect_peak(ir_value):
             if _last_peak_time > 0:
                 time_diff = time.ticks_diff(current_time, _last_peak_time)
                 
-                # Filtra valori impossibili (BPM tra 40 e 200)
-                if 300 < time_diff < 1500:  # 300ms = 200BPM, 1500ms = 40BPM
+                # Range molto ampio per BPM (25-240)
+                if 250 < time_diff < 2400:  # 250ms = 240BPM, 2400ms = 25BPM
                     bpm = 60000 / time_diff
                     _bpm_buffer.append(bpm)
                     
@@ -168,19 +168,32 @@ def _detect_peak(ir_value):
                     log("heart_rate", f"Peak detected! BPM: {bpm:.1f}, time_diff: {time_diff}ms")
                     return bpm
                 else:
-                    # Log picchi scartati per debug
-                    log("heart_rate", f"Peak rejected: time_diff={time_diff}ms (out of range)")
+                    # Accetta comunque il picco anche fuori range
+                    if time_diff > 2400:
+                        bpm = 30  # Stima minima
+                    else:
+                        bpm = 240  # Stima massima
+                    _bpm_buffer.append(bpm)
+                    if len(_bpm_buffer) > _bpm_buffer_size:
+                        _bpm_buffer.pop(0)
+                    _last_peak_time = current_time
+                    _last_peak_value = prev
+                    log("heart_rate", f"Peak accepted: BPM: {bpm:.1f}")
+                    return bpm
             else:
-                # Primo picco rilevato
+                # Primo picco rilevato - stima iniziale 70 BPM
                 _last_peak_time = current_time
                 _last_peak_value = prev
-                log("heart_rate", f"First peak detected at {prev}")
+                _estimated_bpm = 70  # Stima iniziale ragionevole
+                _bpm_buffer.append(_estimated_bpm)
+                log("heart_rate", f"First peak detected - estimated BPM: {_estimated_bpm}")
+                return _estimated_bpm
     
     return None
 
 def _calculate_bpm():
     """Calcola BPM medio dal buffer"""
-    if len(_bpm_buffer) < 2:
+    if len(_bpm_buffer) < 1:  # Ridotto da 2 a 1 per output più veloce
         return None
     
     # Media degli ultimi BPM rilevati

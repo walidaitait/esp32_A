@@ -19,6 +19,8 @@ _echo_start_time = 0
 _echo_duration = 0
 _measurement_pending = False
 _measurement_ready = False
+_measurement_count = 0
+_failed_measurements = 0
 
 
 def init_ultrasonic():
@@ -55,6 +57,8 @@ def _echo_interrupt(pin):
 
 def read_ultrasonic():
     global _last_read_ms, _measurement_pending, _measurement_ready, _echo_duration
+    global _measurement_count, _failed_measurements
+    
     if _trig is None or _echo is None:
         return
 
@@ -66,18 +70,41 @@ def read_ultrasonic():
 
     if _measurement_pending:
         # Still waiting for previous measurement
+        # Check timeout (>30ms = no echo received)
+        if time.ticks_diff(now, _last_read_ms) > 30:
+            log("ultrasonic", "⚠️  Measurement timeout - no echo received")
+            _measurement_pending = False
+            _failed_measurements += 1
+            state.sensor_data["ultrasonic_distance_cm"] = None
         return
 
     if _measurement_ready:
         # Process completed measurement
         duration = _echo_duration
         _measurement_ready = False
+        _measurement_count += 1
+        
         if duration > 0:
             distance_cm = duration * SPEED_OF_SOUND_CM_US
-            state.sensor_data["ultrasonic_distance_cm"] = round(distance_cm, 2)
+            
+            # Filter out of range measurements (HC-SR04: 2cm - 400cm)
+            if 2 <= distance_cm <= 400:
+                state.sensor_data["ultrasonic_distance_cm"] = round(distance_cm, 2)
+                log("ultrasonic", f"✓ Distance: {distance_cm:.2f} cm (duration: {duration}µs)")
+            else:
+                log("ultrasonic", f"⚠️  Out of range: {distance_cm:.2f} cm")
+                state.sensor_data["ultrasonic_distance_cm"] = None
+                _failed_measurements += 1
         else:
-            log("ultrasonic", "Invalid duration")
+            log("ultrasonic", "⚠️  Invalid duration (0)")
             state.sensor_data["ultrasonic_distance_cm"] = None
+            _failed_measurements += 1
+        
+        # Log statistics periodically
+        if _measurement_count % 20 == 0:
+            success_rate = ((_measurement_count - _failed_measurements) / _measurement_count * 100) if _measurement_count > 0 else 0
+            log("ultrasonic", f"📊 Stats: {_measurement_count} measurements, {_failed_measurements} failed ({success_rate:.1f}% success)")
+        
         return
 
     # Start new measurement
@@ -92,6 +119,7 @@ def read_ultrasonic():
         time.sleep_us(20)
         _trig.value(0)
     except Exception as e:
-        log("ultrasonic", f"Trigger error: {e}")
+        log("ultrasonic", f"❌ Trigger error: {e}")
         _measurement_pending = False
+        _failed_measurements += 1
         state.sensor_data["ultrasonic_distance_cm"] = None
