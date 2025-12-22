@@ -13,5 +13,6 @@
   "sensors/heart_rate.py",
   "sensors/buttons.py",
   "sensors/__init__.py",
-  "sensors/libs/max30100.py"
+  "sensors/libs/max30102/__init__.py",
+  "sensors/libs/max30102/circular_buffer.py"
 ]

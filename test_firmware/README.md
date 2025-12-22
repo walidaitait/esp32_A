@@ -1,14 +1,37 @@
-# TEST FIRMWARE - ESP32 Sensor Testing
+# TEST FIRMWARE - ESP32 Heart Rate Sensor Testing
+
+## ⚠️ IMPORTANTE - Configurazione Attuale
+**SOLO IL SENSORE DI HEART RATE È ATTIVO**
+- Tutti gli altri sensori sono stati disabilitati nel codice
+- Il firmware ora testa SOLO il sensore MAX30102 per il battito cardiaco
+
+## Modifiche Recenti
+- ✅ **Libreria MAX30102 installata**: Sostituita vecchia libreria MAX30100 con driver n-elia/MAX30102
+- ✅ **Sensori disabilitati**: Temperatura, CO, accelerometro, ultrasuoni e pulsanti sono commentati
+- ✅ **Output semplificato**: Mostra solo dati del sensore heart rate ogni 5 secondi
+
+## Libreria MAX30102
+La nuova libreria MAX30102 è stata scaricata da: https://github.com/n-elia/MAX30102-MicroPython-driver
+
+**Caratteristiche:**
+- Supporto completo per MAX30102 e MAX30105
+- Lettura valori RAW (IR e RED LED)
+- Configurazione avanzata (sample rate, ADC range, LED power, etc.)
+- Buffer circolare per gestione dati
+
+**Nota:** La libreria fornisce solo i dati RAW. Per calcolare BPM e SpO2 effettivi 
+servono algoritmi di elaborazione del segnale avanzati (non inclusi).
 
 ## Scopo
-Questo firmware semplificato è progettato per testare **solo i sensori** dell'ESP32, 
-senza la complessità della logica, comunicazioni MQTT, ESP-NOW, e altre funzionalità.
+Questo firmware semplificato è progettato per testare **solo il sensore MAX30102** 
+per la misurazione della frequenza cardiaca e SpO2.
 
-## Caratteristiche
-- ✅ Test di tutti i sensori (temperatura, CO, accelerometro, ultrasuoni, frequenza cardiaca, pulsanti)
+## Caratteristiche Attive
+- ✅ Test sensore MAX30102 (heart rate)
 - ✅ Sistema OTA funzionante per aggiornamenti via WiFi
-- ✅ Output leggibile ogni 5 secondi con tutti i dati dei sensori
-- ✅ Gestione graceful degli errori (se un sensore fallisce, il sistema continua)
+- ✅ Output leggibile ogni 5 secondi con dati IR/RED del sensore
+- ✅ Gestione graceful degli errori
+- ❌ Altri sensori disabilitati (temperatura, CO, accelerometro, ultrasuoni, pulsanti)
 - ❌ Nessuna logica di allarme
 - ❌ Nessuna comunicazione MQTT
 - ❌ Nessuna comunicazione ESP-NOW
@@ -16,24 +39,26 @@ senza la complessità della logica, comunicazioni MQTT, ESP-NOW, e altre funzion
 ## Struttura File
 ```
 test_firmware/
-├── main.py                 # Loop principale semplificato
-├── ota_update.py          # Sistema OTA (modificato per cartella test)
-├── config.py              # Configurazione pin e intervalli
-├── wifi_config.py         # Credenziali WiFi
-├── state.py               # Stato sensori
-├── timers.py              # Timer per letture periodiche
-├── debug.py               # Logging semplice
-├── filelist.json          # Lista file per OTA
+├── main.py                      # Loop principale (SOLO heart rate attivo)
+├── ota_update.py               # Sistema OTA
+├── config.py                   # Configurazione pin e intervalli
+├── wifi_config.py              # Credenziali WiFi
+├── state.py                    # Stato sensori
+├── timers.py                   # Timer per letture periodiche
+├── debug.py                    # Logging semplice
+├── filelist.json               # Lista file per OTA
 └── sensors/
     ├── __init__.py
-    ├── temperature.py     # Sensore DS18B20
-    ├── co.py              # Sensore CO
-    ├── accelerometer.py   # Accelerometro analogico
-    ├── ultrasonic.py      # HC-SR04
-    ├── heart_rate.py      # MAX30100
-    ├── buttons.py         # Pulsanti digitali
+    ├── heart_rate.py           # MAX30102 (ATTIVO)
+    ├── temperature.py          # DS18B20 (disabilitato)
+    ├── co.py                   # Sensore CO (disabilitato)
+    ├── accelerometer.py        # Accelerometro (disabilitato)
+    ├── ultrasonic.py           # HC-SR04 (disabilitato)
+    ├── buttons.py              # Pulsanti (disabilitato)
     └── libs/
-        └── max30100.py    # Libreria sensore cardiaco
+        └── max30102/
+            ├── __init__.py     # Driver MAX30102 principale
+            └── circular_buffer.py  # Buffer per dati sensore
 ```
 
 ## Come Usare
