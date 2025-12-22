@@ -330,3 +330,7 @@ class HeartRateMonitor:
         )  # 60 seconds per minute * 1000 ms per second
 
         return heart_rate
+
+
+# Export public API
+__all__ = ['MAX30100']

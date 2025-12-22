@@ -700,3 +700,8 @@ class MAX30102(object):
                 # new data found
                 return True
             sleep_ms(1)
+
+
+# Export public API
+__all__ = ['MAX30102', 'MAX30105_PULSE_AMP_MEDIUM', 'MAX30105_PULSE_AMP_LOW', 
+           'MAX30105_PULSE_AMP_HIGH', 'MAX30105_PULSE_AMP_LOWEST']
