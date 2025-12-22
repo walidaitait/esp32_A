@@ -43,7 +43,7 @@ def read_buttons():
             if pressed != _last_state[name]:
                 _last_state[name] = pressed
                 state.button_state[name] = pressed
-                log("buttons", f"Button {name} {'pressed' if pressed else 'released'}")
+                # log("buttons", f"Button {name} {'pressed' if pressed else 'released'}")
             else:
                 state.button_state[name] = pressed
     except Exception as e:

@@ -165,7 +165,7 @@ def _detect_peak(ir_value):
                     _last_peak_time = current_time
                     _last_peak_value = prev
                     
-                    log("heart_rate", f"Peak detected! BPM: {bpm:.1f}, time_diff: {time_diff}ms")
+                    # log("heart_rate", f"Peak detected! BPM: {bpm:.1f}, time_diff: {time_diff}ms")
                     return bpm
                 else:
                     # Accetta comunque il picco anche fuori range
@@ -178,7 +178,7 @@ def _detect_peak(ir_value):
                         _bpm_buffer.pop(0)
                     _last_peak_time = current_time
                     _last_peak_value = prev
-                    log("heart_rate", f"Peak accepted: BPM: {bpm:.1f}")
+                    # log("heart_rate", f"Peak accepted: BPM: {bpm:.1f}")
                     return bpm
             else:
                 # Primo picco rilevato - stima iniziale 70 BPM
@@ -186,7 +186,7 @@ def _detect_peak(ir_value):
                 _last_peak_value = prev
                 _estimated_bpm = 70  # Stima iniziale ragionevole
                 _bpm_buffer.append(_estimated_bpm)
-                log("heart_rate", f"First peak detected - estimated BPM: {_estimated_bpm}")
+                # log("heart_rate", f"First peak detected - estimated BPM: {_estimated_bpm}")
                 return _estimated_bpm
     
     return None
@@ -274,7 +274,7 @@ def read_heart_rate():
         # Calibra baseline se necessario
         if _baseline_ir == 0 and _readings_count > 20:
             if _calibrate_baseline():
-                log("heart_rate", f"Baseline calibrated: IR={_baseline_ir:.0f}, threshold={_finger_threshold:.0f}")
+                pass  # log("heart_rate", f"Baseline calibrated: IR={_baseline_ir:.0f}, threshold={_finger_threshold:.0f}")
         
         # Rileva presenza dito
         finger_detected = _detect_finger(ir_value)
@@ -290,8 +290,8 @@ def read_heart_rate():
             _bpm_buffer.clear()
             _spo2_buffer.clear()
             
-            if _readings_count % 50 == 1:
-                log("heart_rate", f"No finger (IR: {ir_value}, RED: {red_value})")
+            # if _readings_count % 50 == 1:
+            #     log("heart_rate", f"No finger (IR: {ir_value}, RED: {red_value})")
         else:
             state.sensor_data["heart_rate"]["status"] = "Reading"
             
@@ -309,11 +309,11 @@ def read_heart_rate():
                 if spo2:
                     state.sensor_data["heart_rate"]["spo2"] = int(spo2)
             
-            # Log periodico
-            if _readings_count % 20 == 0:
-                bpm_str = f"{state.sensor_data['heart_rate']['bpm']} BPM" if bpm else "calculating..."
-                spo2_str = f"{state.sensor_data['heart_rate']['spo2']}%" if state.sensor_data['heart_rate']['spo2'] else "calculating..."
-                log("heart_rate", f"✓ IR: {ir_value:5d}, RED: {red_value:5d} | {bpm_str}, SpO2: {spo2_str}")
+            # Log periodico (disabled for unified logging)
+            # if _readings_count % 20 == 0:
+            #     bpm_str = f"{state.sensor_data['heart_rate']['bpm']} BPM" if bpm else "calculating..."
+            #     spo2_str = f"{state.sensor_data['heart_rate']['spo2']}%" if state.sensor_data['heart_rate']['spo2'] else "calculating..."
+            #     log("heart_rate", f"✓ IR: {ir_value:5d}, RED: {red_value:5d} | {bpm_str}, SpO2: {spo2_str}")
         
     except Exception as e:
         log("heart_rate", f"Read error: {e}")

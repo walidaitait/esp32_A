@@ -1,37 +1,40 @@
-# TEST FIRMWARE - ESP32 Heart Rate Sensor Testing
+# TEST FIRMWARE - ESP32 Multi-Sensor Monitoring
 
 ## ⚠️ IMPORTANTE - Configurazione Attuale
-**SOLO IL SENSORE DI HEART RATE È ATTIVO**
-- Tutti gli altri sensori sono stati disabilitati nel codice
-- Il firmware ora testa SOLO il sensore MAX30102 per il battito cardiaco
+**SENSORI ATTIVI:** Temperature, CO, Ultrasonic (HC-SR04), Heart Rate (MAX30102), Buttons (x3)
+**SENSORE DISABILITATO:** Accelerometro
 
-## Modifiche Recenti
-- ✅ **Libreria MAX30102 installata**: Sostituita vecchia libreria MAX30100 con driver n-elia/MAX30102
-- ✅ **Sensori disabilitati**: Temperatura, CO, accelerometro, ultrasuoni e pulsanti sono commentati
-- ✅ **Output semplificato**: Mostra solo dati del sensore heart rate ogni 5 secondi
+## Modifiche Recenti (v2.0)
+- ✅ **Multi-sensor attivato**: Temperatura, CO, Ultrasuoni, Heart Rate, Buttons
+- ✅ **Accelerometro disabilitato**: Come richiesto
+- ✅ **Log unificato ogni 3 secondi**: Tutti i dati dei sensori in un unico output
+- ✅ **Log individuali disabilitati**: Rimossi i log continui dei singoli sensori
+- ✅ **Codice 100% non-bloccante**: Tutte le letture sono asincrone
 
 ## Libreria MAX30102
-La nuova libreria MAX30102 è stata scaricata da: https://github.com/n-elia/MAX30102-MicroPython-driver
+La libreria MAX30102 è stata integrata da: https://github.com/n-elia/MAX30102-MicroPython-driver
 
 **Caratteristiche:**
 - Supporto completo per MAX30102 e MAX30105
 - Lettura valori RAW (IR e RED LED)
 - Configurazione avanzata (sample rate, ADC range, LED power, etc.)
 - Buffer circolare per gestione dati
-
-**Nota:** La libreria fornisce solo i dati RAW. Per calcolare BPM e SpO2 effettivi 
-servono algoritmi di elaborazione del segnale avanzati (non inclusi).
+- Algoritmi di rilevamento BPM e SpO2 implementati
 
 ## Scopo
-Questo firmware semplificato è progettato per testare **solo il sensore MAX30102** 
-per la misurazione della frequenza cardiaca e SpO2.
+Questo firmware semplificato è progettato per testare **tutti i sensori principali** 
+(escluso l'accelerometro) con output unificato ogni 3 secondi.
 
 ## Caratteristiche Attive
-- ✅ Test sensore MAX30102 (heart rate)
+- ✅ Sensore temperatura DS18B20 (non-bloccante con conversione asincrona)
+- ✅ Sensore CO analogico (lettura PPM)
+- ✅ Sensore ultrasuoni HC-SR04 (interrupt-driven, non-bloccante)
+- ✅ Sensore heart rate MAX30102 (BPM e SpO2)
+- ✅ 3 Pulsanti digitali (con PULL_UP)
 - ✅ Sistema OTA funzionante per aggiornamenti via WiFi
-- ✅ Output leggibile ogni 5 secondi con dati IR/RED del sensore
+- ✅ Output unificato ogni 3 secondi
 - ✅ Gestione graceful degli errori
-- ❌ Altri sensori disabilitati (temperatura, CO, accelerometro, ultrasuoni, pulsanti)
+- ❌ Accelerometro disabilitato
 - ❌ Nessuna logica di allarme
 - ❌ Nessuna comunicazione MQTT
 - ❌ Nessuna comunicazione ESP-NOW
@@ -39,7 +42,7 @@ per la misurazione della frequenza cardiaca e SpO2.
 ## Struttura File
 ```
 test_firmware/
-├── main.py                      # Loop principale (SOLO heart rate attivo)
+├── main.py                      # Loop principale (multi-sensor)
 ├── ota_update.py               # Sistema OTA
 ├── config.py                   # Configurazione pin e intervalli
 ├── wifi_config.py              # Credenziali WiFi

@@ -52,7 +52,7 @@ def read_temperature():
         if time.ticks_diff(now, _conversion_start_time) >= 750:
             temperature = _ds.read_temp(_roms[0])
             state.sensor_data["temperature"] = temperature
-            log("temperature", f"Temperature value: {temperature} °C")
+            # log("temperature", f"Temperature value: {temperature} °C")
             _conversion_pending = False
     except Exception as e:
         log("temperature", f"Read error: {e}")

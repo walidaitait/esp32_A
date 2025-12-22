@@ -72,7 +72,7 @@ def read_ultrasonic():
         # Still waiting for previous measurement
         # Check timeout (>30ms = no echo received)
         if time.ticks_diff(now, _last_read_ms) > 30:
-            log("ultrasonic", "⚠️  Measurement timeout - no echo received")
+            # log("ultrasonic", "⚠️  Measurement timeout - no echo received")
             _measurement_pending = False
             _failed_measurements += 1
             state.sensor_data["ultrasonic_distance_cm"] = None
@@ -90,20 +90,20 @@ def read_ultrasonic():
             # Filter out of range measurements (HC-SR04: 2cm - 400cm)
             if 2 <= distance_cm <= 400:
                 state.sensor_data["ultrasonic_distance_cm"] = round(distance_cm, 2)
-                log("ultrasonic", f"✓ Distance: {distance_cm:.2f} cm (duration: {duration}µs)")
+                # log("ultrasonic", f"✓ Distance: {distance_cm:.2f} cm (duration: {duration}µs)")
             else:
-                log("ultrasonic", f"⚠️  Out of range: {distance_cm:.2f} cm")
+                # log("ultrasonic", f"⚠️  Out of range: {distance_cm:.2f} cm")
                 state.sensor_data["ultrasonic_distance_cm"] = None
                 _failed_measurements += 1
         else:
-            log("ultrasonic", "⚠️  Invalid duration (0)")
+            # log("ultrasonic", "⚠️  Invalid duration (0)")
             state.sensor_data["ultrasonic_distance_cm"] = None
             _failed_measurements += 1
         
-        # Log statistics periodically
-        if _measurement_count % 20 == 0:
-            success_rate = ((_measurement_count - _failed_measurements) / _measurement_count * 100) if _measurement_count > 0 else 0
-            log("ultrasonic", f"📊 Stats: {_measurement_count} measurements, {_failed_measurements} failed ({success_rate:.1f}% success)")
+        # Log statistics periodically (disabled for unified logging)
+        # if _measurement_count % 20 == 0:
+        #     success_rate = ((_measurement_count - _failed_measurements) / _measurement_count * 100) if _measurement_count > 0 else 0
+        #     log("ultrasonic", f"📊 Stats: {_measurement_count} measurements, {_failed_measurements} failed ({success_rate:.1f}% success)")
         
         return
 
@@ -123,3 +123,4 @@ def read_ultrasonic():
         _measurement_pending = False
         _failed_measurements += 1
         state.sensor_data["ultrasonic_distance_cm"] = None
+
