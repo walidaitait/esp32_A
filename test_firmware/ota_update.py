@@ -10,7 +10,7 @@ from wifi_config import WIFI_SSID, WIFI_PASSWORD
 
 # ================== CONFIG ==================
 
-BASE_URL = "https://raw.githubusercontent.com/walidaitait/esp32_A/main/test_firmware/"
+BASE_URL = "http://raw.githubusercontent.com/walidaitait/esp32_A/main/test_firmware/"
 
 # OTA button
 UPDATE_BUTTON_PIN = 16
