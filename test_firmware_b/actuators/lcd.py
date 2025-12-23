@@ -12,6 +12,8 @@ _backlight = 0x08  # BK=1
 _EN = 0x04
 _RS = 0x01
 
+_page = 0  # per alternare le pagine di stato ogni 2.5s
+
 
 def _i2c_write(byte):
     _i2c.writeto(_addr, bytes([byte | _backlight]))
@@ -112,30 +114,70 @@ def init_lcd():
 
 
 def update_lcd_test():
-    """Mostra periodicamente sul display lo stato dei LED.
+    """Mostra periodicamente sul display lo stato di tutti gli attuatori.
 
-    Esempio di testo (compatibilmente con 16 caratteri/linea):
-    "Red: off  Blue: on" / "Green: blinking".
+    Per restare entro i 16 caratteri/linea, il testo viene diviso in
+    due "pagine" da ~2.5s ciascuna (metà testo + metà testo), per un
+    ciclo completo di circa 5 secondi:
+
+      - Pagina 0: stato sintetico LED + servo
+      - Pagina 1: stato sintetico buzzer + audio
     """
+    global _page
+
     if not _initialized or not config.LCD_TEST_ENABLED:
         return
 
-    if not elapsed("lcd_update", config.LCD_UPDATE_INTERVAL_MS):
+    # Mezzo intervallo: due aggiornamenti per ciclo completo
+    half_interval = max(1, config.LCD_UPDATE_INTERVAL_MS // 2)
+    if not elapsed("lcd_update", half_interval):
         return
 
-    leds_on = state.actuator_state["leds"]
-    led_modes = state.actuator_state.get("led_modes", {})
+    a = state.actuator_state
+    leds_state = a["leds"]
+    led_modes = a.get("led_modes", {})
+    servo_state = a["servo"]
+    buz_state = a["buzzer"]
+    audio_state = a["audio"]
 
-    def _short_mode(mode):
-        # Accorcia "blinking" per stare entro 16 caratteri
-        return "blk" if mode == "blinking" else mode
+    def _led_code(name):
+        mode = led_modes.get(name, "off")
+        if mode == "on":
+            return "1"
+        if mode == "blinking":
+            return "B"
+        return "0"  # off o default
 
-    red_mode = _short_mode(led_modes.get("red", "off"))
-    blue_mode = _short_mode(led_modes.get("blue", "off"))
-    green_mode = _short_mode(led_modes.get("green", "off"))
+    if _page == 0:
+        # Pagina 0: LED + servo
+        g = _led_code("green")
+        b = _led_code("blue")
+        r = _led_code("red")
 
-    line1 = "Red: {} Blue: {}".format(red_mode, blue_mode)
-    line2 = "Green: {}".format(green_mode)
+        # Esempio: "LED G1B0R0" (max ~11 char)
+        line1 = "LED G{}B{}R{}".format(g, b, r)
+
+        ang = servo_state.get("angle")
+        moving = servo_state.get("moving")
+        if ang is None:
+            # Servo disabilitato o non inizializzato
+            line2 = "Srv:--- {}".format("M" if moving else " ")
+        else:
+            # Esempio: "Srv:090 M"
+            try:
+                ang_i = int(ang)
+            except Exception:
+                ang_i = 0
+            line2 = "Srv:{:03d} {}".format(ang_i, "M" if moving else " ")
+    else:
+        # Pagina 1: buzzer + audio
+        buz_on = buz_state.get("active")
+        line1 = "Buz:{}".format("ON " if buz_on else "off")
+
+        aud_on = audio_state.get("playing")
+        last_cmd = audio_state.get("last_cmd") or "-"
+        # Esempio: "Aud:ON  play" (tagliato a 16 char da write_line)
+        line2 = "Aud:{} {}".format("ON" if aud_on else "off", last_cmd)
 
     clear()
     write_line(0, line1)
@@ -143,4 +185,7 @@ def update_lcd_test():
 
     state.actuator_state["lcd"]["line1"] = line1
     state.actuator_state["lcd"]["line2"] = line2
+
+    # Alterna pagina per il prossimo aggiornamento
+    _page = 1 - _page
 

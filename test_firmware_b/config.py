@@ -26,9 +26,10 @@ LCD_SDA_PIN = 21   # GPIO21
 LCD_SCL_PIN = 22   # GPIO22
 LCD_I2C_ID = 0     # I2C(0) su ESP32 in MicroPython
 
-# Passive buzzer Sunfounder (2 pin)
-# Collegare + al GPIO25 e - a GND. Pilotato a 3.3V direttamente dalla GPIO.
-BUZZER_PIN = 25    # GPIO25
+# Passive buzzer DFRobot (3 pin: VCC, SIG, GND)
+# Collegare SIG al GPIO25, VCC a 5V e GND comune. Il pin SIG e pilotato a
+# 3.3V direttamente dalla GPIO tramite PWM.
+BUZZER_PIN = 25    # GPIO25 (segnale)
 
 # DFPlayer Mini (VCC 5V, GND comune, UART a 3.3V)
 DFPLAYER_UART_ID = 1        # UART(1) su ESP32
@@ -39,12 +40,12 @@ DFPLAYER_DEFAULT_VOLUME = 20  # 0-30
 # ===============================
 # FLAG DI ABILITAZIONE MODULI
 # ===============================
-# Per questo test abilitiamo solo LED e LCD
+# Per questo test abilitiamo LED, LCD e buzzer
 
 LED_TEST_ENABLED = True
 SERVO_TEST_ENABLED = False
 LCD_TEST_ENABLED = True
-BUZZER_TEST_ENABLED = False
+BUZZER_TEST_ENABLED = True
 AUDIO_TEST_ENABLED = False    # DFPlayer + speaker
 
 # ===============================
