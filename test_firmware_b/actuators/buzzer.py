@@ -28,18 +28,32 @@ def _apply_step():
         return
 
     step = _PATTERN[_step_index]
-    freq = step["freq"]
+    set_tone(step["freq"])
 
-    if freq > 0:
-        try:
-            _pwm.freq(freq)
-        except Exception as e:
-            log("buzzer", "freq set error: {}".format(e))
-        _pwm.duty(512)
-        state.actuator_state["buzzer"]["active"] = True
-    else:
-        _pwm.duty(0)
-        state.actuator_state["buzzer"]["active"] = False
+
+def set_tone(freq):
+    """Imposta una frequenza continua (0 = silenzio) in modo non bloccante.
+
+    Usato sia dal test interno del buzzer che dal test integrato del servo.
+    """
+    global _pwm
+
+    if not _initialized or _pwm is None:
+        return
+
+    try:
+        if freq > 0:
+            try:
+                _pwm.freq(freq)
+            except Exception as e:
+                log("buzzer", "freq set error: {}".format(e))
+            _pwm.duty(512)
+            state.actuator_state["buzzer"]["active"] = True
+        else:
+            _pwm.duty(0)
+            state.actuator_state["buzzer"]["active"] = False
+    except Exception as e:
+        log("buzzer", "PWM error: {}".format(e))
 
 
 def init_buzzer():

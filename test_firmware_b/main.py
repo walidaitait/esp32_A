@@ -65,14 +65,18 @@ def init_actuators():
 
 def update_actuators():
     """Aggiorna tutti i moduli di test (logica non bloccante)."""
-    if config.LED_TEST_ENABLED:
-        leds.update_led_test()
+    # Se il test del servo e attivo, lasciamo che sia lui a
+    # coordinare LED e buzzer per evitare conflitti tra test.
     if config.SERVO_TEST_ENABLED:
         servo.update_servo_test()
+    else:
+        if config.LED_TEST_ENABLED:
+            leds.update_led_test()
+        if config.BUZZER_TEST_ENABLED:
+            buzzer.update_buzzer_test()
+
     if config.LCD_TEST_ENABLED:
         lcd.update_lcd_test()
-    if config.BUZZER_TEST_ENABLED:
-        buzzer.update_buzzer_test()
     if config.AUDIO_TEST_ENABLED:
         audio.update_audio_test()
 
