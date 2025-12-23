@@ -22,6 +22,47 @@ from actuators import leds, servo, lcd, buzzer, audio
 PRINT_INTERVAL_MS = 3000
 _last_print = 0
 
+# =============================================================
+#  XMAS TEST STATE (servo + buzzer + 3 LED + LCD)
+# =============================================================
+
+# Servo: ciclo completo 0° -> 180° -> 0° in 2 secondi
+SERVO_CYCLE_MS = 2000
+_servo_start_ms = 0
+
+# Melodia semplificata tipo "Jingle Bells" per il buzzer
+NOTE_E5 = 659
+NOTE_F5 = 698
+NOTE_G5 = 784
+NOTE_A5 = 880
+NOTE_D5 = 587
+NOTE_C5 = 523
+REST = 0
+
+_MELODY = [
+    (NOTE_E5, 200), (NOTE_E5, 200), (NOTE_E5, 400),
+    (REST,    200),
+    (NOTE_E5, 200), (NOTE_E5, 200), (NOTE_E5, 400),
+    (REST,    200),
+    (NOTE_E5, 200), (NOTE_G5, 200), (NOTE_C5, 200),
+    (NOTE_D5, 200), (NOTE_E5, 600),
+    (REST,    200),
+    (NOTE_F5, 200), (NOTE_F5, 200), (NOTE_F5, 200), (NOTE_F5, 200),
+    (NOTE_F5, 200), (NOTE_E5, 200), (NOTE_E5, 200), (NOTE_E5, 200),
+    (NOTE_E5, 200), (NOTE_D5, 200), (NOTE_D5, 200),
+    (NOTE_E5, 200), (NOTE_D5, 200), (NOTE_G5, 800),
+    (REST,    400),
+]
+
+_melody_index = 0
+_melody_note_start_ms = 0
+
+# LCD: "Buone feste!" + punti esclamativi che vanno da 1 a 5 e ritorno
+_lcd_excl_count = 1
+_lcd_excl_dir = 1
+_lcd_last_update_ms = 0
+LCD_EXCL_INTERVAL_MS = 500
+
 
 def init_actuators():
     """Inizializza tutti gli attuatori gestendo i fallimenti in modo "soft"."""
@@ -31,25 +72,12 @@ def init_actuators():
 
     status = {}
 
-    if config.LED_TEST_ENABLED:
-        status["LED modules"] = leds.init_leds()
-    else:
-        status["LED modules"] = False
-
-    if config.SERVO_TEST_ENABLED:
-        status["Servo"] = servo.init_servo()
-    else:
-        status["Servo"] = False
-
-    if config.LCD_TEST_ENABLED:
-        status["LCD 16x2"] = lcd.init_lcd()
-    else:
-        status["LCD 16x2"] = False
-
-    if config.BUZZER_TEST_ENABLED:
-        status["Buzzer"] = buzzer.init_buzzer()
-    else:
-        status["Buzzer"] = False
+    # Per il test natalizio vogliamo che tutti gli attuatori principali
+    # siano attivi, indipendentemente dai flag di test precedenti.
+    status["LED modules"] = leds.init_leds() if config.LED_TEST_ENABLED else leds.init_leds()
+    status["Servo"] = servo.init_servo() if config.SERVO_TEST_ENABLED else servo.init_servo()
+    status["LCD 16x2"] = lcd.init_lcd() if config.LCD_TEST_ENABLED else lcd.init_lcd()
+    status["Buzzer"] = buzzer.init_buzzer() if config.BUZZER_TEST_ENABLED else buzzer.init_buzzer()
 
     if config.AUDIO_TEST_ENABLED:
         status["DFPlayer"] = audio.init_audio()
@@ -63,22 +91,118 @@ def init_actuators():
     print("-" * 60 + "\n")
 
 
-def update_actuators():
-    """Aggiorna tutti i moduli di test (logica non bloccante)."""
-    # Se il test del servo e attivo, lasciamo che sia lui a
-    # coordinare LED e buzzer per evitare conflitti tra test.
-    if config.SERVO_TEST_ENABLED:
-        servo.update_servo_test()
-    else:
-        if config.LED_TEST_ENABLED:
-            leds.update_led_test()
-        if config.BUZZER_TEST_ENABLED:
-            buzzer.update_buzzer_test()
+def _update_servo_xmas(now):
+    """Servo: ciclo 0° -> 180° -> 0° in SERVO_CYCLE_MS (non bloccante)."""
+    global _servo_start_ms
 
-    if config.LCD_TEST_ENABLED:
-        lcd.update_lcd_test()
-    if config.AUDIO_TEST_ENABLED:
-        audio.update_audio_test()
+    cycle = SERVO_CYCLE_MS
+    half = cycle // 2
+
+    # Inizializza riferimento temporale al primo ingresso
+    if _servo_start_ms == 0:
+        _servo_start_ms = now
+
+    phase = time.ticks_diff(now, _servo_start_ms) % cycle
+
+    if phase < half:
+        angle = int(180 * phase / half)
+    else:
+        angle = int(180 * (1 - (phase - half) / half))
+
+    servo.set_servo_angle(angle)
+    state.actuator_state["servo"]["moving"] = True
+    return angle
+
+
+def _update_leds_for_melody(step):
+    """Associa i 3 LED ai passi della melodia in modo ciclico."""
+    idx = step % 3
+    if idx == 0:
+        leds.set_led_state("green", "on")
+        leds.set_led_state("blue", "off")
+        leds.set_led_state("red", "off")
+    elif idx == 1:
+        leds.set_led_state("green", "off")
+        leds.set_led_state("blue", "on")
+        leds.set_led_state("red", "off")
+    else:
+        leds.set_led_state("green", "off")
+        leds.set_led_state("blue", "off")
+        leds.set_led_state("red", "on")
+
+
+def _update_buzzer_and_leds_xmas(now):
+    """Melodia tipo Jingle Bells + LED abbinati (non bloccante)."""
+    global _melody_index, _melody_note_start_ms
+
+    if not _MELODY:
+        return
+
+    # Primo ingresso: avvia da subito la prima nota
+    if _melody_note_start_ms == 0:
+        _melody_note_start_ms = now
+        freq, _ = _MELODY[_melody_index]
+        buzzer.set_tone(freq)
+        _update_leds_for_melody(_melody_index)
+        return
+
+    freq, duration = _MELODY[_melody_index]
+
+    if time.ticks_diff(now, _melody_note_start_ms) < duration:
+        return
+
+    # Passa alla nota successiva
+    _melody_index = (_melody_index + 1) % len(_MELODY)
+    _melody_note_start_ms = now
+
+    freq, _ = _MELODY[_melody_index]
+    buzzer.set_tone(freq)
+    _update_leds_for_melody(_melody_index)
+
+
+def _update_lcd_xmas(now, angle):
+    """LCD: "Buone feste" con ! che vanno da 1 a 5 e ritorno (500 ms)."""
+    global _lcd_excl_count, _lcd_excl_dir, _lcd_last_update_ms
+
+    if _lcd_last_update_ms == 0:
+        _lcd_last_update_ms = now
+
+    if time.ticks_diff(now, _lcd_last_update_ms) < LCD_EXCL_INTERVAL_MS:
+        return
+
+    _lcd_last_update_ms = now
+
+    _lcd_excl_count += _lcd_excl_dir
+    if _lcd_excl_count >= 5:
+        _lcd_excl_count = 5
+        _lcd_excl_dir = -1
+    elif _lcd_excl_count <= 1:
+        _lcd_excl_count = 1
+        _lcd_excl_dir = 1
+
+    base = "Buone feste"
+    msg = base + "!" * _lcd_excl_count
+
+    lcd.clear()
+    lcd.write_line(0, msg)
+    lcd.write_line(1, "Servo {:3d}deg".format(int(angle)))
+
+    state.actuator_state["lcd"]["line1"] = msg
+    state.actuator_state["lcd"]["line2"] = "Servo {:3d}deg".format(int(angle))
+
+
+def update_actuators():
+    """Aggiorna SOLO il test natalizio (servo + buzzer + LED + LCD)."""
+    now = time.ticks_ms()
+
+    # Servo 0..180..0 ogni 2 secondi
+    angle = _update_servo_xmas(now)
+
+    # Melodia natalizia + LED associati
+    _update_buzzer_and_leds_xmas(now)
+
+    # LCD "Buone feste" con punti esclamativi dinamici
+    _update_lcd_xmas(now, angle)
 
 
 def print_status():
