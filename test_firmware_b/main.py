@@ -160,7 +160,7 @@ def _update_buzzer_and_leds_xmas(now):
     _update_leds_for_melody(_melody_index)
 
 
-def _update_lcd_xmas(now, angle):
+def _update_lcd_xmas(now):
     """LCD: "Buone feste" con ! che vanno da 1 a 5 e ritorno (500 ms)."""
     global _lcd_excl_count, _lcd_excl_dir, _lcd_last_update_ms
 
@@ -185,10 +185,10 @@ def _update_lcd_xmas(now, angle):
 
     lcd.clear()
     lcd.write_line(0, msg)
-    lcd.write_line(1, "Servo {:3d}deg".format(int(angle)))
+    lcd.write_line(1, "")
 
     state.actuator_state["lcd"]["line1"] = msg
-    state.actuator_state["lcd"]["line2"] = "Servo {:3d}deg".format(int(angle))
+    state.actuator_state["lcd"]["line2"] = ""
 
 
 def update_actuators():
@@ -201,8 +201,8 @@ def update_actuators():
     # Melodia natalizia + LED associati
     _update_buzzer_and_leds_xmas(now)
 
-    # LCD "Buone feste" con punti esclamativi dinamici
-    _update_lcd_xmas(now, angle)
+    # LCD "Buone feste" con punti esclamativi dinamici (solo prima riga)
+    _update_lcd_xmas(now)
 
 
 def print_status():
