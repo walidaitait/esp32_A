@@ -43,7 +43,7 @@ DFPLAYER_DEFAULT_VOLUME = 20  # 0-30
 # Per questo test abilitiamo LED, LCD e buzzer
 
 LED_TEST_ENABLED = True
-SERVO_TEST_ENABLED = False
+SERVO_TEST_ENABLED = True
 LCD_TEST_ENABLED = True
 BUZZER_TEST_ENABLED = True
 AUDIO_TEST_ENABLED = False    # DFPlayer + speaker

@@ -12,9 +12,8 @@ _initialized = False
 # Stato logico del movimento: "idle", "forward", "backward"
 _motion_state = "idle"
 
-# Sequenza LED e melodia per il test integrato
+# Sequenza LED per il test integrato
 _led_index = 0
-_melody_index = 0
 
 # Parametri PWM tipici per servo: 50Hz, impulso 0.5-2.5ms
 _PWM_FREQ = 50
@@ -26,9 +25,11 @@ _MAX_DUTY = 1023
 # Attesa tra un ciclo completo (0 -> max -> 0) e il successivo
 _SWEEP_DELAY_MS = 5000
 
-# Melodia semplice: toni crescenti in andata, decrescenti in ritorno
-_MELODY_UP = [800, 1000, 1200, 1400, 1600, 1800, 2000]
-_MELODY_DOWN = list(reversed(_MELODY_UP))
+# Melodia: frequenza proporzionale all'angolo (basso all'inizio,
+# piu alta a fine corsa). All'andata i toni crescono, al ritorno
+# decrescono automaticamente perche l'angolo diminuisce.
+_BUZZER_MIN_FREQ = 800
+_BUZZER_MAX_FREQ = 2000
 
 
 def _angle_to_duty(angle):
@@ -103,26 +104,27 @@ def _update_led_sequence():
     _led_index = (_led_index + 1) % len(names)
 
 
-def _update_buzzer_melody():
-    """Melodia a toni crescenti in andata e decrescenti in ritorno."""
-    global _melody_index
+def _update_buzzer_tone_for_angle():
+    """Imposta un tono in funzione dell'angolo corrente.
 
-    if _direction > 0:
-        pattern = _MELODY_UP
-    else:
-        pattern = _MELODY_DOWN
-
-    if not pattern:
+    - All'andata (0 -> max) i toni crescono.
+    - Al ritorno (max -> 0) i toni decrescono.
+    Non viene eseguita alcuna sequenza ciclica: la frequenza dipende
+    solo dall'angolo istantaneo del servo.
+    """
+    if not config.BUZZER_TEST_ENABLED:
         return
 
-    if _melody_index >= len(pattern):
-        _melody_index = 0
-
-    freq = pattern[_melody_index]
-    _melody_index = (_melody_index + 1) % len(pattern)
-
-    # 0 = silenzio
     try:
+        if config.SERVO_MAX_ANGLE <= 0:
+            buzzer.set_tone(0)
+            return
+
+        # Normalizza l'angolo nell'intervallo [0, 1]
+        ratio = max(0, min(1, _angle / config.SERVO_MAX_ANGLE))
+        freq_span = _BUZZER_MAX_FREQ - _BUZZER_MIN_FREQ
+        freq = int(_BUZZER_MIN_FREQ + freq_span * ratio)
+
         buzzer.set_tone(freq)
     except Exception:
         # In caso il modulo buzzer non sia disponibile o inizializzato
@@ -131,10 +133,9 @@ def _update_buzzer_melody():
 
 def _stop_effects():
     """Ferma melodia e spegne tutti i LED."""
-    global _led_index, _melody_index
+    global _led_index
 
     _led_index = 0
-    _melody_index = 0
 
     # Spegni buzzer
     try:
@@ -175,7 +176,7 @@ def update_servo_test():
         state.actuator_state["servo"]["moving"] = True
 
         _update_led_sequence()
-        _update_buzzer_melody()
+        _update_buzzer_tone_for_angle()
         return
 
     # Movimento in corso (forward/backward)
@@ -203,4 +204,4 @@ def update_servo_test():
 
     # Aggiorna effetti sincronizzati al passo del servo
     _update_led_sequence()
-    _update_buzzer_melody()
+    _update_buzzer_tone_for_angle()
