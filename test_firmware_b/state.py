@@ -10,6 +10,12 @@ actuator_state = {
         "blue": False,
         "red": False,
     },
+    # Modalita logica dei LED ("off", "on", "blinking")
+    "led_modes": {
+        "green": "off",
+        "blue": "off",
+        "red": "off",
+    },
     "servo": {
         "angle": None,
         "moving": False,

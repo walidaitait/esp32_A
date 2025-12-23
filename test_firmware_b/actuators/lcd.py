@@ -111,30 +111,32 @@ def init_lcd():
         return False
 
 
-_messages = [
-    ("ESP32-B ACT TEST", "LED/Servo/LCD/DFP"),
-    ("LED sweep", "Servo sweep"),
-    ("Buzzer/Audio", "Non-blocking"),
-]
-
-_idx = 0
-
-
 def update_lcd_test():
-    """Cambia messaggio ogni LCD_UPDATE_INTERVAL_MS (non bloccante)."""
-    global _idx
+    """Mostra periodicamente sul display lo stato dei LED.
+
+    Esempio di testo (compatibilmente con 16 caratteri/linea):
+    "Red: off  Blue: on" / "Green: blinking".
+    """
     if not _initialized or not config.LCD_TEST_ENABLED:
         return
 
     if not elapsed("lcd_update", config.LCD_UPDATE_INTERVAL_MS):
         return
 
-    title, line2 = _messages[_idx]
+    leds_on = state.actuator_state["leds"]
+    led_modes = state.actuator_state.get("led_modes", {})
+
+    red_mode = led_modes.get("red", "off")
+    blue_mode = led_modes.get("blue", "off")
+    green_mode = led_modes.get("green", "off")
+
+    line1 = "Red: {} Blue: {}".format(red_mode, blue_mode)
+    line2 = "Green: {}".format(green_mode)
+
     clear()
-    write_line(0, title)
+    write_line(0, line1)
     write_line(1, line2)
 
-    state.actuator_state["lcd"]["line1"] = title
+    state.actuator_state["lcd"]["line1"] = line1
     state.actuator_state["lcd"]["line2"] = line2
 
-    _idx = (_idx + 1) % len(_messages)

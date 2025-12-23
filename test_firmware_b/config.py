@@ -39,9 +39,9 @@ DFPLAYER_DEFAULT_VOLUME = 20  # 0-30
 # ===============================
 # FLAG DI ABILITAZIONE MODULI
 # ===============================
-# Per il test singolo del DISPLAY abilitiamo solo l'LCD
+# Per questo test abilitiamo solo LED e LCD
 
-LED_TEST_ENABLED = False
+LED_TEST_ENABLED = True
 SERVO_TEST_ENABLED = False
 LCD_TEST_ENABLED = True
 BUZZER_TEST_ENABLED = False
