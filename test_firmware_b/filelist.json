@@ -5,7 +5,6 @@
   "ota_update.py",
   "state.py",
   "timers.py",
-  "wifi_config.py",
   "actuators/__init__.py",
   "actuators/leds.py",
   "actuators/servo.py",

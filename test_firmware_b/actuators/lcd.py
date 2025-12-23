@@ -126,9 +126,13 @@ def update_lcd_test():
     leds_on = state.actuator_state["leds"]
     led_modes = state.actuator_state.get("led_modes", {})
 
-    red_mode = led_modes.get("red", "off")
-    blue_mode = led_modes.get("blue", "off")
-    green_mode = led_modes.get("green", "off")
+    def _short_mode(mode):
+        # Accorcia "blinking" per stare entro 16 caratteri
+        return "blk" if mode == "blinking" else mode
+
+    red_mode = _short_mode(led_modes.get("red", "off"))
+    blue_mode = _short_mode(led_modes.get("blue", "off"))
+    green_mode = _short_mode(led_modes.get("green", "off"))
 
     line1 = "Red: {} Blue: {}".format(red_mode, blue_mode)
     line2 = "Green: {}".format(green_mode)

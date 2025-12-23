@@ -52,7 +52,8 @@ AUDIO_TEST_ENABLED = False    # DFPlayer + speaker
 # ===============================
 
 # LED: passo di "scansione" dei tre moduli
-LED_STEP_INTERVAL_MS = 400
+# In questo test facciamo cambiare lo stato ogni 5 secondi
+LED_STEP_INTERVAL_MS = 5000
 
 # Servo: sweep non bloccante
 SERVO_MIN_ANGLE = 0
@@ -60,8 +61,8 @@ SERVO_MAX_ANGLE = 180
 SERVO_STEP_DEG = 5
 SERVO_STEP_INTERVAL_MS = 150
 
-# LCD: cambio messaggio periodico
-LCD_UPDATE_INTERVAL_MS = 2000
+# LCD: cambio messaggio periodico (allineato ai LED)
+LCD_UPDATE_INTERVAL_MS = 5000
 
 # Buzzer: beep ON/OFF
 BUZZER_TOGGLE_INTERVAL_MS = 500
