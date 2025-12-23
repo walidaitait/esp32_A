@@ -1,0 +1,15 @@
+[
+  "config.py",
+  "debug.py",
+  "main.py",
+  "ota_update.py",
+  "state.py",
+  "timers.py",
+  "wifi_config.py",
+  "actuators/__init__.py",
+  "actuators/leds.py",
+  "actuators/servo.py",
+  "actuators/lcd.py",
+  "actuators/buzzer.py",
+  "actuators/audio.py"
+]

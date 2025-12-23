@@ -13,8 +13,8 @@ from wifi_config import WIFI_SSID, WIFI_PASSWORD
 # Usa un branch/cartella diversa se vuoi separare gli aggiornamenti di A e B
 BASE_URL = "http://raw.githubusercontent.com/walidaitait/esp32_A/main/test_firmware_b/"
 
-# OTA button (puoi cambiare pin se entra in conflitto con attuatori)
-UPDATE_BUTTON_PIN = 0
+# OTA button (usiamo un GPIO libero che non confligge con gli attuatori)
+UPDATE_BUTTON_PIN = 18  # GPIO18
 UPDATE_HOLD_TIME = 5  # seconds
 
 # ================== LOG ==================
