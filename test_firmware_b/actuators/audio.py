@@ -1,6 +1,5 @@
 from machine import Pin, UART  # type: ignore
-import config, state
-from timers import elapsed
+import state
 from debug import log
 
 _uart = None
@@ -8,7 +7,7 @@ _initialized = False
 
 
 def _send_cmd(cmd, param=0):
-    """Invia un comando DFPlayer (protocollo base)."""
+    """Send a DFPlayer command (basic protocol)."""
     if _uart is None:
         return
 
@@ -45,44 +44,37 @@ def stop():
 def init_audio():
     global _uart, _initialized
     try:
+        dfplayer_uart_id = 1
+        dfplayer_tx_pin = 27
+        dfplayer_rx_pin = 26
+        dfplayer_default_volume = 20
+        
         _uart = UART(
-            config.DFPLAYER_UART_ID,
+            dfplayer_uart_id,
             baudrate=9600,
-            tx=Pin(config.DFPLAYER_TX_PIN),
-            rx=Pin(config.DFPLAYER_RX_PIN),
+            tx=Pin(dfplayer_tx_pin),
+            rx=Pin(dfplayer_rx_pin),
         )
-        _set_volume(config.DFPLAYER_DEFAULT_VOLUME)
+        _set_volume(dfplayer_default_volume)
         log(
             "audio",
             "DFPlayer initialized (UART{}, TX={}, RX={})".format(
-                config.DFPLAYER_UART_ID,
-                config.DFPLAYER_TX_PIN,
-                config.DFPLAYER_RX_PIN,
+                dfplayer_uart_id,
+                dfplayer_tx_pin,
+                dfplayer_rx_pin,
             ),
         )
         _initialized = True
-
-        if config.AUDIO_AUTOPLAY_ON_START and config.AUDIO_TEST_ENABLED:
-            play_first()
-
         return True
     except Exception as e:
-        print("[audio] Initialization failed:", e)
+        log("audio", "Initialization failed: {}".format(e))
         _uart = None
         _initialized = False
         return False
 
 
-def update_audio_test():
-    """Log periodico dello stato audio (non invasivo)."""
-    if not _initialized or not config.AUDIO_TEST_ENABLED:
-        return
 
-    if elapsed("audio_status", config.AUDIO_STATUS_PRINT_INTERVAL_MS):
-        log(
-            "audio",
-            "playing={}, last_cmd={}".format(
-                state.actuator_state["audio"]["playing"],
-                state.actuator_state["audio"]["last_cmd"],
-            ),
-        )
+
+def update_audio_test():
+    """Placeholder for future audio tests."""
+    pass

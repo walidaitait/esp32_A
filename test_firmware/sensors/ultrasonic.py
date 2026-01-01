@@ -1,3 +1,7 @@
+"""Ultrasonic distance sensor module (HC-SR04).
+
+Measures distance using non-blocking interrupt-based echo detection.
+"""
 from machine import Pin, time_pulse_us, Timer  # type: ignore
 import time
 
@@ -12,7 +16,7 @@ SPEED_OF_SOUND_CM_US = 0.0343 / 2
 _trig = None
 _echo = None
 _last_read_ms = 0
-READ_INTERVAL_MS = 100   # adjust if needed
+READ_INTERVAL_MS = 100   # Adjust if needed
 
 # Non-blocking variables
 _echo_start_time = 0
@@ -32,11 +36,10 @@ def init_ultrasonic():
         _trig.value(0)
         # Set up interrupt for echo pin
         _echo.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=_echo_interrupt)
-        log("ultrasonic", "Ultrasonic sensor initialized (non-blocking)")
+        log("ultrasonic", "init_ultrasonic: Ultrasonic sensor initialized (non-blocking)")
         return True
     except Exception as e:
-        print(f"[ultrasonic] Initialization failed: {e}")
-        print("[ultrasonic] Sensor disabled - system will continue without ultrasonic monitoring")
+        log("ultrasonic", "init_ultrasonic: Initialization failed: {}".format(e))
         _trig = None
         _echo = None
         return False

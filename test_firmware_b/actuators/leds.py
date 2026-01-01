@@ -1,18 +1,14 @@
 from machine import Pin  # type: ignore
 import time
-import config, state
-from timers import elapsed
+import state
 from debug import log
 
 _led_pins = {}
 _led_order = []
 _initialized = False
 
-# Stato per ogni LED: modalita (off/on/blinking) e parametri di blinking
+# State for each LED: mode (off/on/blinking) and blinking parameters
 _led_runtime = {}
-
-# Indice per la sequenza di test
-_test_step_index = 0
 
 
 def init_leds():
@@ -21,17 +17,24 @@ def init_leds():
         _led_pins = {}
         _led_order = []
         _led_runtime = {}
-        # Assicura che esista il dizionario per le modalita nel state
+        # Ensure modes dictionary exists in state
         if "led_modes" not in state.actuator_state:
             state.actuator_state["led_modes"] = {}
 
-        for name, gpio in config.LED_PINS.items():
+        # Define LED pins directly
+        led_pins = {
+            "green": 16,   # GPIO16
+            "blue": 17,    # GPIO17
+            "red": 19,     # GPIO19
+        }
+
+        for name, gpio in led_pins.items():
             p = Pin(gpio, Pin.OUT)
             p.value(0)
             _led_pins[name] = p
             _led_order.append(name)
 
-            # Stato iniziale: spento
+            # Initial state: off
             state.actuator_state["leds"][name] = False
             state.actuator_state["led_modes"][name] = "off"
 
@@ -49,13 +52,13 @@ def init_leds():
         log("leds", "LED modules initialized")
         return True
     except Exception as e:
-        print("[leds] Initialization failed:", e)
+        log("leds", "Initialization failed: {}".format(e))
         _initialized = False
         return False
 
 
 def _all_off():
-    """Spegne tutti i LED e azzera lo stato interno."""
+    """Turn off all LEDs and reset internal state."""
     for name, pin in _led_pins.items():
         pin.value(0)
         state.actuator_state["leds"][name] = False
@@ -73,16 +76,16 @@ def set_led_state(
     on_duration_ms=None,
     total_duration_ms=None,
 ):
-    """Imposta lo stato di un singolo LED.
+    """Set the state of a single LED.
 
-    mode: "off", "on" oppure "blinking".
-    - blink_interval_ms: periodo totale del ciclo di blinking (ms).
-    - on_duration_ms: durata dell'impulso ON all'interno del ciclo (ms).
-    - total_duration_ms: durata complessiva del blinking (ms) prima di
-      tornare automaticamente allo stato OFF.
+    mode: "off", "on" or "blinking".
+    - blink_interval_ms: total period of blinking cycle (ms).
+    - on_duration_ms: duration of ON pulse within the cycle (ms).
+    - total_duration_ms: total duration of blinking (ms) before
+      automatically returning to OFF state.
 
-    La funzione non e bloccante: aggiorna solo i parametri; l'aggiornamento
-    reale viene gestito in _update_led_runtime() richiamato dal loop.
+    The function is non-blocking: it only updates parameters; the actual
+    update is handled in _update_led_runtime() called from the loop.
     """
     if not _initialized:
         return
@@ -147,8 +150,10 @@ def set_led_state(
         return
 
 
-def _update_led_runtime():
-    """Gestisce il blinking non bloccante in base a _led_runtime."""
+
+
+def update_led_test():
+    """Handle non-blocking blinking based on _led_runtime."""
     if not _initialized:
         return
 
@@ -174,7 +179,7 @@ def _update_led_runtime():
             total = r["total_duration"]
             if total is not None:
                 if time.ticks_diff(now, r["start_ms"]) >= total:
-                    # Fine blinking: torna OFF
+                    # Blinking ended: return to OFF
                     r["mode"] = "off"
                     r["on"] = False
                     pin.value(0)
@@ -185,12 +190,12 @@ def _update_led_runtime():
 
             cycle_elapsed = time.ticks_diff(now, r["cycle_start_ms"])
             if cycle_elapsed < 0:
-                # Eventuale wrap del contatore
+                # Possible counter wrap
                 r["cycle_start_ms"] = now
                 cycle_elapsed = 0
 
             if cycle_elapsed >= r["blink_interval"]:
-                # Nuovo ciclo
+                # New cycle
                 r["cycle_start_ms"] = now
                 cycle_elapsed = 0
 
@@ -199,64 +204,3 @@ def _update_led_runtime():
                 r["on"] = should_on
                 pin.value(1 if should_on else 0)
                 state.actuator_state["leds"][name] = should_on
-
-
-def update_led_test():
-    """Test non bloccante dei 3 LED.
-
-    Usa set_led_state() per assegnare, in sequenza, stati diversi
-    (spento, acceso, lampeggiante) ai LED. La funzione viene richiamata
-    spesso dal main loop e non contiene sleep bloccanti.
-    """
-    global _test_step_index
-
-    if not _initialized or not config.LED_TEST_ENABLED:
-        return
-
-    # Aggiorna sempre i blinking in base al tempo reale
-    _update_led_runtime()
-
-    # Avanza la sequenza solo ad intervalli regolari
-    if not elapsed("leds_step", config.LED_STEP_INTERVAL_MS):
-        return
-
-    if not _led_order:
-        return
-
-    # Sequenza di esempio:
-    # 0: Red ON, Blue OFF, Green OFF
-    # 1: Red OFF, Blue ON, Green OFF
-    # 2: Red OFF, Blue OFF, Green BLINKING
-    # 3: Red BLINKING, Blue OFF, Green ON
-
-    if _test_step_index == 0:
-        set_led_state("red", "on")
-        set_led_state("blue", "off")
-        set_led_state("green", "off")
-    elif _test_step_index == 1:
-        set_led_state("red", "off")
-        set_led_state("blue", "on")
-        set_led_state("green", "off")
-    elif _test_step_index == 2:
-        set_led_state("red", "off")
-        set_led_state("blue", "off")
-        set_led_state(
-            "green",
-            "blinking",
-            blink_interval_ms=800,
-            on_duration_ms=300,
-            total_duration_ms=None,
-        )
-    elif _test_step_index == 3:
-        set_led_state(
-            "red",
-            "blinking",
-            blink_interval_ms=400,
-            on_duration_ms=200,
-            total_duration_ms=None,
-        )
-        set_led_state("blue", "off")
-        set_led_state("green", "on")
-
-    _test_step_index = (_test_step_index + 1) % 4
-

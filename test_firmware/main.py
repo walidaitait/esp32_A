@@ -1,178 +1,150 @@
-"""
-TEST FIRMWARE - Sensors Only
-Simplified firmware to test sensors without logic/communication complexity
-OTA update system remains active for remote updates
+"""Main loop: sensor reading + alarm logic.
+
+Clean version without verbose test prints.
+- Performs only:
+  * sensor initialization with debug logs
+  * continuous sensor reading
+  * alarm logic evaluation
+  * compact sensor + system status debug every 2.5 seconds
 """
 
-# Import OTA first and check for updates BEFORE importing anything else
+# Import OTA first
 import ota_update
 ota_update.check_and_update()
 
-# Now import everything else (only after OTA check)
 import time
-from debug import log
+from debug import log, init_remote_logging
 import state
+from logic.alarm_logic import evaluate_logic
+from timers import elapsed
+from comms import command_sender
 
 # Sensor modules
-from sensors import temperature
-from sensors import co
-# from sensors import accelerometer  # DISABLED
-from sensors import ultrasonic
-from sensors import heart_rate
-from sensors import buttons
+from sensors import temperature, co, ultrasonic, heart_rate, buttons
 
-# System info display interval (every 3 seconds for all sensors)
-PRINT_INTERVAL = 3000
-_last_print = 0
+
+DEBUG_INTERVAL_MS = 2500
+_last_debug = 0
+
 
 def init_sensors():
-    """Initialize all sensors - gracefully handle failures"""
-    print("\n" + "="*50)
-    print("TEST FIRMWARE - MULTI-SENSOR MONITORING")
-    print("="*50)
-    
+    """Initialize all sensors and communication system."""
+    log("main", "init_sensors: Initializing sensors...")
+
     sensors_status = {
-        "Temperature": temperature.init_temperature(),
-        "CO Sensor": co.init_co(),
-        # "Accelerometer": accelerometer.init_accelerometer(),  # DISABLED
-        "Ultrasonic": ultrasonic.init_ultrasonic(),
-        "Heart Rate": heart_rate.init_heart_rate(),
-        "Buttons": buttons.init_buttons()
+        "temperature": temperature.init_temperature(),
+        "co": co.init_co(),
+        "ultrasonic": ultrasonic.init_ultrasonic(),
+        "heart_rate": heart_rate.init_heart_rate(),
+        "buttons": buttons.init_buttons(),
     }
+
+    for name, ok in sensors_status.items():
+        log("main", "init_sensors: {} -> {}".format(name, "OK" if ok else "FAILED"))
     
-    print("\n" + "-"*50)
-    print("INITIALIZATION SUMMARY:")
-    for name, status in sensors_status.items():
-        status_str = "OK" if status else "FAILED/NOT CONNECTED"
-        print(f"  {name:20s}: {status_str}")
-    print("-"*50 + "\n")
-    
+    # Initialize communication system
+    log("main", "init_sensors: Initializing communication with ESP32-B...")
+    comm_ok = command_sender.init()
+    log("main", "init_sensors: Communication -> {}".format("OK" if comm_ok else "FAILED"))
+
     return sensors_status
 
+
 def read_sensors():
-    """Read all sensors - non-blocking"""
+    """Non-blocking read of all sensors."""
     temperature.read_temperature()
     co.read_co()
-    # accelerometer.read_accelerometer()  # DISABLED
     ultrasonic.read_ultrasonic()
     heart_rate.read_heart_rate()
     buttons.read_buttons()
 
-def print_sensor_data():
-    """Print current sensor data in a readable format"""
-    global _last_print
+
+def _compact_state_snapshot():
+    """Returns a compact string with sensors + system state."""
+    temp = state.sensor_data.get("temperature")
+    co_val = state.sensor_data.get("co")
+    dist = state.sensor_data.get("ultrasonic_distance_cm")
+    hr = state.sensor_data.get("heart_rate", {})
+
+    alarm_level = state.alarm_state.get("level", "normal")
+    alarm_src = state.alarm_state.get("source")
+
+    parts = []
+    parts.append("T={:.1f}C".format(temp) if temp is not None else "T=N/A")
+    parts.append("CO={:.1f}ppm".format(co_val) if co_val is not None else "CO=N/A")
+    parts.append("D={:.0f}cm".format(dist) if dist is not None else "D=N/A")
+
+    bpm = hr.get("bpm")
+    spo2 = hr.get("spo2")
+    if bpm is not None:
+        parts.append("HR={}bpm".format(bpm))
+    if spo2 is not None:
+        parts.append("SpO2={}%%".format(spo2))
+
+    parts.append("ALARM={}({})".format(alarm_level, alarm_src))
+
+    return " | ".join(parts)
+
+
+def periodic_debug():
+    """Compact log of sensors + state every DEBUG_INTERVAL_MS."""
+    global _last_debug
     now = time.ticks_ms()
-    
-    if time.ticks_diff(now, _last_print) < PRINT_INTERVAL:
+    if time.ticks_diff(now, _last_debug) < DEBUG_INTERVAL_MS:
         return
-    
-    _last_print = now
-    
-    print("\n" + "="*60)
-    print(f"SENSOR DATA @ {now}ms")
-    print("="*60)
-    
-    # Temperature
-    temp = state.sensor_data.get("temperature", None)
-    if temp is not None:
-        print(f"Temperature:  {temp:.2f} °C")
-    else:
-        print(f"Temperature:  N/A")
-    
-    # CO (Carbon Monoxide)
-    co = state.sensor_data.get("co", None)
-    if co is not None:
-        print(f"CO Level:     {co:.2f} PPM")
-        if co < 9:
-            print(f"  Status:     Safe (< 9 PPM)")
-        elif co < 50:
-            print(f"  Status:     Warning (9-50 PPM)")
-        else:
-            print(f"  Status:     Danger! (> 50 PPM)")
-    else:
-        print(f"CO Level:     N/A")
-    
-    # Ultrasonic Distance
-    distance = state.sensor_data.get("ultrasonic_distance_cm", None)
-    if distance is not None:
-        print(f"Distance:     {distance:.2f} cm ({distance/100:.2f} m)")
-        if distance < 10:
-            print(f"  Status:     Very Close (< 10cm)")
-        elif distance < 50:
-            print(f"  Status:     Close (10-50cm)")
-        elif distance < 100:
-            print(f"  Status:     Medium (50-100cm)")
-        else:
-            print(f"  Status:     Far (> 100cm)")
-    else:
-        print(f"Distance:     N/A")
-    
-    # Heart Rate
-    hr_data = state.sensor_data.get("heart_rate", {})
-    hr_status = hr_data.get("status", "N/A")
-    hr_bpm = hr_data.get("bpm", None)
-    hr_spo2 = hr_data.get("spo2", None)
-    hr_ir = hr_data.get("ir", None)
-    hr_red = hr_data.get("red", None)
-    
-    print(f"Heart Rate:   ", end="")
-    if hr_status == "Reading" and hr_bpm:
-        print(f"{hr_bpm} BPM")
-    elif hr_status == "Reading":
-        print(f"Calculating...")
-    else:
-        print(f"{hr_status}")
-    
-    if hr_spo2:
-        print(f"SpO2:         {hr_spo2}%")
-    
-    if hr_ir and hr_red:
-        print(f"  Raw:        IR={hr_ir}, RED={hr_red}")
-    
-    # Buttons
-    b1_state = state.button_state.get("b1", False)
-    b2_state = state.button_state.get("b2", False)
-    b3_state = state.button_state.get("b3", False)
-    
-    print(f"Buttons:      B1={'PRESSED' if b1_state else 'released'}  " +
-          f"B2={'PRESSED' if b2_state else 'released'}  " +
-          f"B3={'PRESSED' if b3_state else 'released'}")
-    
-    print("="*60 + "\n")
+
+    _last_debug = now
+    snapshot = _compact_state_snapshot()
+    log("main", "periodic_debug: {}".format(snapshot))
+
 
 def main():
-    """Main test firmware loop"""
-    print("\n" + "#"*60)
-    print("#  ESP32 TEST FIRMWARE - MULTI-SENSOR MONITORING")
-    print("#  Version: 2.0")
-    print("#  Active Sensors: Temperature, CO, Ultrasonic, Heart Rate, Buttons")
-    print("#  Disabled: Accelerometer")
-    print("#"*60 + "\n")
+    log("main", "main: Boot main loop")
     
-    # Initialize sensors
+    # Initialize remote logging (for centralized monitoring)
+    log("main", "main: Initializing remote UDP logging...")
+    init_remote_logging('A')  # 'A' for ESP32-A
+
     init_sensors()
-    
-    print("Starting main loop...")
-    print("Sensor data will be printed every 3 seconds.\n")
-    
-    # Main loop
+
     while True:
         try:
-            # Read all sensors (non-blocking)
             read_sensors()
+            evaluate_logic()
+            periodic_debug()
             
-            # Print sensor data periodically
-            print_sensor_data()
+            # Non-blocking communication update
+            command_sender.update()
             
-            # Small delay to prevent CPU overload
-            time.sleep_ms(10)
+            # Log connection status periodically
+            if elapsed("comm_status", 5000):
+                if command_sender.is_connected():
+                    log("main", "main: ESP32-B: CONNECTED - sending commands")
+                else:
+                    log("main", "main: ESP32-B: DISCONNECTED - retrying connection...")
             
+            # TEST: Send test command every 1 second
+            if elapsed("test_command", 1000):
+                if command_sender.is_connected():
+                    # Send test display message with timestamp
+                    command_sender.send_display_message(
+                        "Test A->B",
+                        "Time: {}".format(time.ticks_ms() // 1000)
+                    )
+            
+            # Use non-blocking timing instead of sleep
+            if elapsed("main_loop", 10):
+                pass
+                
         except KeyboardInterrupt:
-            print("\nTest firmware stopped by user.")
+            log("main", "main: Loop interrupted by user")
             break
         except Exception as e:
-            print(f"\nERROR in main loop: {e}")
-            time.sleep(1)
+            log("main", "main: Exception: {}".format(e))
+            # Use non-blocking wait instead of blocking sleep
+            if elapsed("error_recovery", 1000):
+                pass
+
 
 if __name__ == "__main__":
     main()

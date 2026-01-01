@@ -5,6 +5,10 @@
   "debug.py",
   "state.py",
   "timers.py",
+  "comm.py",
+  "device_id.py",
+  "wifi_config.py",
+  "logic/alarm_logic.py",
   "sensors/__init__.py",
   "sensors/accelerometer.py",
   "sensors/buttons.py",
@@ -14,5 +18,6 @@
   "sensors/ultrasonic.py",
   "sensors/libs/max30100.py",
   "sensors/libs/max30102/__init__.py",
-  "sensors/libs/max30102/circular_buffer.py"
+  "sensors/libs/max30102/circular_buffer.py",
+  "sensors/libs/max30102/max30102.py"
 ]

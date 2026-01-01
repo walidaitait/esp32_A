@@ -1,19 +1,20 @@
-# ota_update.py - TEST FIRMWARE VERSION ESP32-B
+# ota_update.py - Firmware OTA UPDATE module for ESP32-B
 import network  # type: ignore
 import urequests  # type: ignore
 import machine  # type: ignore
 import time
 import os
 from machine import Pin  # type: ignore
+from timers import elapsed
 
 from wifi_config import WIFI_SSID, WIFI_PASSWORD
 
 # ================== CONFIG ==================
 
-# Usa un branch/cartella diversa se vuoi separare gli aggiornamenti di A e B
+# Use different branch/folder if you want to separate updates for A and B
 BASE_URL = "http://raw.githubusercontent.com/walidaitait/esp32_A/main/test_firmware_b/"
 
-# OTA button (usiamo un GPIO libero che non confligge con gli attuatori)
+# OTA button (use a free GPIO that doesn't conflict with actuators)
 UPDATE_BUTTON_PIN = 18  # GPIO18
 UPDATE_HOLD_TIME = 5  # seconds
 
@@ -40,7 +41,9 @@ def _connect_wifi(timeout=15):
         if time.time() - start > timeout:
             log("ota", "WiFi connection failed")
             return False
-        time.sleep(0.2)
+        # Use non-blocking wait with elapsed()
+        if elapsed("wifi_check", 200):
+            pass
 
     log("ota", "WiFi connected")
     return True
@@ -54,7 +57,9 @@ def _check_button_pressed():
     while time.time() - start < UPDATE_HOLD_TIME:
         if btn.value() == 0:  # released
             return False
-        time.sleep(0.05)
+        # Use non-blocking wait with elapsed()
+        if elapsed("button_check", 50):
+            pass
 
     return True
 

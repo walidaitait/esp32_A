@@ -17,14 +17,13 @@ def init_temperature():
         _ds = ds18x20.DS18X20(_ow)
         _roms = _ds.scan()
         if not _roms:
-            log("temperature", "No DS18B20 sensors found")
+            log("temperature", "init_temperature: No DS18B20 sensors found")
             return False
         else:
-            log("temperature", f"Found {len(_roms)} DS18B20 sensor(s)")
+            log("temperature", "init_temperature: Found {} DS18B20 sensor(s)".format(len(_roms)))
             return True
     except Exception as e:
-        print(f"[temperature] Initialization failed: {e}")
-        print("[temperature] Sensor disabled - system will continue without temperature monitoring")
+        log("temperature", "init_temperature: Initialization failed: {}".format(e))
         _ow = None
         _ds = None
         _roms = None
@@ -52,8 +51,7 @@ def read_temperature():
         if time.ticks_diff(now, _conversion_start_time) >= 750:
             temperature = _ds.read_temp(_roms[0])
             state.sensor_data["temperature"] = temperature
-            # log("temperature", f"Temperature value: {temperature} °C")
             _conversion_pending = False
     except Exception as e:
-        log("temperature", f"Read error: {e}")
+        log("temperature", "read_temperature: Read error: {}".format(e))
         _conversion_pending = False

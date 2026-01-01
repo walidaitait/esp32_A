@@ -1,3 +1,7 @@
+"""Button input module.
+
+Reads button states with debouncing.
+"""
 from machine import Pin  # type: ignore
 import config, state
 from timers import elapsed
@@ -17,26 +21,23 @@ def init_buttons():
         # Wait for pins to stabilize
         time.sleep_ms(50)
         
-        # Debug: print raw pin values
-        print("[buttons] Raw pin values after stabilization:")
+        # Log raw pin values
+        log("buttons", "init_buttons: Raw pin values after stabilization")
         for name, pin in _buttons.items():
-            print(f"  {name}: {pin.value()}")
+            log("buttons", "init_buttons: {} = {}".format(name, pin.value()))
         
         # Initialize state based on actual pin readings
-        # Con PULL_UP: pin.value() == 1 quando NON premuto, 0 quando premuto
-        # MA se i moduli DFRobot hanno logica diversa, potrebbe essere invertito
-        # Proviamo entrambe le logiche e vediamo quale funziona
-        _last_state = {name: pin.value() == 1 for name, pin in _buttons.items()}  # INVERTITO: 1 = premuto
+        # With PULL_UP: pin.value() == 1 when NOT pressed, 0 when pressed
+        _last_state = {name: pin.value() == 1 for name, pin in _buttons.items()}
         
         # Update global state to match actual button state
         for name, pressed in _last_state.items():
             state.button_state[name] = pressed
         
-        log("buttons", "Buttons initialized (inverted logic: HIGH=pressed)")
+        log("buttons", "init_buttons: Buttons initialized")
         return True
     except Exception as e:
-        print(f"[buttons] Initialization failed: {e}")
-        print("[buttons] Sensor disabled - system will continue without button monitoring")
+        log("buttons", "init_buttons: Initialization failed: {}".format(e))
         _buttons = {}
         _last_state = {}
         return False
@@ -48,13 +49,13 @@ def read_buttons():
         return
     try:
         for name, pin in _buttons.items():
-            # INVERTITO: Con moduli DFRobot, HIGH = premuto, LOW = non premuto
+            # With PULL_UP: HIGH = not pressed, LOW = pressed
             pressed = pin.value() == 1
             if pressed != _last_state[name]:
                 _last_state[name] = pressed
                 state.button_state[name] = pressed
-                log("buttons", f"Button {name} {'pressed' if pressed else 'released'}")
+                log("buttons", "read_buttons: Button {} {}".format(name, "pressed" if pressed else "released"))
             else:
                 state.button_state[name] = pressed
     except Exception as e:
-        log("buttons", f"Read error: {e}")
+        log("buttons", "read_buttons: Read error: {}".format(e))
