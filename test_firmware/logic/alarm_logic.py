@@ -6,9 +6,10 @@ Sends commands to ESP32-B to update actuators when alarm level changes.
 """
 import time
 
-import config, state
-from timers import elapsed
-from debug import log
+from config import config
+from core import state
+from core.timers import elapsed
+from debug.debug import log
 from comms import command_sender
 
 

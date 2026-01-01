@@ -3,9 +3,10 @@
 Reads button states with debouncing.
 """
 from machine import Pin  # type: ignore
-import config, state
-from timers import elapsed
-from debug import log
+from config import config
+from core import state
+from core.timers import elapsed
+from debug.debug import log
 import time
 
 _buttons = {}

@@ -5,9 +5,9 @@ import machine  # type: ignore
 import time
 import os
 from machine import Pin  # type: ignore
-from timers import elapsed
+from core.timers import elapsed
 
-from wifi_config import WIFI_SSID, WIFI_PASSWORD
+from config.wifi_config import WIFI_SSID, WIFI_PASSWORD
 
 # ================== CONFIG ==================
 

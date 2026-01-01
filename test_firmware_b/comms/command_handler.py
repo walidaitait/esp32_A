@@ -8,9 +8,9 @@ Receives commands via comm.py and executes them on actuators:
 All actuator control logic is centralized here.
 """
 
-from debug import log
+from debug.debug import log
 from comms import comm
-import state
+from core import state
 
 # Import actuators (will be used when executing commands)
 from actuators import leds, servo, lcd, buzzer, audio

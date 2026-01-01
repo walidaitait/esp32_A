@@ -1,7 +1,7 @@
 from machine import Pin, I2C  # type: ignore
 import time
-import state
-from debug import log
+from core import state
+from debug.debug import log
 
 _i2c = None
 _addr = None

@@ -1,7 +1,7 @@
 from machine import Pin  # type: ignore
 import time
-import state
-from debug import log
+from core import state
+from debug.debug import log
 
 _led_pins = {}
 _led_order = []

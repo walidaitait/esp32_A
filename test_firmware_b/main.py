@@ -13,9 +13,9 @@ import ota_update
 ota_update.check_and_update()
 
 import time
-from debug import log, init_remote_logging
-import state
-from timers import elapsed
+from debug.debug import log, init_remote_logging
+from core import state
+from core.timers import elapsed
 from comms import command_handler
 
 # Actuator modules

@@ -1,6 +1,7 @@
 from machine import Pin, PWM  # type: ignore
-import config, state
-from debug import log
+from config import config
+from core import state
+from debug.debug import log
 
 _pwm = None
 _angle = 0

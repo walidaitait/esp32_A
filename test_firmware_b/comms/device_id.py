@@ -11,8 +11,8 @@ import socket
 import json
 import time
 import network  # type: ignore
-from debug import log
-from timers import elapsed
+from debug.debug import log
+from core.timers import elapsed
 
 # Device identity keys (immutable)
 DEVICE_KEY_B = "ESP32B_ACTUATORS_v1"

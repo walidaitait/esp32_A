@@ -5,9 +5,10 @@ and calculates BPM and SpO2 values.
 """
 from machine import SoftI2C, Pin  # type: ignore
 from sensors.libs.max30102 import MAX30102, MAX30105_PULSE_AMP_MEDIUM  # type: ignore
-import config, state
-from timers import elapsed
-from debug import log
+from config import config
+from core import state
+from core.timers import elapsed
+from debug.debug import log
 import time
 
 _i2c = None

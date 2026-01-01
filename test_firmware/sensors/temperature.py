@@ -1,8 +1,9 @@
 import onewire, ds18x20  # type: ignore
 from machine import Pin  # type: ignore
-import config, state
-from timers import elapsed
-from debug import log
+from config import config
+from core import state
+from core.timers import elapsed
+from debug.debug import log
 
 _ow = None
 _ds = None

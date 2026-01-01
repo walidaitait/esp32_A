@@ -12,9 +12,9 @@ Does NOT handle command logic - that's in command_sender.py
 import json
 import urequests #type: ignore
 import time
-from debug import log
-from timers import elapsed
-import state
+from debug.debug import log
+from core.timers import elapsed
+from core import state
 from comms.device_id import DeviceDiscovery, get_device_key
 
 # ===========================

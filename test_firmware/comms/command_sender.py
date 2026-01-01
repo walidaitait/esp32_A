@@ -10,7 +10,7 @@ Handles high-level command logic:
 All commands are sent through comm.py low-level interface.
 """
 
-from debug import log
+from debug.debug import log
 from comms import comm
 
 

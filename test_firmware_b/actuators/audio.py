@@ -1,6 +1,6 @@
 from machine import Pin, UART  # type: ignore
-import state
-from debug import log
+from core import state
+from debug.debug import log
 
 _uart = None
 _initialized = False

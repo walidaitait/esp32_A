@@ -3,9 +3,10 @@
 Reads analog voltage from CO sensor and converts to PPM.
 """
 from machine import ADC, Pin  # type: ignore
-import config, state
-from timers import elapsed
-from debug import log
+from config import config
+from core import state
+from core.timers import elapsed
+from debug.debug import log
 
 _adc = None
 

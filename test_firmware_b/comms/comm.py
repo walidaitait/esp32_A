@@ -12,9 +12,9 @@ Does NOT handle command execution - that's in command_handler.py
 import socket
 import json
 import time
-from debug import log
-from timers import elapsed
-import state
+from debug.debug import log
+from core.timers import elapsed
+from core import state
 from comms.device_id import DeviceDiscovery, get_device_key
 
 # ===========================

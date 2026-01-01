@@ -1,6 +1,6 @@
 from machine import Pin, PWM  # type: ignore
-import state
-from debug import log
+from core import state
+from debug.debug import log
 
 _pwm = None
 _initialized = False

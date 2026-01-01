@@ -6,7 +6,7 @@ import time
 import os
 from machine import Pin  # type: ignore
 
-from wifi_config import WIFI_SSID, WIFI_PASSWORD
+from config.wifi_config import WIFI_SSID, WIFI_PASSWORD
 
 # ================== CONFIG ==================
 

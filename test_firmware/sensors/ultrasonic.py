@@ -5,9 +5,9 @@ Measures distance using non-blocking interrupt-based echo detection.
 from machine import Pin, time_pulse_us, Timer  # type: ignore
 import time
 
-import state
-from debug import log
-from config import ULTRASONIC_TRIG_PIN, ULTRASONIC_ECHO_PIN
+from core import state
+from debug.debug import log
+from config.config import ULTRASONIC_TRIG_PIN, ULTRASONIC_ECHO_PIN
 
 # Speed of sound (cm/us)
 SPEED_OF_SOUND_CM_US = 0.0343 / 2

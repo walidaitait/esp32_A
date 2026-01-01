@@ -1,4 +1,60 @@
-\"\"\"Accelerometer sensor module.\n\nReads 3-axis accelerometer data via ADC.\n\"\"\"\nfrom machine import ADC, Pin  # type: ignore\nimport config, state\nfrom timers import elapsed\nfrom debug import log\nimport time\n\n_adc_x = None\n_adc_y = None\n_adc_z = None\n_sensor_connected = False\n\ndef init_accelerometer():\n    global _adc_x, _adc_y, _adc_z, _sensor_connected\n    try:\n        _adc_x = ADC(Pin(config.ACC_X_PIN))\n        _adc_y = ADC(Pin(config.ACC_Y_PIN))\n        _adc_z = ADC(Pin(config.ACC_Z_PIN))\n\n        for adc in (_adc_x, _adc_y, _adc_z):\n            adc.atten(ADC.ATTN_11DB)\n        \n        # Check if sensor is actually connected (non-blocking)\n        voltages = []\n        for adc in (_adc_x, _adc_y, _adc_z):\n            adc_val = adc.read()\n            voltage = adc_val * 3.3 / 4095\n            voltages.append(voltage)\n        \n        valid_readings = 0\n        for v in voltages:\n            if 0.8 < v < 2.5:  # Realistic range for resting accelerometer\n                valid_readings += 1\n        \n        if valid_readings >= 2:  # At least 2 axes must read valid values\n            _sensor_connected = True\n            log(\"accelerometer\", \"init_accelerometer: Accelerometer initialized and detected\")\n            return True\n        else:\n            log(\"accelerometer\", \"init_accelerometer: Sensor not detected (voltages: {})\".format(voltages))\n            _adc_x = None\n            _adc_y = None\n            _adc_z = None\n            _sensor_connected = False\n            return False\n            \n    except Exception as e:\n        log(\"accelerometer\", \"init_accelerometer: Initialization failed: {}\".format(e))\n        _adc_x = None\n        _adc_y = None\n        _adc_z = None\n        _sensor_connected = False\n        return False
+"""Accelerometer sensor module.
+
+Reads 3-axis accelerometer data via ADC.
+"""
+from machine import ADC, Pin  # type: ignore
+from config import config
+from core import state
+from core.timers import elapsed
+from debug.debug import log
+import time
+
+_adc_x = None
+_adc_y = None
+_adc_z = None
+_sensor_connected = False
+
+def init_accelerometer():
+    global _adc_x, _adc_y, _adc_z, _sensor_connected
+    try:
+        _adc_x = ADC(Pin(config.ACC_X_PIN))
+        _adc_y = ADC(Pin(config.ACC_Y_PIN))
+        _adc_z = ADC(Pin(config.ACC_Z_PIN))
+
+        for adc in (_adc_x, _adc_y, _adc_z):
+            adc.atten(ADC.ATTN_11DB)
+        
+        # Check if sensor is actually connected (non-blocking)
+        voltages = []
+        for adc in (_adc_x, _adc_y, _adc_z):
+            adc_val = adc.read()
+            voltage = adc_val * 3.3 / 4095
+            voltages.append(voltage)
+        
+        valid_readings = 0
+        for v in voltages:
+            if 0.8 < v < 2.5:  # Realistic range for resting accelerometer
+                valid_readings += 1
+        
+        if valid_readings >= 2:  # At least 2 axes must read valid values
+            _sensor_connected = True
+            log("accelerometer", "init_accelerometer: Accelerometer initialized and detected")
+            return True
+        else:
+            log("accelerometer", "init_accelerometer: Sensor not detected (voltages: {})".format(voltages))
+            _adc_x = None
+            _adc_y = None
+            _adc_z = None
+            _sensor_connected = False
+            return False
+            
+    except Exception as e:
+        log("accelerometer", "init_accelerometer: Initialization failed: {}".format(e))
+        _adc_x = None
+        _adc_y = None
+        _adc_z = None
+        _sensor_connected = False
+        return False
 
 def read_accelerometer():
     if not _sensor_connected or _adc_x is None or _adc_y is None or _adc_z is None:
