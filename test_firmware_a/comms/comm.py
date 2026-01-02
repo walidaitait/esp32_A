@@ -15,7 +15,7 @@ import espnow   # type: ignore
 from debug.debug import log
 from core import state
 from comms.device_id import get_device_key
-from config.config import USE_ESPNOW, MAC_B_BYTES
+from config.config import MAC_B_BYTES
 
 # ===========================
 # MODULE STATE
@@ -89,89 +89,32 @@ def send_data(payload):
     Returns:
         True if successful, False otherwise
     """
-    global _device_discovery, _current_packet_id
-    
-    # ESP-NOW path
-    if USE_ESPNOW:
-        if not _esp:
-            return False
+    global _current_packet_id
 
-        try:
-            # Add packet ID and device verification to payload
-            payload["packet_id"] = _current_packet_id
-            payload["device_key"] = get_device_key(is_device_b=False)
-            payload["timestamp"] = time.time()
+    if not _esp:
+        return False
 
-            json_data = json.dumps(payload)
-            ok = _esp.send(MAC_B_BYTES, json_data)
-            if ok:
-                _connected = True
-                _current_packet_id += 1
-                state.last_packet_id_sent_to_b = _current_packet_id
-                log("comm", "TX packet #{} (ESP-NOW): sent".format(_current_packet_id - 1))
-                return True
-            else:
-                _connected = False
-                log("comm", "Send failed (ESP-NOW)")
-                return False
-        except Exception as e:
-            _connected = False
-            log("comm", "Send error (ESP-NOW): {}".format(e))
-            return False
-
-    # HTTP path (discovery or static IP)
-    if USE_STATIC_IP_B:
-        dest_ip = B_STATIC_IP
-    else:
-        if not _device_discovery or not _device_discovery.get_other_ip():
-            # Still discovering - not an error, just return
-            return False
-        dest_ip = _device_discovery.get_other_ip()
-    
     try:
         # Add packet ID and device verification to payload
         payload["packet_id"] = _current_packet_id
         payload["device_key"] = get_device_key(is_device_b=False)
         payload["timestamp"] = time.time()
-        
-        # Build URL dynamically from chosen IP
-        url = "http://{}:80/command".format(dest_ip)
-        
-        # Build JSON
+
         json_data = json.dumps(payload)
-        
-        # Send POST request
-        response = urequests.post(
-            url,
-            data=json_data,
-            headers={"Content-Type": "application/json"}
-        )
-        
-        if response.status_code == 200:
-            # Mark as connected
-            if not USE_STATIC_IP_B and _device_discovery:
-                _device_discovery.mark_connected()
-            
-            # Increment packet ID and persist to state
+        ok = _esp.send(MAC_B_BYTES, json_data)
+        if ok:
+            _connected = True
             _current_packet_id += 1
             state.last_packet_id_sent_to_b = _current_packet_id
-            
-            log("comm", "TX packet #{}: sent successfully".format(_current_packet_id - 1))
-            response.close()
+            log("comm", "TX packet #{} (ESP-NOW): sent".format(_current_packet_id - 1))
             return True
         else:
-            # Mark as disconnected, will trigger retry
-            if _device_discovery:
-                _device_discovery.mark_disconnected()
-            log("comm", "Send failed: HTTP {}".format(response.status_code))
-            response.close()
+            _connected = False
+            log("comm", "Send failed (ESP-NOW)")
             return False
-            
     except Exception as e:
-        # Mark as disconnected on any error
-        if _device_discovery:
-            _device_discovery.mark_disconnected()
-        log("comm", "Send error: {} - retrying...".format(e))
+        _connected = False
+        log("comm", "Send error (ESP-NOW): {}".format(e))
         return False
 
 
@@ -180,18 +123,13 @@ def send_data(payload):
 # ===========================
 
 def update():
-    """Update communication system (discovery, connection monitoring).
-    
-    Called from main loop. Uses elapsed() for non-blocking timing.
-    Handles beacon sending/receiving for auto-discovery.
+    """Update communication system (ESP-NOW only).
+
+    ESP-NOW path is event-driven; nothing periodic needed.
     """
-    global _device_discovery
-    
+
     if not _initialized:
         return
-    
-    # ESP-NOW requires no periodic update
-    return
 
 
 # ===========================
@@ -205,17 +143,6 @@ def is_connected():
     if not _initialized:
         return False
     return _connected
-
-
-def get_discovered_ip():
-    """Get the discovered IP address of ESP32-B.
-    
-    Returns:
-        IP address string or None if not discovered yet
-    """
-    global _device_discovery
-    
-    return None
 
 
 def get_packet_id():

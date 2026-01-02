@@ -14,12 +14,9 @@ thresholds/timings (normal/warning/danger).
 # Communication update frequency (ms)
 COMM_UPDATE_INTERVAL_MS = 100
 
-# ESPNOW peer-to-peer transport (bypasses WiFi client isolation). Comandi A->B su ESP-NOW; WiFi resta per log/OTA.
-USE_ESPNOW = True
-
 # MAC addresses (bytes) of the devices
-MAC_A_BYTES = b"\x5c\x01\x3b\x5c\x2c\x34"
-MAC_B_BYTES = b"\x5c\x01\x3b\x87\x53\x10"
+MAC_A_BYTES = b"\x5c\x01\x3b\x87\x53\x10"
+MAC_B_BYTES = b"\x5c\x01\x3b\x5c\x2c\x34"
 
 # ===============================
 # SENSOR PINS

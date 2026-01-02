@@ -11,7 +11,7 @@ from config.wifi_config import WIFI_SSID, WIFI_PASSWORD
 
 # ================== CONFIG ==================
 
-BASE_URL = "https://raw.githubusercontent.com/walidaitait/esp32_A/main/test_firmware/"
+BASE_URL = "https://raw.githubusercontent.com/walidaitait/esp32_A/main/test_firmware_a/"
 CHUNK_SIZE = 1024  # bytes per read while streaming
 
 # OTA button
