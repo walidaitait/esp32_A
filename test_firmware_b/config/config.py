@@ -15,6 +15,13 @@ Here we define pins and general settings for the modules
 # Communication update frequency (ms)
 COMM_UPDATE_INTERVAL_MS = 100
 
+# ESPNOW peer-to-peer transport (bypasses WiFi client isolation). Comandi A->B via ESP-NOW; WiFi resta per log/OTA.
+USE_ESPNOW = True
+
+# MAC addresses (bytes)
+MAC_A_BYTES = b"\x5c\x01\x3b\x5c\x2c\x34"
+MAC_B_BYTES = b"\x5c\x01\x3b\x87\x53\x10"
+
 # DFRobot LED modules (DFR0021-G/B/R)
 # Module VCC at 5V, common GND, SIG pin to GPIO at 3.3V logic levels.
 LED_PINS = {

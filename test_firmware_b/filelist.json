@@ -3,7 +3,6 @@
   "ota_update.py",
   "config/__init__.py",
   "config/config.py",
-  "config/wifi_config.py",
   "core/__init__.py",
   "core/state.py",
   "core/timers.py",

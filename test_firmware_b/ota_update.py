@@ -4,6 +4,7 @@ import urequests  # type: ignore
 import machine  # type: ignore
 import time
 import os
+import gc
 from machine import Pin  # type: ignore
 
 from config.wifi_config import WIFI_SSID, WIFI_PASSWORD
@@ -23,7 +24,8 @@ def _elapsed(name, interval_ms):
 # ================== CONFIG ==================
 
 # Use different branch/folder if you want to separate updates for A and B
-BASE_URL = "http://raw.githubusercontent.com/walidaitait/esp32_A/main/test_firmware_b/"
+BASE_URL = "https://raw.githubusercontent.com/walidaitait/esp32_A/main/test_firmware_b/"
+CHUNK_SIZE = 1024  # bytes per read while streaming
 
 # OTA button (use a free GPIO that doesn't conflict with actuators)
 UPDATE_BUTTON_PIN = 18  # GPIO18
@@ -96,6 +98,7 @@ def _download_file(filename):
     log("ota", "Downloading " + filename)
 
     try:
+        gc.collect()  # free heap before TLS handshake
         r = urequests.get(url)
         if r.status_code != 200:
             log("ota", "HTTP error " + str(r.status_code))
@@ -104,10 +107,20 @@ def _download_file(filename):
 
         _ensure_dirs(filename)
 
-        with open(filename, "w") as f:
-            f.write(r.text)
+        # Stream to file to reduce RAM usage; fall back to r.text if needed
+        if hasattr(r, "raw"):
+            with open(filename, "wb") as f:
+                while True:
+                    chunk = r.raw.read(CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+        else:
+            with open(filename, "w") as f:
+                f.write(r.text)
 
         r.close()
+        gc.collect()
         log("ota", "Updated " + filename)
         return True
 

@@ -1,29 +1,32 @@
-"""Low-level communication management for ESP32-B.
+"""Low-level communication management for ESP32-B (ESP-NOW only).
 
 Handles:
-- UDP beacon discovery (auto-discovery of ESP32-A)
-- HTTP server for receiving commands
+- ESP-NOW reception of commands from ESP32-A
 - Packet tracking and validation
-- Connection status monitoring
+- Connection status monitoring (set true when a packet is received)
 
 Does NOT handle command execution - that's in command_handler.py
 """
 
-import socket
 import json
 import time
+import network  # type: ignore
+import espnow   # type: ignore
 from debug.debug import log
-from core.timers import elapsed
 from core import state
-from comms.device_id import DeviceDiscovery, get_device_key
+from comms.device_id import get_device_key
+from config.config import USE_ESPNOW, MAC_A_BYTES
 
 # ===========================
 # MODULE STATE
 # ===========================
 
 _initialized = False
-_device_discovery = None
-_http_socket = None
+_connected = False  # updated when packets arrive
+
+# ESPNOW transport
+_esp = None
+_wlan = None
 
 # Packet tracking (detects missing packets from A)
 _last_received_packet_id = -1
@@ -38,16 +41,14 @@ _command_callback = None
 # ===========================
 
 def init_communication():
-    """Initialize communication system with auto-discovery.
+    """Initialize communication system in ESP-NOW mode.
     
-    Starts HTTP server to receive commands from ESP32-A.
-    No hardcoded IP/MAC needed - uses UDP beacon for discovery.
     Loads last received packet ID from persistent state.
     
     Returns:
         True if initialization successful, False otherwise
     """
-    global _initialized, _device_discovery, _http_socket
+    global _initialized, _connected, _esp, _wlan
     global _last_received_packet_id, _expected_next_id
     
     try:
@@ -59,23 +60,21 @@ def init_communication():
         else:
             log("comm", "Starting fresh packet tracking from 0")
         
-        # Initialize device discovery
-        log("comm", "═══════════════════════════════════════════════")
-        log("comm", "Starting UDP beacon discovery for ESP32-A...")
-        log("comm", "Broadcasting on port {}".format(37020))
-        _device_discovery = DeviceDiscovery(is_device_b=True)
-        
-        # Create HTTP server socket
-        _http_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        _http_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        _http_socket.bind(('0.0.0.0', 80))
-        _http_socket.listen(1)
-        _http_socket.setblocking(False)  # Non-blocking accept without timeout attribute
+        # ESP-NOW receiver
+        _wlan = network.WLAN(network.STA_IF)
+        _wlan.active(True)
+        try:
+            _esp = espnow.ESPNow()
+            _esp.active(True)
+            _esp.add_peer(MAC_A_BYTES)
+            log("comm", "ESP-NOW enabled (peer A added)")
+        except Exception as e:
+            log("comm", "ESP-NOW init failed: {}".format(e))
+            _esp = None
         
         _initialized = True
-        log("comm", "HTTP server listening on port 80")
-        log("comm", "Auto-discovery enabled - waiting for ESP32-A beacon...")
-        log("comm", "═══════════════════════════════════════════════")
+        _connected = False
+        log("comm", "ESP-NOW reception active")
         return True
         
     except Exception as e:
@@ -212,9 +211,9 @@ def _handle_http_request(client_socket):
         else:
             log("comm", "WARNING: No command callback registered!")
         
-        # Mark as connected
-        if _device_discovery:
-            _device_discovery.mark_connected()
+        # Mark as connected (passive side)
+        global _connected
+        _connected = True
         
         # Send 200 OK
         response = "HTTP/1.1 200 OK\r\n\r\n"
@@ -230,6 +229,39 @@ def _handle_http_request(client_socket):
 
 
 # ===========================
+# ESPNOW HANDLING
+# ===========================
+
+def _handle_espnow_message(mac, msg):
+    """Handle ESP-NOW incoming message (JSON payload)."""
+    global _connected
+    try:
+        payload = json.loads(msg.decode('utf-8'))
+
+        if not _validate_packet(payload):
+            return
+        
+        packet_id = payload.get("packet_id")
+        command = payload.get("command")
+        params = payload.get("params", {})
+        
+        log("comm", "┌─────────────────────────────────────────────")
+        log("comm", "│ ✓ Received packet #{} from ESP32-A (ESP-NOW)".format(packet_id))
+        log("comm", "│ Command: '{}'".format(command))
+        log("comm", "│ Params: {}".format(params))
+        log("comm", "└─────────────────────────────────────────────")
+
+        if _command_callback:
+            _command_callback(command, params)
+        else:
+            log("comm", "WARNING: No command callback registered!")
+
+        _connected = True
+    except Exception as e:
+        log("comm", "ESP-NOW handling error: {}".format(e))
+
+
+# ===========================
 # UPDATE LOOP
 # ===========================
 
@@ -239,14 +271,21 @@ def update():
     Called from main loop. Non-blocking - uses socket timeout.
     Handles beacon sending/receiving and incoming HTTP requests.
     """
-    global _device_discovery, _http_socket
+    global _http_socket, _esp
     
     if not _initialized:
         return
-    
-    # Update discovery (beacon listening + sending)
-    if _device_discovery:
-        _device_discovery.update_discovery()
+
+    # ESP-NOW receive path (non-blocking)
+    if USE_ESPNOW and _esp:
+        try:
+            mac, msg = _esp.recv(0)  # non-blocking
+            if mac is not None and msg:
+                _handle_espnow_message(mac, msg)
+        except OSError:
+            pass
+        except Exception as e:
+            log("comm", "ESP-NOW recv error: {}".format(e))
     
     # Check for incoming HTTP requests (non-blocking)
     if _http_socket:
@@ -272,12 +311,12 @@ def update():
 
 def is_connected():
     """Check if ESP32-A is reachable and connection is established."""
-    global _device_discovery
+    global _connected
     
-    if not _initialized or not _device_discovery:
+    if not _initialized:
         return False
     
-    return _device_discovery.is_connected()
+    return _connected
 
 
 def get_discovered_ip():
@@ -286,9 +325,5 @@ def get_discovered_ip():
     Returns:
         IP address string or None if not discovered yet
     """
-    global _device_discovery
-    
-    if not _initialized or not _device_discovery:
-        return None
-    
-    return _device_discovery.get_other_ip()
+    # Passive/ESP-NOW mode: IP is not tracked; return None for compatibility
+    return None
