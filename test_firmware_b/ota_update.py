@@ -5,9 +5,20 @@ import machine  # type: ignore
 import time
 import os
 from machine import Pin  # type: ignore
-from core.timers import elapsed
 
 from config.wifi_config import WIFI_SSID, WIFI_PASSWORD
+
+# Local lightweight timer helper to avoid depending on project modules
+_timers = {}
+
+
+def _elapsed(name, interval_ms):
+    now = time.ticks_ms()
+    last = _timers.get(name, 0)
+    if time.ticks_diff(now, last) >= interval_ms:
+        _timers[name] = now
+        return True
+    return False
 
 # ================== CONFIG ==================
 
@@ -41,8 +52,8 @@ def _connect_wifi(timeout=15):
         if time.time() - start > timeout:
             log("ota", "WiFi connection failed")
             return False
-        # Use non-blocking wait with elapsed()
-        if elapsed("wifi_check", 200):
+        # Use non-blocking wait with local elapsed helper
+        if _elapsed("wifi_check", 200):
             pass
 
     log("ota", "WiFi connected")
@@ -57,8 +68,8 @@ def _check_button_pressed():
     while time.time() - start < UPDATE_HOLD_TIME:
         if btn.value() == 0:  # released
             return False
-        # Use non-blocking wait with elapsed()
-        if elapsed("button_check", 50):
+        # Use non-blocking wait with local elapsed helper
+        if _elapsed("button_check", 50):
             pass
 
     return True

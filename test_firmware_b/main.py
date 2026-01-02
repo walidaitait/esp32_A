@@ -13,13 +13,39 @@ import ota_update
 ota_update.check_and_update()
 
 import time
+import network  # type: ignore
 from debug.debug import log, init_remote_logging
 from core import state
 from core.timers import elapsed
 from comms import command_handler
+from config.wifi_config import WIFI_SSID, WIFI_PASSWORD
 
 # Actuator modules
 from actuators import leds, servo, lcd, buzzer, audio
+
+
+def ensure_wifi_connected():
+    """Ensure WiFi is connected for communication and remote logging."""
+    wlan = network.WLAN(network.STA_IF)
+    
+    if wlan.isconnected():
+        log("main", "WiFi already connected: {}".format(wlan.ifconfig()[0]))
+        return True
+    
+    log("main", "Connecting to WiFi...")
+    wlan.active(True)
+    wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+    
+    timeout = 15
+    start = time.time()
+    while not wlan.isconnected():
+        if time.time() - start > timeout:
+            log("main", "WiFi connection timeout")
+            return False
+        time.sleep(0.2)
+    
+    log("main", "WiFi connected: {}".format(wlan.ifconfig()[0]))
+    return True
 
 
 def init_actuators():
@@ -47,7 +73,12 @@ def init_actuators():
 def main():
     log("main", "Starting firmware...")
     
-    # Initialize remote logging (for centralized monitoring)
+    # Ensure WiFi is connected first
+    log("main", "Connecting to WiFi...")
+    if not ensure_wifi_connected():
+        log("main", "WARNING - WiFi connection failed, continuing without remote logging")
+    
+    # Initialize remote logging (requires WiFi)
     log("main", "Initializing remote UDP logging...")
     init_remote_logging('B')  # 'B' for ESP32-B
     

@@ -70,7 +70,7 @@ def init_communication():
         _http_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         _http_socket.bind(('0.0.0.0', 80))
         _http_socket.listen(1)
-        _http_socket.settimeout(0.5)  # Non-blocking with timeout
+        _http_socket.setblocking(False)  # Non-blocking accept without timeout attribute
         
         _initialized = True
         log("comm", "HTTP server listening on port 80")
@@ -252,7 +252,11 @@ def update():
     if _http_socket:
         try:
             client, addr = _http_socket.accept()
-            client.settimeout(2.0)
+            try:
+                client.settimeout(2.0)
+            except AttributeError:
+                # Some firmware builds lack settimeout on sockets; fall back to default
+                pass
             _handle_http_request(client)
             client.close()
         except OSError:

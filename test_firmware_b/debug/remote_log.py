@@ -62,8 +62,8 @@ def send_log(module, message):
         return
     
     try:
-        # Format: "DEVICE_ID|module|message"
-        log_line = "{}|{}|{}".format(_device_id, module, message)
+        # Format: "[DEVICE_ID][module] message"
+        log_line = "[{}][{}] {}".format(_device_id, module, message)
         data = log_line.encode('utf-8')
         
         # Broadcast to network

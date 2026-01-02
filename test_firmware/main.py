@@ -13,11 +13,13 @@ import ota_update
 ota_update.check_and_update()
 
 import time
+import network  # type: ignore
 from debug.debug import log, init_remote_logging
 from core import state
 from logic.alarm_logic import evaluate_logic
 from core.timers import elapsed
 from comms import command_sender
+from config.wifi_config import WIFI_SSID, WIFI_PASSWORD
 
 # Sensor modules
 from sensors import temperature, co, ultrasonic, heart_rate, buttons
@@ -25,6 +27,30 @@ from sensors import temperature, co, ultrasonic, heart_rate, buttons
 
 DEBUG_INTERVAL_MS = 2500
 _last_debug = 0
+
+
+def ensure_wifi_connected():
+    """Ensure WiFi is connected for communication and remote logging."""
+    wlan = network.WLAN(network.STA_IF)
+    
+    if wlan.isconnected():
+        log("main", "WiFi already connected: {}".format(wlan.ifconfig()[0]))
+        return True
+    
+    log("main", "Connecting to WiFi...")
+    wlan.active(True)
+    wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+    
+    timeout = 15
+    start = time.time()
+    while not wlan.isconnected():
+        if time.time() - start > timeout:
+            log("main", "WiFi connection timeout")
+            return False
+        time.sleep(0.2)
+    
+    log("main", "WiFi connected: {}".format(wlan.ifconfig()[0]))
+    return True
 
 
 def init_sensors():
@@ -101,7 +127,12 @@ def periodic_debug():
 def main():
     log("main", "main: Boot main loop")
     
-    # Initialize remote logging (for centralized monitoring)
+    # Ensure WiFi is connected first
+    log("main", "main: Connecting to WiFi...")
+    if not ensure_wifi_connected():
+        log("main", "main: WARNING - WiFi connection failed, continuing without remote logging")
+    
+    # Initialize remote logging (requires WiFi)
     log("main", "main: Initializing remote UDP logging...")
     init_remote_logging('A')  # 'A' for ESP32-A
 

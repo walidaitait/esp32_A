@@ -96,7 +96,7 @@ class DeviceDiscovery:
             self.beacon_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.beacon_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.beacon_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            self.beacon_socket.settimeout(0.1)  # Non-blocking with short timeout
+            self.beacon_socket.setblocking(False)  # Non-blocking mode
             
             # Bind to beacon port for receiving
             self.beacon_socket.bind(('', BEACON_PORT))
@@ -105,6 +105,24 @@ class DeviceDiscovery:
         except Exception as e:
             log("device_id", "Beacon socket init failed: {}".format(e))
             self.beacon_socket = None
+
+    def _compute_broadcast_ip(self):
+        """Compute broadcast IP for the current WiFi network."""
+        try:
+            wlan = network.WLAN(network.STA_IF)
+            if not wlan.isconnected():
+                return None
+
+            ip, _, netmask, _ = wlan.ifconfig()
+            ip_parts = [int(part) for part in ip.split('.')]
+            mask_parts = [int(part) for part in netmask.split('.')]
+
+            broadcast_parts = [
+                ip_parts[i] | (~mask_parts[i] & 0xFF) for i in range(4)
+            ]
+            return "{}.{}.{}.{}".format(*broadcast_parts)
+        except Exception:
+            return "255.255.255.255"
     
     def _send_beacon(self):
         """Send UDP beacon announcing this device."""
@@ -115,6 +133,10 @@ class DeviceDiscovery:
             # Get own IP
             self.own_ip = get_own_ip()
             if not self.own_ip:
+                return
+
+            broadcast_ip = self._compute_broadcast_ip()
+            if not broadcast_ip:
                 return
             
             # Create beacon payload
@@ -128,7 +150,7 @@ class DeviceDiscovery:
             
             # Broadcast
             message = json.dumps(beacon).encode('utf-8')
-            self.beacon_socket.sendto(message, ('<broadcast>', BEACON_PORT))
+            self.beacon_socket.sendto(message, (broadcast_ip, BEACON_PORT))
             
         except Exception as e:
             log("device_id", "Beacon send failed: {}".format(e))
@@ -170,7 +192,7 @@ class DeviceDiscovery:
                 self.connection_established = True
                 self.discovery_start_time = 0  # Reset timer
             
-        except socket.timeout:
+        except OSError:
             pass  # No beacon received (expected in non-blocking mode)
         except Exception as e:
             log("device_id", "Beacon listen error: {}".format(e))

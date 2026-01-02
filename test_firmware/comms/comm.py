@@ -106,8 +106,7 @@ def send_data(payload):
         response = urequests.post(
             url,
             data=json_data,
-            headers={"Content-Type": "application/json"},
-            timeout=2
+            headers={"Content-Type": "application/json"}
         )
         
         if response.status_code == 200:
