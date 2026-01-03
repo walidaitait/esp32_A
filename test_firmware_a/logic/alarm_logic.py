@@ -12,12 +12,11 @@ from core.timers import elapsed
 from debug.debug import log
 
 
-# Internal timers for each monitored sensor
+# Internal timers for each monitored sensor (ultrasonic is presence-only, no alarm timers)
 _alarm_timers = {
     "co": {"critical_start": None, "normal_start": None},
     "temp": {"critical_start": None, "normal_start": None},
     "heart": {"critical_start": None, "normal_start": None},
-    "ultrasonic": {"critical_start": None, "normal_start": None},
 }
 
 
@@ -25,7 +24,7 @@ def _update_alarm_level(kind, is_critical, warning_time, danger_time, recovery_t
     """Updates multi-level alarm state for a sensor.
 
     Args:
-        kind: 'co', 'temp', 'heart', 'ultrasonic'
+        kind: 'co', 'temp', 'heart'
         is_critical: instant critical condition (True/False)
         warning_time, danger_time, recovery_time: expressed in milliseconds
     """
@@ -72,7 +71,6 @@ def _update_overall_alarm():
         "co": state.system_state.get("co_level", "normal"),
         "temp": state.system_state.get("temp_level", "normal"),
         "heart": state.system_state.get("heart_level", "normal"),
-        "ultrasonic": state.system_state.get("ultrasonic_level", "normal"),
     }
 
     level = "normal"
@@ -162,19 +160,11 @@ def evaluate_logic():
         getattr(config, "HR_RECOVERY_TIME_MS", 15000),
     )
 
-    # Ultrasonic - presence detection (door/gate area)
+    # Ultrasonic - presence-only (no alarms). Note presence up to threshold distance.
     distance = state.sensor_data.get("ultrasonic_distance_cm")
-    ultrasonic_critical = False
-    if getattr(config, "ALARM_ULTRASONIC_ENABLED", True) and distance is not None:
-        presence_dist = getattr(config, "ULTRASONIC_PRESENCE_DISTANCE_CM", 50.0)
-        ultrasonic_critical = distance <= presence_dist
-    _update_alarm_level(
-        "ultrasonic",
-        ultrasonic_critical,
-        getattr(config, "ULTRASONIC_WARNING_TIME_MS", 2000),
-        getattr(config, "ULTRASONIC_DANGER_TIME_MS", 10000),
-        getattr(config, "ULTRASONIC_RECOVERY_TIME_MS", 5000),
-    )
+    presence_dist = getattr(config, "ULTRASONIC_PRESENCE_DISTANCE_CM", 50.0)
+    presence = distance is not None and distance <= presence_dist
+    state.sensor_data["ultrasonic_presence"] = presence
 
     # Overall alarm state
     _update_overall_alarm()

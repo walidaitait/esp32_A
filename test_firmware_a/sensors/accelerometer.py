@@ -1,6 +1,7 @@
 """Accelerometer sensor module.
 
-Reads 3-axis accelerometer data via ADC.
+Reads 3-axis accelerometer data via ADC. Board A currently has no
+accelerometer wired; init/read safely no-op if the hardware is absent.
 """
 from machine import ADC, Pin  # type: ignore
 from config import config

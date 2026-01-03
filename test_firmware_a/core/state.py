@@ -8,6 +8,7 @@ sensor_data = {
     "co": None,
     "heart_rate": {"ir": None, "red": None, "bpm": None, "spo2": None, "status": "Not initialized"},
     "ultrasonic_distance_cm": None,
+    "ultrasonic_presence": False,  # True when something is detected within presence range
 }
 
 button_state = {
@@ -21,13 +22,12 @@ system_state = {
     "co_level": "normal",
     "temp_level": "normal",
     "heart_level": "normal",
-    "ultrasonic_level": "normal",
 }
 
 # Overall system alarm state
 alarm_state = {
     "level": "normal",   # normal | warning | danger
-    "source": None,        # co | temp | heart | ultrasonic | None
+    "source": None,        # co | temp | heart | None
 }
 
 # Last packet ID received from ESP32-B (for future bidirectional comm)

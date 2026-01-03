@@ -25,6 +25,18 @@ def initialize():
         lcd.init_lcd()
         buzzer.init_buzzer()
         audio.init_audio()
+        
+        # Configurazione iniziale all'avvio
+        log("actuator", "Setting up initial actuator states...")
+        
+        # Accendi tutti i LED
+        for led_name in ["green", "blue", "red"]:
+            leds.set_led_state(led_name, "on")
+        
+        # Servo già impostato a 0° durante init_servo()
+        
+        # LCD già con testo di default durante init_lcd()
+        
         log("actuator", "All actuators initialized")
         return True
     except Exception as e:
@@ -65,9 +77,16 @@ def update():
 
 def _log_status():
     """Log current actuator system status."""
-    status_msg = "LEDs: {} | Servo: {} | LCD: {}".format(
-        len([1 for k in state.actuator_state.get("leds", {}) if state.actuator_state["leds"][k]]),
+    led_states = state.actuator_state.get("leds", {})
+    led_modes = state.actuator_state.get("led_modes", {})
+    buzzer_active = state.actuator_state.get("buzzer", {}).get("active", False)
+    audio_playing = state.actuator_state.get("audio", {}).get("playing", False)
+    
+    status_msg = "LEDs:{} | Servo:{}° | LCD:{} | Buzzer:{} | Audio:{}".format(
+        "/".join(["{}:{}".format(k, led_modes.get(k, "?")) for k in led_states.keys()]),
         state.actuator_state.get("servo", {}).get("angle", "N/A"),
-        "ON" if state.actuator_state.get("lcd", {}).get("line1") else "OFF"
+        state.actuator_state.get("lcd", {}).get("line1", "OFF")[:8],
+        "ON" if buzzer_active else "OFF",
+        "ON" if audio_playing else "OFF"
     )
     log("actuator", status_msg)

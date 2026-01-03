@@ -5,7 +5,7 @@ Manages all sensor reads and alarm evaluation in non-blocking fashion.
 
 from core.timers import elapsed
 from core import state
-from sensors import temperature, co, ultrasonic, heart_rate, buttons
+from sensors import temperature, co, ultrasonic, heart_rate, buttons, accelerometer
 from logic import alarm_logic
 from debug.debug import log
 
@@ -15,6 +15,7 @@ CO_READ_INTERVAL = 500            # Read CO sensor every 500ms
 ULTRASONIC_READ_INTERVAL = 1000   # Read ultrasonic every 1 second
 HEART_RATE_READ_INTERVAL = 1000   # Read heart rate every 1 second
 BUTTON_READ_INTERVAL = 50         # Check buttons every 50ms
+ACCELEROMETER_READ_INTERVAL = 200 # Read accelerometer every 200ms
 ALARM_EVAL_INTERVAL = 500         # Evaluate alarm logic every 500ms
 STATUS_LOG_INTERVAL = 2500        # Log complete status every 2.5 seconds
 
@@ -31,6 +32,7 @@ def initialize():
         ultrasonic.init_ultrasonic()
         heart_rate.init_heart_rate()
         buttons.init_buttons()
+        accelerometer.init_accelerometer()  # Currently not connected on board A; safe no-op if absent
         log("sensor", "All sensors initialized")
         return True
     except Exception as e:
@@ -61,6 +63,9 @@ def update():
         if elapsed("button_read", BUTTON_READ_INTERVAL):
             buttons.read_buttons()
         
+        if elapsed("accelerometer_read", ACCELEROMETER_READ_INTERVAL):
+            accelerometer.read_accelerometer()  # Will remain idle if the sensor is not wired
+        
         # Evaluate alarm logic
         if elapsed("alarm_eval", ALARM_EVAL_INTERVAL):
             alarm_logic.evaluate_logic()
@@ -78,10 +83,13 @@ def _log_status():
     sensor_data = state.sensor_data
     alarm_level = state.alarm_state.get("level", "UNKNOWN")
     
-    status_msg = "T:{} | CO:{} | HR:{} | ALM:{}".format(
+    status_msg = "T:{} | CO:{} | HR:{} | US:{} | BTN:{} | ACC:{} | ALM:{}".format(
         sensor_data.get("temperature", "N/A"),
         sensor_data.get("co", "N/A"),
         sensor_data.get("heart_rate", {}).get("bpm", "N/A"),
+        sensor_data.get("ultrasonic_distance_cm", "N/A"),
+        state.button_state,
+        sensor_data.get("acc", "N/A"),
         alarm_level
     )
     log("sensor", status_msg)
