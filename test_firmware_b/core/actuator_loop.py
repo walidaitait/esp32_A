@@ -4,7 +4,7 @@ Manages all actuator updates in non-blocking fashion using elapsed() timers.
 """
 
 from core.timers import elapsed
-from core.state import get_state, update_state
+from core import state
 from actuators import leds, servo, lcd, buzzer, audio
 from debug.debug import log
 
@@ -20,11 +20,11 @@ def initialize():
     """Initialize all actuators."""
     try:
         log("actuator", "Initializing actuators...")
-        leds.init()
-        servo.init()
-        lcd.init()
-        buzzer.init()
-        audio.init()
+        leds.init_leds()
+        servo.init_servo()
+        lcd.init_lcd()
+        buzzer.init_buzzer()
+        audio.init_audio()
         log("actuator", "All actuators initialized")
         return True
     except Exception as e:
@@ -41,19 +41,19 @@ def update():
     try:
         # Update LED blinking states
         if elapsed("led_update", LED_UPDATE_INTERVAL):
-            leds.update()
+            leds.update_led_test()
         
         # Update servo position
         if elapsed("servo_update", SERVO_UPDATE_INTERVAL):
-            servo.update()
+            servo.update_servo_test()
         
         # Update LCD display
         if elapsed("lcd_update", LCD_UPDATE_INTERVAL):
-            lcd.update()
+            lcd.update_lcd_test()
         
         # Update audio playback status
         if elapsed("audio_update", AUDIO_UPDATE_INTERVAL):
-            audio.update()
+            audio.update_audio_test()
         
         # Periodic heartbeat for system status
         if elapsed("actuator_heartbeat", HEARTBEAT_INTERVAL):
@@ -65,10 +65,9 @@ def update():
 
 def _log_status():
     """Log current actuator system status."""
-    state = get_state()
     status_msg = "LEDs: {} | Servo: {} | LCD: {}".format(
-        len([1 for k in state.get("leds", {}) if state["leds"][k].get("active")]),
-        state.get("servo", {}).get("angle", "N/A"),
-        "ON" if state.get("lcd", {}).get("active") else "OFF"
+        len([1 for k in state.actuator_state.get("leds", {}) if state.actuator_state["leds"][k]]),
+        state.actuator_state.get("servo", {}).get("angle", "N/A"),
+        "ON" if state.actuator_state.get("lcd", {}).get("line1") else "OFF"
     )
     log("actuator", status_msg)

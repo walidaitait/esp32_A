@@ -1,5 +1,6 @@
 import onewire, ds18x20  # type: ignore
 from machine import Pin  # type: ignore
+from time import ticks_ms, ticks_diff  # type: ignore
 from config import config
 from core import state
 from core.timers import elapsed
@@ -37,8 +38,7 @@ def read_temperature():
     if not elapsed("temp", config.TEMP_INTERVAL):
         return
     
-    import time
-    now = time.ticks_ms()
+    now = ticks_ms()
     
     try:
         if not _conversion_pending:
@@ -49,7 +49,7 @@ def read_temperature():
             return
         
         # Check if conversion is done (750ms)
-        if time.ticks_diff(now, _conversion_start_time) >= 750:
+        if ticks_diff(now, _conversion_start_time) >= 750:
             temperature = _ds.read_temp(_roms[0])
             state.sensor_data["temperature"] = temperature
             _conversion_pending = False

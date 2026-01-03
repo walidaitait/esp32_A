@@ -6,7 +6,7 @@
 
   September 2017
 """
-
+from time import ticks_ms, ticks_diff  # type: ignore
 
 INT_STATUS   = 0x00  # Which interrupts are tripped
 INT_ENABLE   = 0x01  # Which interrupts are active
@@ -262,8 +262,7 @@ class HeartRateMonitor:
 
     def add_sample(self, sample):
         """Add a new sample to the monitor."""
-        import time
-        timestamp = time.ticks_ms()
+        timestamp = ticks_ms()
         self.samples.append(sample)
         self.timestamps.append(timestamp)
 
@@ -310,7 +309,6 @@ class HeartRateMonitor:
 
     def calculate_heart_rate(self):
         """Calculate the heart rate in beats per minute (BPM)."""
-        import time
         peaks = self.find_peaks()
 
         if len(peaks) < 2:
@@ -319,7 +317,7 @@ class HeartRateMonitor:
         # Calculate the average interval between peaks in milliseconds
         intervals = []
         for i in range(1, len(peaks)):
-            interval = time.ticks_diff(peaks[i][0], peaks[i - 1][0])
+            interval = ticks_diff(peaks[i][0], peaks[i - 1][0])
             intervals.append(interval)
 
         average_interval = sum(intervals) / len(intervals)

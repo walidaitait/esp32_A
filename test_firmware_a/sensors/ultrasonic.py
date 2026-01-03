@@ -3,7 +3,7 @@
 Measures distance using non-blocking interrupt-based echo detection.
 """
 from machine import Pin, time_pulse_us, Timer  # type: ignore
-import time
+from time import ticks_ms, ticks_us, ticks_diff, sleep_us  # type: ignore
 
 from core import state
 from debug.debug import log
@@ -49,12 +49,12 @@ def _echo_interrupt(pin):
     global _echo_start_time, _echo_duration, _measurement_pending, _measurement_ready
     if not _measurement_pending:
         return
-    now = time.ticks_us()
+    now = ticks_us()
     if pin.value() == 1:  # Rising edge
         _echo_start_time = now
     else:  # Falling edge
         if _echo_start_time > 0:
-            _echo_duration = time.ticks_diff(now, _echo_start_time)
+            _echo_duration = ticks_diff(now, _echo_start_time)
             _measurement_ready = True
             _measurement_pending = False
 
@@ -66,8 +66,8 @@ def read_ultrasonic():
     if _trig is None or _echo is None:
         return
 
-    now = time.ticks_ms()
-    if time.ticks_diff(now, _last_read_ms) < READ_INTERVAL_MS:
+    now = ticks_ms()
+    if ticks_diff(now, _last_read_ms) < READ_INTERVAL_MS:
         return
 
     _last_read_ms = now
@@ -75,7 +75,7 @@ def read_ultrasonic():
     if _measurement_pending:
         # Still waiting for previous measurement
         # Check timeout (>50ms = no echo received, max 400cm = ~23ms)
-        if time.ticks_diff(now, _trigger_time_ms) > 50:
+        if ticks_diff(now, _trigger_time_ms) > 50:
             # log("ultrasonic", "⚠️  Measurement timeout - no echo received")
             _measurement_pending = False
             _failed_measurements += 1
@@ -119,9 +119,9 @@ def read_ultrasonic():
         _echo_duration = 0
         # Send trigger pulse (10us minimo, 20us per sicurezza)
         _trig.value(0)
-        time.sleep_us(2)
+        sleep_us(2)
         _trig.value(1)
-        time.sleep_us(20)
+        sleep_us(20)
         _trig.value(0)
     except Exception as e:
         log("ultrasonic", f"❌ Trigger error: {e}")

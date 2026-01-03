@@ -4,12 +4,12 @@ Reads IR and RED LED reflectance data, detects finger presence,
 and calculates BPM and SpO2 values.
 """
 from machine import SoftI2C, Pin  # type: ignore
+from time import ticks_ms, ticks_diff  # type: ignore
 from sensors.libs.max30102 import MAX30102, MAX30105_PULSE_AMP_MEDIUM  # type: ignore
 from config import config
 from core import state
 from core.timers import elapsed
 from debug.debug import log
-import time
 
 _i2c = None
 _sensor = None
@@ -171,11 +171,11 @@ def _detect_peak(ir_value):
         is_prominent = (prev - prev_prev > min_prominence) and (prev - current > min_prominence)
         
         if is_peak and is_prominent:
-            current_time = time.ticks_ms()
+            current_time = ticks_ms()
             
             # If we have a previous peak, calculate BPM
             if _last_peak_time > 0:
-                time_diff = time.ticks_diff(current_time, _last_peak_time)
+                time_diff = ticks_diff(current_time, _last_peak_time)
                 
                 # Very wide range for BPM (25-240)
                 if 250 < time_diff < 2400:  # 250ms = 240BPM, 2400ms = 25BPM

@@ -2,7 +2,7 @@
 import network  # type: ignore
 import urequests  # type: ignore
 import machine  # type: ignore
-import time
+from time import time, sleep  # type: ignore
 import os
 import gc
 from machine import Pin  # type: ignore
@@ -36,12 +36,12 @@ def _connect_wifi(timeout=15):
     wlan.active(True)
     wlan.connect(WIFI_SSID, WIFI_PASSWORD)
 
-    start = time.time()
+    start = time()
     while not wlan.isconnected():
-        if time.time() - start > timeout:
+        if time() - start > timeout:
             log("ota", "WiFi connection failed")
             return False
-        time.sleep(0.2)
+        sleep(0.2)
 
     log("ota", "WiFi connected")
     return True
@@ -50,12 +50,12 @@ def _connect_wifi(timeout=15):
 
 def _check_button_pressed():
     btn = Pin(UPDATE_BUTTON_PIN, Pin.IN, Pin.PULL_UP)
-    start = time.time()
+    start = time()
 
-    while time.time() - start < UPDATE_HOLD_TIME:
+    while time() - start < UPDATE_HOLD_TIME:
         if btn.value() == 0:  # released
             return False
-        time.sleep(0.05)
+        sleep(0.05)
 
     return True
 
@@ -154,7 +154,7 @@ def check_and_update():
 
     if ok:
         log("ota", "OTA completed, rebooting")
-        time.sleep(1)
+        sleep(1)
         machine.reset()
     else:
         log("ota", "OTA finished with errors")

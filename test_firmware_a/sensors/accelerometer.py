@@ -7,7 +7,6 @@ from config import config
 from core import state
 from core.timers import elapsed
 from debug.debug import log
-import time
 
 _adc_x = None
 _adc_y = None

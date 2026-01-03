@@ -1,4 +1,4 @@
-import time
+from time import ticks_ms  # type: ignore
 
 # Remote logging (optional, for centralized monitoring)
 _remote_log = None
@@ -26,7 +26,7 @@ def log(name, message):
     
     Logs to both serial console and UDP (if remote logging enabled).
     """
-    timestamp = time.ticks_ms()
+    timestamp = ticks_ms()
     log_line = "[{}ms] [{}] {}".format(timestamp, name, message)
     
     # Always print to serial

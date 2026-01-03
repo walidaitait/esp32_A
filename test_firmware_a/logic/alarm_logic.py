@@ -4,13 +4,12 @@ Each sensor can have states: normal, warning, danger (based on configured thresh
 Computes an overall alarm level based on all sensor states.
 Sends commands to ESP32-B to update actuators when alarm level changes.
 """
-import time
+from time import ticks_ms, ticks_diff  # type: ignore
 
 from config import config
 from core import state
 from core.timers import elapsed
 from debug.debug import log
-from comms import command_sender
 
 
 # Internal timers for each monitored sensor
@@ -30,7 +29,7 @@ def _update_alarm_level(kind, is_critical, warning_time, danger_time, recovery_t
         is_critical: instant critical condition (True/False)
         warning_time, danger_time, recovery_time: expressed in milliseconds
     """
-    now = time.ticks_ms()
+    now = ticks_ms()
     timers = _alarm_timers[kind]
 
     level_key = kind + "_level"
@@ -40,7 +39,7 @@ def _update_alarm_level(kind, is_critical, warning_time, danger_time, recovery_t
         timers["normal_start"] = None
         if timers["critical_start"] is None:
             timers["critical_start"] = now
-        dt = time.ticks_diff(now, timers["critical_start"])
+        dt = ticks_diff(now, timers["critical_start"])
 
         if danger_time and dt >= danger_time:
             level = "danger"
@@ -52,7 +51,7 @@ def _update_alarm_level(kind, is_critical, warning_time, danger_time, recovery_t
         timers["critical_start"] = None
         if timers["normal_start"] is None:
             timers["normal_start"] = now
-        dt = time.ticks_diff(now, timers["normal_start"])
+        dt = ticks_diff(now, timers["normal_start"])
 
         if recovery_time and dt >= recovery_time:
             level = "normal"
@@ -98,12 +97,6 @@ def _update_overall_alarm():
                 prev_level, prev_source, level, source
             ),
         )
-        
-        # Send alarm command to ESP32-B to update actuators
-        if command_sender.is_connected():
-            command_sender.send_alarm_command(level, source)
-        else:
-            log("alarm_logic", "WARNING: ESP32-B not connected, cannot send alarm command")
 
 
 def evaluate_logic():

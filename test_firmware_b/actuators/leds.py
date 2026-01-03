@@ -1,5 +1,5 @@
 from machine import Pin  # type: ignore
-import time
+from time import ticks_ms, ticks_diff  # type: ignore
 from core import state
 from debug.debug import log
 
@@ -92,7 +92,7 @@ def set_led_state(
     if name not in _led_pins:
         return
 
-    now = time.ticks_ms()
+    now = ticks_ms()
 
     if mode == "off":
         _led_pins[name].value(0)
@@ -148,6 +148,9 @@ def set_led_state(
         if "led_modes" in state.actuator_state:
             state.actuator_state["led_modes"][name] = "blinking"
         return
+        if "led_modes" in state.actuator_state:
+            state.actuator_state["led_modes"][name] = "blinking"
+        return
 
 
 
@@ -157,7 +160,7 @@ def update_led_test():
     if not _initialized:
         return
 
-    now = time.ticks_ms()
+    now = ticks_ms()
 
     for name, r in _led_runtime.items():
         mode = r["mode"]
@@ -178,7 +181,7 @@ def update_led_test():
         if mode == "blinking":
             total = r["total_duration"]
             if total is not None:
-                if time.ticks_diff(now, r["start_ms"]) >= total:
+                if ticks_diff(now, r["start_ms"]) >= total:
                     # Blinking ended: return to OFF
                     r["mode"] = "off"
                     r["on"] = False
@@ -188,7 +191,7 @@ def update_led_test():
                         state.actuator_state["led_modes"][name] = "off"
                     continue
 
-            cycle_elapsed = time.ticks_diff(now, r["cycle_start_ms"])
+            cycle_elapsed = ticks_diff(now, r["cycle_start_ms"])
             if cycle_elapsed < 0:
                 # Possible counter wrap
                 r["cycle_start_ms"] = now

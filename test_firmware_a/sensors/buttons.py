@@ -3,11 +3,11 @@
 Reads button states with debouncing.
 """
 from machine import Pin  # type: ignore
+from time import sleep_ms  # type: ignore
 from config import config
 from core import state
 from core.timers import elapsed
 from debug.debug import log
-import time
 
 _buttons = {}
 _last_state = {}
@@ -20,7 +20,7 @@ def init_buttons():
             for name, pin in config.BUTTON_PINS.items()
         }
         # Wait for pins to stabilize
-        time.sleep_ms(50)
+        sleep_ms(50)
         
         # Log raw pin values
         log("buttons", "init_buttons: Raw pin values after stabilization")

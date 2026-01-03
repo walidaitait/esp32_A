@@ -2,7 +2,7 @@
 import network  # type: ignore
 import urequests  # type: ignore
 import machine  # type: ignore
-import time
+from time import ticks_ms, ticks_diff, time, sleep  # type: ignore
 import os
 import gc
 from machine import Pin  # type: ignore
@@ -14,9 +14,9 @@ _timers = {}
 
 
 def _elapsed(name, interval_ms):
-    now = time.ticks_ms()
+    now = ticks_ms()
     last = _timers.get(name, 0)
-    if time.ticks_diff(now, last) >= interval_ms:
+    if ticks_diff(now, last) >= interval_ms:
         _timers[name] = now
         return True
     return False
@@ -49,9 +49,9 @@ def _connect_wifi(timeout=15):
     wlan.active(True)
     wlan.connect(WIFI_SSID, WIFI_PASSWORD)
 
-    start = time.time()
+    start = time()
     while not wlan.isconnected():
-        if time.time() - start > timeout:
+        if time() - start > timeout:
             log("ota", "WiFi connection failed")
             return False
         # Use non-blocking wait with local elapsed helper
@@ -65,9 +65,9 @@ def _connect_wifi(timeout=15):
 
 def _check_button_pressed():
     btn = Pin(UPDATE_BUTTON_PIN, Pin.IN, Pin.PULL_UP)
-    start = time.time()
+    start = time()
 
-    while time.time() - start < UPDATE_HOLD_TIME:
+    while time() - start < UPDATE_HOLD_TIME:
         if btn.value() == 0:  # released
             return False
         # Use non-blocking wait with local elapsed helper
@@ -172,7 +172,7 @@ def check_and_update():
 
     if ok:
         log("ota", "OTA completed, rebooting")
-        time.sleep(1)
+        sleep(1)
         machine.reset()
     else:
         log("ota", "OTA finished with errors")

@@ -1,5 +1,5 @@
 from machine import Pin, I2C  # type: ignore
-import time
+from time import sleep_ms, sleep_us  # type: ignore
 from core import state
 from debug.debug import log
 
@@ -22,9 +22,9 @@ def _i2c_write(byte):
 
 def _pulse(byte):
     _i2c_write(byte | _EN)
-    time.sleep_us(1)
+    sleep_us(1)
     _i2c_write(byte & ~_EN)
-    time.sleep_us(50)
+    sleep_us(50)
 
 
 def _send_nibble(nibble, rs):
@@ -48,17 +48,17 @@ def _data(d):
 
 
 def _init_lcd_hw():
-    time.sleep_ms(50)
+    sleep_ms(50)
     _send_nibble(0x30, 0)
-    time.sleep_ms(5)
+    sleep_ms(5)
     _send_nibble(0x30, 0)
-    time.sleep_us(150)
+    sleep_us(150)
     _send_nibble(0x30, 0)
     _send_nibble(0x20, 0)  # 4-bit
     _cmd(0x28)  # 2 lines, 5x8 font
     _cmd(0x08)  # display off
     _cmd(0x01)  # clear
-    time.sleep_ms(2)
+    sleep_ms(2)
     _cmd(0x06)  # entry mode
     _cmd(0x0C)  # display on, no cursor
 
@@ -72,7 +72,7 @@ def clear():
     if not _initialized:
         return
     _cmd(0x01)
-    time.sleep_ms(2)
+    sleep_ms(2)
     # Display default idle text
     write_line(0, DEFAULT_LINE1)
     write_line(1, DEFAULT_LINE2)

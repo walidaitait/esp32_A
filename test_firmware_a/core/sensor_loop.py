@@ -4,15 +4,10 @@ Manages all sensor reads and alarm evaluation in non-blocking fashion.
 """
 
 from core.timers import elapsed
-from core.state import get_state, update_state
-from sensors.temperature import read as read_temperature
-from sensors.co import read as read_co
-from sensors.ultrasonic import read as read_ultrasonic
-from sensors.heart_rate import read as read_heart_rate
-from sensors.buttons import read as read_buttons
-from logic.alarm_logic import evaluate as evaluate_alarm
+from core import state
+from sensors import temperature, co, ultrasonic, heart_rate, buttons
+from logic import alarm_logic
 from debug.debug import log
-from debug.remote_log import broadcast
 
 # Timing constants (milliseconds)
 TEMPERATURE_READ_INTERVAL = 2000  # Read temperature every 2 seconds
@@ -31,11 +26,11 @@ def initialize():
     """Initialize all sensors."""
     try:
         log("sensor", "Initializing sensors...")
-        read_temperature()  # Start temperature conversion (phase 1)
-        read_co()
-        read_ultrasonic()
-        read_heart_rate()
-        read_buttons()
+        temperature.init_temperature()
+        co.init_co()
+        ultrasonic.init_ultrasonic()
+        heart_rate.init_heart_rate()
+        buttons.init_buttons()
         log("sensor", "All sensors initialized")
         return True
     except Exception as e:
@@ -52,23 +47,23 @@ def update():
     try:
         # Read sensors based on their individual intervals
         if elapsed("temp_read", TEMPERATURE_READ_INTERVAL):
-            read_temperature()
+            temperature.read_temperature()
         
         if elapsed("co_read", CO_READ_INTERVAL):
-            read_co()
+            co.read_co()
         
         if elapsed("ultrasonic_read", ULTRASONIC_READ_INTERVAL):
-            read_ultrasonic()
+            ultrasonic.read_ultrasonic()
         
         if elapsed("heart_rate_read", HEART_RATE_READ_INTERVAL):
-            read_heart_rate()
+            heart_rate.read_heart_rate()
         
         if elapsed("button_read", BUTTON_READ_INTERVAL):
-            read_buttons()
+            buttons.read_buttons()
         
         # Evaluate alarm logic
         if elapsed("alarm_eval", ALARM_EVAL_INTERVAL):
-            evaluate_alarm()
+            alarm_logic.evaluate_logic()
         
         # Periodic status logging
         if elapsed("sensor_heartbeat", STATUS_LOG_INTERVAL):
@@ -80,15 +75,13 @@ def update():
 
 def _log_status():
     """Log current sensor system status."""
-    state = get_state()
-    sensor_data = state.get("sensors", {})
-    alarm_level = state.get("alarm", {}).get("level", "UNKNOWN")
+    sensor_data = state.sensor_data
+    alarm_level = state.alarm_state.get("level", "UNKNOWN")
     
     status_msg = "T:{} | CO:{} | HR:{} | ALM:{}".format(
         sensor_data.get("temperature", "N/A"),
-        sensor_data.get("co_level", "N/A"),
-        sensor_data.get("heart_rate", "N/A"),
+        sensor_data.get("co", "N/A"),
+        sensor_data.get("heart_rate", {}).get("bpm", "N/A"),
         alarm_level
     )
     log("sensor", status_msg)
-    broadcast(status_msg)

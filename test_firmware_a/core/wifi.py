@@ -3,8 +3,8 @@
 Handles WiFi initialization and connection verification.
 """
 
-import time
-import network
+from time import time, sleep  # type: ignore
+import network  # type: ignore
 from debug.debug import log
 from config.wifi_config import WIFI_SSID, WIFI_PASSWORD
 
@@ -29,13 +29,13 @@ def init_wifi():
     
     # Blocking wait during init only
     timeout = 15
-    start = time.time()
+    start = time()
     while not _wlan.isconnected():
-        if time.time() - start > timeout:
+        if time() - start > timeout:
             log("wifi", "Connection timeout")
             _initialized = False
             return False
-        time.sleep(0.2)
+        sleep(0.2)
     
     log("wifi", "Connected: {}".format(_wlan.ifconfig()[0]))
     _initialized = True
