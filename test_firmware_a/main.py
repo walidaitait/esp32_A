@@ -18,6 +18,7 @@ ota_update.check_and_update()
 from debug.debug import log, init_remote_logging
 from core import wifi
 from core import sensor_loop
+from communication import espnow_communication
 
 
 def main():
@@ -39,6 +40,14 @@ def main():
     log("main", "Phase 3: Sensor initialization")
     if not sensor_loop.initialize():
         log("main", "WARNING - Some sensors failed to initialize")
+    
+    # Initialize ESP-NOW communication (after WiFi and sensors)
+    log("main", "Phase 4: ESP-NOW communication initialization")
+    if not espnow_communication.init_espnow_comm():
+        log("main", "WARNING - ESP-NOW initialization failed")
+    
+    # Send initial message to Scheda B
+    espnow_communication.send_message("Hello from Scheda A")
 
     log("main", "Initialization complete. Entering main loop.")
 
@@ -48,6 +57,9 @@ def main():
         try:
             # Update all sensors and evaluate alarm logic without blocking
             sensor_loop.update()
+            
+            # Update ESP-NOW communication
+            espnow_communication.update()
             
             # Minimal CPU usage - yield to other tasks
             # The update() function uses elapsed() timers internally

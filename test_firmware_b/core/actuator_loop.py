@@ -29,9 +29,9 @@ def initialize():
         # Configurazione iniziale all'avvio
         log("actuator", "Setting up initial actuator states...")
         
-        # Accendi tutti i LED
+        # Lascia i LED in blinking di default (già impostato in init_leds)
         for led_name in ["green", "blue", "red"]:
-            leds.set_led_state(led_name, "on")
+            leds.set_led_state(led_name, "blinking")
         
         # Servo già impostato a 0° durante init_servo()
         

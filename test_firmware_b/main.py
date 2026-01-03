@@ -21,6 +21,7 @@ ota_update.check_and_update()
 from debug.debug import log, init_remote_logging
 from core import wifi
 from core import actuator_loop
+from communication import espnow_communication
 
 
 def main():
@@ -42,6 +43,11 @@ def main():
     log("main", "Phase 3: Actuator initialization")
     if not actuator_loop.initialize():
         log("main", "WARNING - Some actuators failed to initialize")
+    
+    # Initialize ESP-NOW communication (after WiFi and actuators)
+    log("main", "Phase 4: ESP-NOW communication initialization")
+    if not espnow_communication.init_espnow_comm():
+        log("main", "WARNING - ESP-NOW initialization failed")
 
     log("main", "Initialization complete. Entering main loop.")
 
@@ -51,6 +57,9 @@ def main():
         try:
             # Update all actuators without blocking
             actuator_loop.update()
+            
+            # Update ESP-NOW communication
+            espnow_communication.update()
             
             # Minimal CPU usage - yield to other tasks
             # The update() function uses elapsed() timers internally
