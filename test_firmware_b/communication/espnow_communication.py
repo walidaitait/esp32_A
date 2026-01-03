@@ -11,36 +11,16 @@ MAC Addresses:
 """
 
 import espnow  # type: ignore
-from machine import WiFi  # type: ignore
+import network  # type: ignore
 from debug.debug import log
 
 # MAC addresses
-MAC_B = bytes.fromhex("5C:01:3B:4C:2C:34")  # Self (B)
-MAC_A = bytes.fromhex("5C:01:3B:87:53:10")  # Remote (A)
+MAC_B = bytes.fromhex("5C013B4C2C34")  # Self (B)
+MAC_A = bytes.fromhex("5C013B875310")  # Remote (A)
 
 _esp_now = None
 _initialized = False
-_peers = {}  # Track connected peers
-
-
-def _on_recv(mac, msg):
-    """Callback when message is received from peer."""
-    try:
-        mac_str = ":".join("{:02X}".format(b) for b in mac)
-        msg_str = msg.decode("utf-8", errors="ignore")
-        log("espnow_b", "Message from {}: {}".format(mac_str, msg_str))
-    except Exception as e:
-        log("espnow_b", "Recv error: {}".format(e))
-
-
-def _on_sent(mac, status):
-    """Callback when message is sent to peer."""
-    try:
-        mac_str = ":".join("{:02X}".format(b) for b in mac)
-        status_str = "OK" if status == 0 else "FAIL"
-        log("espnow_b", "Message sent to {}: {}".format(mac_str, status_str))
-    except Exception as e:
-        log("espnow_b", "Sent callback error: {}".format(e))
+_wifi = None
 
 
 def init_espnow_comm():
@@ -48,29 +28,27 @@ def init_espnow_comm():
     
     Server waits for connections from Scheda A (client).
     """
-    global _esp_now, _initialized
+    global _esp_now, _initialized, _wifi
     try:
-        # Get WiFi interface
-        wifi = WiFi.mode(WiFi.AP_STA)
+        # Get WiFi interface in station mode for ESP-NOW
+        _wifi = network.WLAN(network.STA_IF)
+        _wifi.active(True)
         
         # Initialize ESP-NOW
         _esp_now = espnow.ESPNow()
         _esp_now.active(True)
-        _esp_now.config(pmk=b"pmk1234567890ab")  # Shared PMK for all peers
-        
-        # Set MAC address for Scheda B
-        wifi.config(mac=MAC_B)
         
         # Add Scheda A as a peer (client will connect to this)
-        _esp_now.add_peer(MAC_A, channel=0, ifidx=0)
-        _peers[MAC_A] = True
-        
-        # Register callbacks
-        _esp_now.recv_cb(_on_recv)
-        _esp_now.send_cb(_on_sent)
+        _esp_now.add_peer(MAC_A)
         
         _initialized = True
+        
+        # Get actual MAC address
+        actual_mac = _wifi.config('mac')
+        mac_str = ":".join("{:02X}".format(b) for b in actual_mac)
+        
         log("espnow_b", "ESP-NOW initialized (Server mode)")
+        log("espnow_b", "My MAC: {}".format(mac_str))
         log("espnow_b", "Waiting for messages from Scheda A ({})".format(
             ":".join("{:02X}".format(b) for b in MAC_A)
         ))
@@ -87,6 +65,9 @@ def send_message(data):
     
     Args:
         data: String or bytes to send
+    
+    Returns:
+        True if sent successfully, False otherwise
     """
     if not _initialized or _esp_now is None:
         log("espnow_b", "ESP-NOW not initialized")
@@ -113,9 +94,14 @@ def update():
     
     try:
         # Check for new messages (non-blocking with timeout=0)
-        host, msg = _esp_now.irecv(0)
-        if host is not None:
-            # Message received (handled by callback)
-            pass
+        mac, msg = _esp_now.irecv(0)
+        if mac is not None and msg is not None:
+            # Process received message
+            mac_str = ":".join("{:02X}".format(b) for b in mac)
+            try:
+                msg_str = msg.decode("utf-8")
+                log("espnow_b", "RX from {}: {}".format(mac_str, msg_str))
+            except:
+                log("espnow_b", "RX from {}: {} bytes".format(mac_str, len(msg)))
     except Exception as e:
         log("espnow_b", "Update error: {}".format(e))
