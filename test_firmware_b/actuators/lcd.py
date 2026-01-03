@@ -3,6 +3,10 @@ import time
 from core import state
 from debug.debug import log
 
+# Default display text for idle state
+DEFAULT_LINE1 = "System Ready"
+DEFAULT_LINE2 = "Standby..."
+
 _i2c = None
 _addr = None
 _initialized = False
@@ -69,8 +73,11 @@ def clear():
         return
     _cmd(0x01)
     time.sleep_ms(2)
-    state.actuator_state["lcd"]["line1"] = ""
-    state.actuator_state["lcd"]["line2"] = ""
+    # Display default idle text
+    write_line(0, DEFAULT_LINE1)
+    write_line(1, DEFAULT_LINE2)
+    state.actuator_state["lcd"]["line1"] = DEFAULT_LINE1
+    state.actuator_state["lcd"]["line2"] = DEFAULT_LINE2
 
 
 def write_line(line, text):

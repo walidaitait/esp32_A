@@ -5,20 +5,6 @@ thresholds/timings (normal/warning/danger).
 """
 
 # ===============================
-# INTER-DEVICE COMMUNICATION
-# ===============================
-
-# Auto-discovery via UDP beacon - plug and play!
-# No hardcoded MAC or IP needed
-
-# Communication update frequency (ms)
-COMM_UPDATE_INTERVAL_MS = 100
-
-# MAC addresses (bytes) of the devices
-MAC_A_BYTES = b"\x5c\x01\x3b\x87\x53\x10"
-MAC_B_BYTES = b"\x5c\x01\x3b\x5c\x2c\x34"
-
-# ===============================
 # SENSOR PINS
 # ===============================
 
@@ -27,11 +13,6 @@ TEMP_PIN = 4      # GPIO4 - Digital I/O
 
 # Carbon Monoxide sensor (DFRobot, analog)
 CO_PIN = 35       # GPIO35 - ADC1 (input only)
-
-# Accelerometer (DFRobot, analog X Y Z)
-ACC_X_PIN = 32    # GPIO32 - ADC1
-ACC_Y_PIN = 33    # GPIO33 - ADC1
-ACC_Z_PIN = 36    # GPIO36 - ADC1 (input only)
 
 # Buttons (DFRobot digital modules)
 BUTTON_PINS = {
@@ -55,7 +36,6 @@ HEART_RATE_SDA_PIN = 21
 
 TEMP_INTERVAL = 1000       # temperature read interval
 CO_INTERVAL = 1000         # CO read interval
-ACC_INTERVAL = 100         # accelerometer read interval
 BUTTON_INTERVAL = 50       # button scan interval
 HEART_RATE_INTERVAL = 1000 # heart rate read interval
 ULTRASONIC_INTERVAL = 100  # ultrasonic read interval

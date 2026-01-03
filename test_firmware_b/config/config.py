@@ -5,20 +5,6 @@ Here we define pins and general settings for the modules
 (LED, servo, LCD, buzzer, DFPlayer+speaker).
 """
 
-# ===============================
-# INTER-DEVICE COMMUNICATION
-# ===============================
-
-# NOTE: No hardcoded MAC or IP needed!
-# Auto-discovery via UDP beacon - plug and play
-
-# Communication update frequency (ms)
-COMM_UPDATE_INTERVAL_MS = 100
-
-# MAC addresses (bytes)
-MAC_A_BYTES = b"\x5c\x01\x3b\x87\x53\x10"
-MAC_B_BYTES = b"\x5c\x01\x3b\x5c\x2c\x34"
-
 # DFRobot LED modules (DFR0021-G/B/R)
 # Module VCC at 5V, common GND, SIG pin to GPIO at 3.3V logic levels.
 LED_PINS = {

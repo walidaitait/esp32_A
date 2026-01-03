@@ -1,117 +1,64 @@
-"""Connection test main (ESP32-A → ESP32-B via ESP-NOW).
+"""Main loop: sensor reading + alarm logic (independent).
 
-Temporarily disables sensor reads/logic; only ping/ack messages with counters.
+Reads sensors continuously and evaluates alarm logic.
+No communication with B - sensors and logic are standalone.
+
+Architecture:
+- core.wifi: WiFi connection management
+- core.sensor_loop: Non-blocking sensor read and alarm evaluation loop
+- sensors.*: Individual sensor drivers
+- logic.alarm_logic: Alarm evaluation
+- debug.*: UDP logging
 """
 
 # Import OTA first
 import ota_update
 ota_update.check_and_update()
 
-import time
-import network  # type: ignore
-import espnow   # type: ignore
 from debug.debug import log, init_remote_logging
-from config.wifi_config import WIFI_SSID, WIFI_PASSWORD
-from config.config import MAC_A_BYTES, MAC_B_BYTES
-
-
-def ensure_wifi_connected():
-    """Ensure WiFi is connected for communication and remote logging."""
-    wlan = network.WLAN(network.STA_IF)
-    
-    if wlan.isconnected():
-        log("main", "WiFi already connected: {}".format(wlan.ifconfig()[0]))
-        return True
-    
-    log("main", "Connecting to WiFi...")
-    wlan.active(True)
-    wlan.connect(WIFI_SSID, WIFI_PASSWORD)
-    
-    timeout = 15
-    start = time.time()
-    while not wlan.isconnected():
-        if time.time() - start > timeout:
-            log("main", "WiFi connection timeout")
-            return False
-        time.sleep(0.2)
-    
-    log("main", "WiFi connected: {}".format(wlan.ifconfig()[0]))
-    return True
-
-
-def setup_espnow():
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-    try:
-        wlan.config(mac=MAC_A_BYTES)
-    except Exception:
-        pass
-    try:
-        wlan.config(channel=1)
-    except Exception:
-        pass
-
-    esp = espnow.ESPNow()
-    esp.active(True)
-    esp.add_peer(MAC_B_BYTES)
-    return esp
+from core import wifi
+from core import sensor_loop
 
 
 def main():
-    log("main", "main: Boot main loop")
+    """Main entry point for sensor firmware."""
+    log("main", "Starting sensor firmware (A)")
     
-    # Ensure WiFi is connected first
-    log("main", "main: Connecting to WiFi...")
-    if not ensure_wifi_connected():
-        log("main", "main: WARNING - WiFi connection failed, continuing without remote logging")
+    # === INITIALIZATION PHASE (blocking allowed here) ===
     
-    # Initialize remote logging (requires WiFi)
-    log("main", "main: Initializing remote UDP logging...")
-    init_remote_logging('A')  # 'A' for ESP32-A
+    # Connect to WiFi for UDP logging
+    log("main", "Phase 1: WiFi connection")
+    if not wifi.init_wifi():
+        log("main", "WARNING - WiFi connection failed, continuing anyway")
+    
+    # Initialize remote UDP logging
+    log("main", "Phase 2: Remote logging initialization")
+    init_remote_logging('A')
+    
+    # Initialize all sensors
+    log("main", "Phase 3: Sensor initialization")
+    if not sensor_loop.initialize():
+        log("main", "WARNING - Some sensors failed to initialize")
 
-    # ESP-NOW setup for ping/ack
-    esp = setup_espnow()
-    counter = 0
+    log("main", "Initialization complete. Entering main loop.")
 
+    # === MAIN LOOP (non-blocking only) ===
+    
     while True:
         try:
-            # Send numbered ping
-            msg = "PING:{}".format(counter).encode()
-            try:
-                esp.send(MAC_B_BYTES, msg)
-                log("main", "TX -> B {}".format(msg))
-            except Exception as exc:
-                log("main", "TX error: {}".format(exc))
-
-            # Wait for ACK
-            start = time.ticks_ms()
-            got_ack = False
-            while time.ticks_diff(time.ticks_ms(), start) < 2000:
-                try:
-                    mac, data = esp.recv(0)
-                    if mac and data and data.startswith(b"ACK:"):
-                        log("main", "RX ack {} from {}".format(data, mac))
-                        got_ack = True
-                        break
-                except OSError:
-                    pass
-                except Exception as exc:
-                    log("main", "RX error: {}".format(exc))
-                    break
-                time.sleep_ms(50)
-
-            if not got_ack:
-                log("main", "No ACK for {}".format(msg))
-
-            counter += 1
-            time.sleep_ms(1000)
-
+            # Update all sensors and evaluate alarm logic without blocking
+            sensor_loop.update()
+            
+            # Minimal CPU usage - yield to other tasks
+            # The update() function uses elapsed() timers internally
+            # so it's OK to call this very frequently (near-zero overhead)
+            
         except KeyboardInterrupt:
-            log("main", "Loop interrupted by user")
+            log("main", "Firmware stopped by user")
             break
         except Exception as e:
-            log("main", "Exception: {}".format(e))
-            time.sleep_ms(500)
+            log("main", "ERROR in main loop: {}".format(e))
+            # Loop continues, no blocking sleep
 
 
 if __name__ == "__main__":

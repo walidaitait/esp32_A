@@ -2,7 +2,6 @@
 Shared state for actuator firmware (ESP32-B).
 
 Contains the current state of LED modules, servo, LCD, buzzer and DFPlayer.
-Also includes communication state for sensor data from ESP32-A.
 """
 
 actuator_state = {
@@ -31,21 +30,6 @@ actuator_state = {
     "audio": {
         "playing": False,
         "last_cmd": None,
-    },
-}
-
-# Communication state: sensor data received from ESP32-A
-communication_state = {
-    "last_update": None,
-    "sensor_data": {
-        "temperature": None,
-        "co": None,
-        "distance": None,
-        "heart_rate": None,
-        "spo2": None,
-        "alarm_level": None,
-        "alarm_source": None,
-        "timestamp": None,
     },
 }
 
