@@ -76,8 +76,6 @@ def _set_cursor(line, col):
 def clear():
     """Clear LCD and mark for deferred default text display (non-blocking)."""
     global _displaying_custom, _clear_pending, _clear_start
-    if not _initialized:
-        return
     _cmd(0x01)
     _clear_pending = True
     _clear_start = ticks_ms()
@@ -108,7 +106,7 @@ def display_custom(line1, line2):
 def restore_default():
     """Restore default text without full clear (no sleep)."""
     global _displaying_custom
-    if not _initialized or not _displaying_custom:
+    if not _initialized:
         return
     write_line(0, DEFAULT_LINE1)
     write_line(1, DEFAULT_LINE2)
@@ -150,9 +148,10 @@ def init_lcd():
             return False
         _addr = addrs[0]
         _init_lcd_hw()
+        # Mark initialized before issuing clear so guard does not skip it
+        _initialized = True
         clear()
         log("lcd", "LCD 16x2 initialized on I2C addr 0x{:02X}".format(_addr))
-        _initialized = True
         return True
     except Exception as e:
         log("lcd", "Initialization failed: {}".format(e))

@@ -26,7 +26,8 @@ def _angle_to_duty(angle):
 def set_servo_angle(angle):
     """Set servo angle (non-blocking)."""
     global _angle
-    if not _initialized or _pwm is None:
+    # Allow calls during initialization as soon as PWM exists
+    if _pwm is None:
         return
 
     # Limit to allowed range and save
@@ -43,17 +44,18 @@ def set_servo_angle(angle):
 def init_servo():
     global _pwm, _angle, _initialized
     try:
-        servo_pin = 23  # GPIO23
+        servo_pin = config.SERVO_PIN
         pin = Pin(servo_pin, Pin.OUT)
         _pwm = PWM(pin, freq=_PWM_FREQ)
 
         # Start always at 0°
         _angle = 0
 
+        # Mark initialized before first duty set so guard does not block
+        _initialized = True
         set_servo_angle(_angle)
         state.actuator_state["servo"]["moving"] = False
 
-        _initialized = True
         log("servo", "Servo initialized at 0°")
         return True
     except Exception as e:
