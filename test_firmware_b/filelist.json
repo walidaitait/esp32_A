@@ -7,6 +7,8 @@
   "actuators/lcd.py",
   "actuators/leds.py",
   "actuators/servo.py",
+  "communication/__init__.py",
+  "communication/espnow_communication.py",
   "config/__init__.py",
   "config/config.py",
   "config/wifi_config.py",
