@@ -1,6 +1,6 @@
 from machine import Pin, I2C  # type: ignore
-from time import sleep_ms, sleep_us  # type: ignore
-from core import state
+from time import sleep_ms, sleep_us, ticks_ms, ticks_diff  # type: ignore
+from core import state, timers
 from debug.debug import log
 
 # Default display text for idle state
@@ -10,6 +10,9 @@ DEFAULT_LINE2 = "Standby..."
 _i2c = None
 _addr = None
 _initialized = False
+_displaying_custom = False  # Track if custom content is being displayed
+_clear_pending = False  # Track if clear command is waiting for hardware
+_clear_start = 0  # Timestamp when clear was issued
 
 _backlight = 0x08  # BK=1
 _EN = 0x04
@@ -17,6 +20,8 @@ _RS = 0x01
 
 
 def _i2c_write(byte):
+    if _i2c is None:
+        return
     _i2c.writeto(_addr, bytes([byte | _backlight]))
 
 
@@ -69,15 +74,14 @@ def _set_cursor(line, col):
 
 
 def clear():
+    """Clear LCD and mark for deferred default text display (non-blocking)."""
+    global _displaying_custom, _clear_pending, _clear_start
     if not _initialized:
         return
     _cmd(0x01)
-    sleep_ms(2)
-    # Display default idle text
-    write_line(0, DEFAULT_LINE1)
-    write_line(1, DEFAULT_LINE2)
-    state.actuator_state["lcd"]["line1"] = DEFAULT_LINE1
-    state.actuator_state["lcd"]["line2"] = DEFAULT_LINE2
+    _clear_pending = True
+    _clear_start = ticks_ms()
+    _displaying_custom = False
 
 
 def write_line(line, text):
@@ -87,6 +91,43 @@ def write_line(line, text):
     _set_cursor(line, 0)
     for ch in text:
         _data(ord(ch))
+
+
+def display_custom(line1, line2):
+    """Display custom text on LCD and mark as custom content."""
+    global _displaying_custom
+    if not _initialized:
+        return
+    write_line(0, line1)
+    write_line(1, line2)
+    state.actuator_state["lcd"]["line1"] = line1
+    state.actuator_state["lcd"]["line2"] = line2
+    _displaying_custom = True
+
+
+def restore_default():
+    """Restore default text without full clear (no sleep)."""
+    global _displaying_custom
+    if not _initialized or not _displaying_custom:
+        return
+    write_line(0, DEFAULT_LINE1)
+    write_line(1, DEFAULT_LINE2)
+    state.actuator_state["lcd"]["line1"] = DEFAULT_LINE1
+    state.actuator_state["lcd"]["line2"] = DEFAULT_LINE2
+    _displaying_custom = False
+
+
+def _check_clear_complete():
+    """Check if clear command has completed (2ms delay for LCD hardware)."""
+    global _clear_pending
+    if _clear_pending:
+        if ticks_diff(ticks_ms(), _clear_start) >= 2:
+            # Clear completed, display default text
+            write_line(0, DEFAULT_LINE1)
+            write_line(1, DEFAULT_LINE2)
+            state.actuator_state["lcd"]["line1"] = DEFAULT_LINE1
+            state.actuator_state["lcd"]["line2"] = DEFAULT_LINE2
+            _clear_pending = False
 
 
 def init_lcd():
@@ -124,6 +165,12 @@ def init_lcd():
 
 
 def update_lcd_test():
-    """Placeholder for future LCD tests."""
-    pass
+    """Update LCD: handle pending operations and restore default if needed."""
+    if not _initialized:
+        return
+    # Check if clear command has completed
+    _check_clear_complete()
+    # If not displaying custom content and no clear pending, restore default
+    if not _displaying_custom and not _clear_pending:
+        restore_default()
 

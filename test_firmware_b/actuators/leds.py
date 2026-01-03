@@ -48,8 +48,12 @@ def init_leds():
                 "on": False,
             }
 
+        # Enable default blinking if no further instructions are given
         _initialized = True
-        log("leds", "LED modules initialized")
+        for name in _led_order:
+            set_led_state(name, "blinking")
+
+        log("leds", "LED modules initialized (default blinking)")
         return True
     except Exception as e:
         log("leds", "Initialization failed: {}".format(e))
@@ -145,9 +149,6 @@ def set_led_state(
 
         _led_pins[name].value(1)
         state.actuator_state["leds"][name] = True
-        if "led_modes" in state.actuator_state:
-            state.actuator_state["led_modes"][name] = "blinking"
-        return
         if "led_modes" in state.actuator_state:
             state.actuator_state["led_modes"][name] = "blinking"
         return
