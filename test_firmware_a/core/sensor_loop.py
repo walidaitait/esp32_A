@@ -5,8 +5,6 @@ Manages all sensor reads and alarm evaluation in non-blocking fashion.
 
 from core.timers import elapsed
 from core import state
-from sensors import temperature, co, ultrasonic, heart_rate, buttons, accelerometer
-from logic import alarm_logic
 from debug.debug import log
 
 # Timing constants (milliseconds)
@@ -19,12 +17,42 @@ ACCELEROMETER_READ_INTERVAL = 200 # Read accelerometer every 200ms
 ALARM_EVAL_INTERVAL = 500         # Evaluate alarm logic every 500ms
 STATUS_LOG_INTERVAL = 2500        # Log complete status every 2.5 seconds
 
-# Non-blocking state for phase-based reads
-_sensor_state = {}
+# Simulation mode flag
+_simulation_mode = False
+
+# Import sensor modules conditionally
+_sensors_imported = False
+
+
+def _import_sensors():
+    """Import sensor modules (only when not in simulation mode)."""
+    global _sensors_imported
+    if not _sensors_imported:
+        global temperature, co, ultrasonic, heart_rate, buttons, accelerometer, alarm_logic
+        from sensors import temperature, co, ultrasonic, heart_rate, buttons, accelerometer
+        from logic import alarm_logic
+        _sensors_imported = True
+
+
+def set_simulation_mode(enabled):
+    """Enable or disable simulation mode.
+    
+    Args:
+        enabled: True to use simulated sensors, False to use real hardware
+    """
+    global _simulation_mode
+    _simulation_mode = enabled
+    log("sensor", "Simulation mode: {}".format("ENABLED" if enabled else "DISABLED"))
 
 
 def initialize():
     """Initialize all sensors."""
+    if _simulation_mode:
+        log("sensor", "Skipping hardware initialization (simulation mode)")
+        return True
+    
+    _import_sensors()
+    
     try:
         log("sensor", "Initializing sensors...")
         temperature.init_temperature()
@@ -47,7 +75,14 @@ def update():
     to determine when to read without blocking the main loop.
     """
     try:
-        # Read sensors based on their individual intervals
+        # In simulation mode, update simulated values periodically
+        if _simulation_mode:
+            from sensors import simulation
+            if elapsed("simulation_update", 1000):  # Update simulation every 1 second
+                simulation.update_simulated_sensors()
+            return
+        
+        # Real hardware mode - read sensors based on their individual intervals
         if elapsed("temp_read", TEMPERATURE_READ_INTERVAL):
             temperature.read_temperature()
         
@@ -70,9 +105,9 @@ def update():
         if elapsed("alarm_eval", ALARM_EVAL_INTERVAL):
             alarm_logic.evaluate_logic()
         
-        # Periodic status logging
-        if elapsed("sensor_heartbeat", STATUS_LOG_INTERVAL):
-            _log_status()
+        # Periodic status logging - DISABLED
+        # if elapsed("sensor_heartbeat", STATUS_LOG_INTERVAL):
+        #     _log_status()
             
     except Exception as e:
         log("sensor", "Update error: {}".format(e))

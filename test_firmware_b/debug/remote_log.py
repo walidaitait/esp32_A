@@ -5,7 +5,7 @@ Allows viewing logs from both ESP32-A and ESP32-B simultaneously.
 """
 
 import socket
-import network
+import network #type: ignore
 
 # UDP logging configuration
 LOG_SERVER_PORT = 37021  # Port where PC listener is running

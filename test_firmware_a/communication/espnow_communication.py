@@ -12,8 +12,10 @@ MAC Addresses:
 
 import espnow  # type: ignore
 import network  # type: ignore
-from time import ticks_ms, ticks_diff  # type: ignore
+from time import ticks_ms  # type: ignore
 from debug.debug import log
+from core import state
+from core.timers import elapsed
 
 # MAC addresses
 MAC_A = bytes.fromhex("5C013B875310")  # Self (A)
@@ -22,8 +24,25 @@ MAC_B = bytes.fromhex("5C013B4C2C34")  # Remote (B)
 _esp_now = None
 _initialized = False
 _wifi = None
-_last_send_time = 0
-_send_interval = 1000  # Minimum 1 second between sends to B
+_send_interval = 5000  # Send sensor data every 5 seconds
+_state_log_interval = 15000  # Log complete state every 15 seconds
+_message_count = 0
+
+
+def _get_sensor_data_string():
+    """Format all sensor data into a compact string."""
+    hr = state.sensor_data["heart_rate"]
+    data = "SENSORS: Temp={} CO={} HR={} SpO2={} Dist={} Btns={}|{}|{}".format(
+        state.sensor_data.get("temperature", "N/A"),
+        state.sensor_data.get("co", "N/A"),
+        hr.get("bpm", "N/A") if hr else "N/A",
+        hr.get("spo2", "N/A") if hr else "N/A",
+        state.sensor_data.get("ultrasonic_distance_cm", "N/A"),
+        state.button_state.get("b1", False),
+        state.button_state.get("b2", False),
+        state.button_state.get("b3", False)
+    )
+    return data
 
 
 def init_espnow_comm():
@@ -52,7 +71,7 @@ def init_espnow_comm():
         
         log("espnow_a", "ESP-NOW initialized (Client mode)")
         log("espnow_a", "My MAC: {}".format(mac_str))
-        log("espnow_a", "Connected to Scheda B ({})".format(
+        log("espnow_a", "Peer added: Scheda B ({})" .format(
             ":".join("{:02X}".format(b) for b in MAC_B)
         ))
         return True
@@ -72,8 +91,6 @@ def send_message(data):
     Returns:
         True if message was sent, False otherwise
     """
-    global _last_send_time
-    
     if not _initialized or _esp_now is None:
         log("espnow_a", "ESP-NOW not initialized")
         return False
@@ -83,31 +100,120 @@ def send_message(data):
             data = data.encode("utf-8")
         
         _esp_now.send(MAC_B, data)
-        _last_send_time = ticks_ms()
         return True
     except Exception as e:
         log("espnow_a", "Send error: {}".format(e))
         return False
 
 
+def _parse_actuator_state(msg_str):
+    """Parse received actuator state from Board B and update state.
+    
+    Expected format: "ACTUATORS: LEDs=G:on,B:blinking,R:off Servo=90° LCD1='...' LCD2='...' Buzz=OFF Audio=STOP"
+    """
+    try:
+        # Simple parsing - extract key values
+        if "LEDs=G:" in msg_str:
+            parts = msg_str.split("LEDs=G:")[1].split(",B:")
+            state.received_actuator_state["leds"]["green"] = parts[0].strip()
+            
+            parts2 = parts[1].split(",R:")
+            state.received_actuator_state["leds"]["blue"] = parts2[0].strip()
+            state.received_actuator_state["leds"]["red"] = parts2[1].split()[0].strip()
+        
+        if "Servo=" in msg_str:
+            servo_str = msg_str.split("Servo=")[1].split("°")[0].strip()
+            try:
+                state.received_actuator_state["servo_angle"] = int(servo_str) if servo_str != "N/A" else None
+            except:
+                state.received_actuator_state["servo_angle"] = None
+        
+        if "LCD1='" in msg_str:
+            lcd1_str = msg_str.split("LCD1='")[1].split("'")[0]
+            state.received_actuator_state["lcd_line1"] = lcd1_str
+        
+        if "LCD2='" in msg_str:
+            lcd2_str = msg_str.split("LCD2='")[1].split("'")[0]
+            state.received_actuator_state["lcd_line2"] = lcd2_str
+        
+        if "Buzz=" in msg_str:
+            buzz_str = msg_str.split("Buzz=")[1].split()[0].strip()
+            state.received_actuator_state["buzzer"] = buzz_str
+        
+        if "Audio=" in msg_str:
+            audio_str = msg_str.split("Audio=")[1].strip()
+            state.received_actuator_state["audio"] = audio_str
+        
+        state.received_actuator_state["last_update"] = ticks_ms()
+    except Exception as e:
+        log("espnow_a", "Parse error: {}".format(e))
+
+
+def _log_complete_state():
+    """Log complete state including local sensors and received actuators."""
+    log("espnow_a", "=" * 60)
+    log("espnow_a", "COMPLETE STATE SNAPSHOT (Board A)")
+    log("espnow_a", "=" * 60)
+    
+    # Local sensor data (sent to B)
+    hr = state.sensor_data.get("heart_rate", {})
+    log("espnow_a", "LOCAL SENSORS (sent to B):")
+    log("espnow_a", "  Temperature: {}°C".format(state.sensor_data.get("temperature", "N/A")))
+    log("espnow_a", "  CO: {} ppm".format(state.sensor_data.get("co", "N/A")))
+    log("espnow_a", "  Heart Rate: {} bpm, SpO2: {}%".format(
+        hr.get("bpm", "N/A") if hr else "N/A",
+        hr.get("spo2", "N/A") if hr else "N/A"
+    ))
+    log("espnow_a", "  Ultrasonic: {} cm".format(state.sensor_data.get("ultrasonic_distance_cm", "N/A")))
+    log("espnow_a", "  Buttons: B1={}, B2={}, B3={}".format(
+        state.button_state.get("b1", False),
+        state.button_state.get("b2", False),
+        state.button_state.get("b3", False)
+    ))
+    
+    # Received actuator data from B
+    log("espnow_a", "")
+    log("espnow_a", "RECEIVED ACTUATORS (from B):")
+    recv = state.received_actuator_state
+    log("espnow_a", "  LEDs: G={}, B={}, R={}".format(
+        recv["leds"]["green"], recv["leds"]["blue"], recv["leds"]["red"]
+    ))
+    log("espnow_a", "  Servo: {}°".format(recv["servo_angle"] if recv["servo_angle"] is not None else "N/A"))
+    log("espnow_a", "  LCD: '{}' / '{}'".format(recv["lcd_line1"], recv["lcd_line2"]))
+    log("espnow_a", "  Buzzer: {}, Audio: {}".format(recv["buzzer"], recv["audio"]))
+    log("espnow_a", "=" * 60)
+
+
 def update():
     """Non-blocking update for ESP-NOW communication.
     
-    Called periodically from main loop to check for incoming messages.
+    Called periodically from main loop to send sensor data
+    and receive actuator status from B.
     """
+    global _message_count
+    
     if not _initialized or _esp_now is None:
         return
     
     try:
-        # Check for new messages (non-blocking with timeout=0)
+        # Check for incoming messages (actuator status from B)
         mac, msg = _esp_now.irecv(0)
         if mac is not None and msg is not None:
-            # Process received message
-            mac_str = ":".join("{:02X}".format(b) for b in mac)
             try:
                 msg_str = msg.decode("utf-8")
-                log("espnow_a", "RX from {}: {}".format(mac_str, msg_str))
+                log("espnow_a", "[RX] {}".format(msg_str))
+                _parse_actuator_state(msg_str)
             except:
-                log("espnow_a", "RX from {}: {} bytes".format(mac_str, len(msg)))
+                pass
+        
+        # Send sensor data periodically
+        if elapsed("espnow_send", _send_interval):
+            _message_count += 1
+            sensor_data = _get_sensor_data_string()
+            send_message(sensor_data)
+        
+        # Log complete state every 15 seconds
+        if elapsed("espnow_state_log", _state_log_interval):
+            _log_complete_state()
     except Exception as e:
         log("espnow_a", "Update error: {}".format(e))

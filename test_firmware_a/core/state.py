@@ -32,3 +32,18 @@ alarm_state = {
 
 # Last packet ID received from ESP32-B (for future bidirectional comm)
 last_packet_id_received_from_b = -1
+
+# Received actuator state from ESP32-B (updated via ESP-NOW)
+received_actuator_state = {
+    "leds": {
+        "green": "unknown",
+        "blue": "unknown",
+        "red": "unknown",
+    },
+    "servo_angle": None,
+    "lcd_line1": "",
+    "lcd_line2": "",
+    "buzzer": "unknown",
+    "audio": "unknown",
+    "last_update": None,
+}

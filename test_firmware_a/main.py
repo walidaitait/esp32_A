@@ -11,9 +11,14 @@ Architecture:
 - debug.*: UDP logging
 """
 
+
 # Import OTA first
 import ota_update
 ota_update.check_and_update()
+
+# === SIMULATION MODE ===
+# Set to True to use simulated sensor values instead of real hardware
+SIMULATE_SENSORS = True
 
 from debug.debug import log, init_remote_logging
 from core import wifi
@@ -36,10 +41,19 @@ def main():
     log("main", "Phase 2: Remote logging initialization")
     init_remote_logging('A')
     
-    # Initialize all sensors
+    # Initialize all sensors (or simulation mode)
     log("main", "Phase 3: Sensor initialization")
-    if not sensor_loop.initialize():
-        log("main", "WARNING - Some sensors failed to initialize")
+    if SIMULATE_SENSORS:
+        from sensors import simulation
+        log("main", "SIMULATION MODE - Using simulated sensors")
+        if not simulation.init_simulation():
+            log("main", "WARNING - Simulation initialization failed")
+        sensor_loop.set_simulation_mode(True)
+    else:
+        log("main", "HARDWARE MODE - Using real sensors")
+        if not sensor_loop.initialize():
+            log("main", "WARNING - Some sensors failed to initialize")
+        sensor_loop.set_simulation_mode(False)
     
     # Initialize ESP-NOW communication (after WiFi and sensors)
     log("main", "Phase 4: ESP-NOW communication initialization")

@@ -36,3 +36,16 @@ actuator_state = {
 # Packet tracking: survives reboot of A (memory of last packet IDs)
 last_packet_id_from_a = -1  # Last packet ID received from A
 last_packet_id_sent_to_a = -1  # Last packet ID sent to A (if we send back)
+
+# Received sensor state from ESP32-A (updated via ESP-NOW)
+received_sensor_state = {
+    "temperature": None,
+    "co": None,
+    "heart_rate_bpm": None,
+    "heart_rate_spo2": None,
+    "ultrasonic_distance": None,
+    "button_b1": False,
+    "button_b2": False,
+    "button_b3": False,
+    "last_update": None,
+}

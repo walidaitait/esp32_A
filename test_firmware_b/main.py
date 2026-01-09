@@ -14,9 +14,14 @@ Architecture:
 - debug.*: UDP logging
 """
 
+
 # Import OTA first and check for updates BEFORE importing anything else
 import ota_update
 ota_update.check_and_update()
+
+# === SIMULATION MODE ===
+# Set to True to use simulated actuator values instead of real hardware
+SIMULATE_ACTUATORS = True
 
 from debug.debug import log, init_remote_logging
 from core import wifi
@@ -39,10 +44,19 @@ def main():
     log("main", "Phase 2: Remote logging initialization")
     init_remote_logging('B')
     
-    # Initialize all actuators
+    # Initialize all actuators (or simulation mode)
     log("main", "Phase 3: Actuator initialization")
-    if not actuator_loop.initialize():
-        log("main", "WARNING - Some actuators failed to initialize")
+    if SIMULATE_ACTUATORS:
+        from actuators import simulation
+        log("main", "SIMULATION MODE - Using simulated actuators")
+        if not simulation.init_simulation():
+            log("main", "WARNING - Simulation initialization failed")
+        actuator_loop.set_simulation_mode(True)
+    else:
+        log("main", "HARDWARE MODE - Using real actuators")
+        if not actuator_loop.initialize():
+            log("main", "WARNING - Some actuators failed to initialize")
+        actuator_loop.set_simulation_mode(False)
     
     # Initialize ESP-NOW communication (after WiFi and actuators)
     log("main", "Phase 4: ESP-NOW communication initialization")
