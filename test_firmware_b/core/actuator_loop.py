@@ -17,17 +17,12 @@ HEARTBEAT_INTERVAL = 5000      # Log system status every 5 seconds
 # Simulation mode flag
 _simulation_mode = False
 
-# Import actuator modules conditionally
-_actuators_imported = False
-
-
-def _import_actuators():
-    """Import actuator modules (only when not in simulation mode)."""
-    global _actuators_imported
-    if not _actuators_imported:
-        global leds, servo, lcd, buzzer, audio
-        from actuators import leds, servo, lcd, buzzer, audio
-        _actuators_imported = True
+# Import actuator modules at module level
+try:
+    from actuators import leds, servo, lcd, buzzer, audio
+except ImportError as e:
+    log("actuator", "Warning: Failed to import actuators: {}".format(e))
+    leds = servo = lcd = buzzer = audio = None
 
 
 def set_simulation_mode(enabled):
@@ -46,8 +41,6 @@ def initialize():
     if _simulation_mode:
         log("actuator", "Skipping hardware initialization (simulation mode)")
         return True
-    
-    _import_actuators()
     
     try:
         log("actuator", "Initializing actuators...")

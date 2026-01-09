@@ -30,21 +30,36 @@ def init_simulation():
 
 
 def update_simulated_sensors():
-    """Update state with simulated sensor values."""
-    # Update sensor data
-    state.sensor_data["temperature"] = SIMULATED_TEMPERATURE
-    state.sensor_data["co"] = SIMULATED_CO
-    state.sensor_data["heart_rate"] = {
-        "ir": 10000,  # Simulated IR value
-        "red": 9500,  # Simulated RED value
-        "bpm": SIMULATED_HEART_RATE_BPM,
-        "spo2": SIMULATED_HEART_RATE_SPO2,
-        "status": "simulated"
-    }
-    state.sensor_data["ultrasonic_distance_cm"] = SIMULATED_ULTRASONIC_DISTANCE
-    state.sensor_data["ultrasonic_presence"] = SIMULATED_ULTRASONIC_PRESENCE
+    """Update state with simulated sensor values.
     
-    # Update button states
+    NOTE: Only sets default values if they haven't been set by a command.
+    This allows remote commands to override simulation values.
+    """
+    # Update sensor data only if not already set by command
+    # (Check if value differs from current SIMULATED value = it was changed by command)
+    if state.sensor_data.get("temperature") == SIMULATED_TEMPERATURE or state.sensor_data.get("temperature") is None:
+        state.sensor_data["temperature"] = SIMULATED_TEMPERATURE
+    
+    if state.sensor_data.get("co") == SIMULATED_CO or state.sensor_data.get("co") is None:
+        state.sensor_data["co"] = SIMULATED_CO
+    
+    if state.sensor_data.get("ultrasonic_distance_cm") == SIMULATED_ULTRASONIC_DISTANCE or state.sensor_data.get("ultrasonic_distance_cm") is None:
+        state.sensor_data["ultrasonic_distance_cm"] = SIMULATED_ULTRASONIC_DISTANCE
+    
+    # Heart rate - only update if None or hasn't been modified
+    if state.sensor_data.get("heart_rate") is None or state.sensor_data.get("heart_rate", {}).get("status") != "simulated":
+        state.sensor_data["heart_rate"] = {
+            "ir": 10000,  # Simulated IR value
+            "red": 9500,  # Simulated RED value
+            "bpm": SIMULATED_HEART_RATE_BPM,
+            "spo2": SIMULATED_HEART_RATE_SPO2,
+            "status": "simulated"
+        }
+    
+    if state.sensor_data.get("ultrasonic_presence") is None:
+        state.sensor_data["ultrasonic_presence"] = SIMULATED_ULTRASONIC_PRESENCE
+    
+    # Update button states (these should not be changed by commands)
     state.button_state["b1"] = SIMULATED_BUTTON_B1
     state.button_state["b2"] = SIMULATED_BUTTON_B2
     state.button_state["b3"] = SIMULATED_BUTTON_B3
