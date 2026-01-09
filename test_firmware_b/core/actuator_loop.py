@@ -3,6 +3,7 @@
 Manages all actuator updates in non-blocking fashion using elapsed() timers.
 """
 
+from typing import Any
 from core.timers import elapsed
 from core import state
 from debug.debug import log
@@ -17,12 +18,13 @@ HEARTBEAT_INTERVAL = 5000      # Log system status every 5 seconds
 # Simulation mode flag
 _simulation_mode = False
 
-# Import actuator modules at module level
-try:
-    from actuators import leds, servo, lcd, buzzer, audio
-except ImportError as e:
-    log("actuator", "Warning: Failed to import actuators: {}".format(e))
-    leds = servo = lcd = buzzer = audio = None
+# Import actuator modules at module level (only when not in simulation)
+# These will be imported lazily when needed
+leds: Any = None
+servo: Any = None
+lcd: Any = None
+buzzer: Any = None
+audio: Any = None
 
 
 def set_simulation_mode(enabled):
@@ -42,7 +44,22 @@ def initialize():
         log("actuator", "Skipping hardware initialization (simulation mode)")
         return True
     
+    global leds, servo, lcd, buzzer, audio
+    
     try:
+        # Import actuator modules in hardware mode
+        from actuators import leds as leds_module
+        from actuators import servo as servo_module
+        from actuators import lcd as lcd_module
+        from actuators import buzzer as buzzer_module
+        from actuators import audio as audio_module
+        
+        leds = leds_module
+        servo = servo_module
+        lcd = lcd_module
+        buzzer = buzzer_module
+        audio = audio_module
+        
         log("actuator", "Initializing actuators...")
         leds.init_leds()
         servo.init_servo()
@@ -69,7 +86,14 @@ def initialize():
 
 
 def update():
-    """NonIn simulation mode, update simulated values periodically
+    """Non-blocking update of all actuators.
+    
+    Called repeatedly from main loop. Uses elapsed() timers to determine
+    when each actuator needs an update without blocking.
+    In simulation mode, update simulated values periodically.
+    """
+    try:
+        # In simulation mode, update simulated values periodically
         if _simulation_mode:
             from actuators import simulation
             if elapsed("simulation_update", 1000):  # Update simulation every 1 second
@@ -77,12 +101,10 @@ def update():
             return
         
         # Real hardware mode - update actuators
-        # -blocking update of all actuators.
-    
-    Called repeatedly from main loop. Uses elapsed() timers to determine
-    when each actuator needs an update without blocking.
-    """
-    try:
+        # Only update if modules are loaded (shouldn't happen if initialize() was called)
+        if leds is None:
+            return
+        
         # Update LED blinking states
         if elapsed("led_update", LED_UPDATE_INTERVAL):
             leds.update_led_test()

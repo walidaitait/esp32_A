@@ -3,6 +3,7 @@
 Manages all sensor reads and alarm evaluation in non-blocking fashion.
 """
 
+from typing import Any
 from core.timers import elapsed
 from core import state
 from debug.debug import log
@@ -20,18 +21,15 @@ STATUS_LOG_INTERVAL = 2500        # Log complete status every 2.5 seconds
 # Simulation mode flag
 _simulation_mode = False
 
-# Import sensor modules conditionally
-_sensors_imported = False
-
-
-def _import_sensors():
-    """Import sensor modules (only when not in simulation mode)."""
-    global _sensors_imported
-    if not _sensors_imported:
-        global temperature, co, ultrasonic, heart_rate, buttons, accelerometer, alarm_logic
-        from sensors import temperature, co, ultrasonic, heart_rate, buttons, accelerometer
-        from logic import alarm_logic
-        _sensors_imported = True
+# Import sensor modules conditionally (only when not in simulation)
+# These will be imported lazily when needed
+temperature: Any = None
+co: Any = None
+ultrasonic: Any = None
+heart_rate: Any = None
+buttons: Any = None
+accelerometer: Any = None
+alarm_logic: Any = None
 
 
 def set_simulation_mode(enabled):
@@ -51,9 +49,26 @@ def initialize():
         log("sensor", "Skipping hardware initialization (simulation mode)")
         return True
     
-    _import_sensors()
+    global temperature, co, ultrasonic, heart_rate, buttons, accelerometer, alarm_logic
     
     try:
+        # Import sensor modules in hardware mode
+        from sensors import temperature as temp_module
+        from sensors import co as co_module
+        from sensors import ultrasonic as ultrasonic_module
+        from sensors import heart_rate as heart_rate_module
+        from sensors import buttons as buttons_module
+        from sensors import accelerometer as accelerometer_module
+        from logic import alarm_logic as alarm_logic_module
+        
+        temperature = temp_module
+        co = co_module
+        ultrasonic = ultrasonic_module
+        heart_rate = heart_rate_module
+        buttons = buttons_module
+        accelerometer = accelerometer_module
+        alarm_logic = alarm_logic_module
+        
         log("sensor", "Initializing sensors...")
         temperature.init_temperature()
         co.init_co()
@@ -83,6 +98,10 @@ def update():
             return
         
         # Real hardware mode - read sensors based on their individual intervals
+        # Only read if modules are loaded (shouldn't happen if initialize() was called)
+        if temperature is None:
+            return
+        
         if elapsed("temp_read", TEMPERATURE_READ_INTERVAL):
             temperature.read_temperature()
         
