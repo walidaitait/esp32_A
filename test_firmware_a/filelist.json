@@ -3,6 +3,8 @@
   "ota_update.py",
   "communication/__init__.py",
   "communication/espnow_communication.py",
+  "communication/command_handler.py",
+  "communication/udp_commands.py",
   "config/__init__.py",
   "config/config.py",
   "core/__init__.py",

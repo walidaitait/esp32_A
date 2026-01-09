@@ -24,6 +24,7 @@ from debug.debug import log, init_remote_logging
 from core import wifi
 from core import sensor_loop
 from communication import espnow_communication
+from communication import udp_commands
 
 
 def main():
@@ -60,6 +61,11 @@ def main():
     if not espnow_communication.init_espnow_comm():
         log("main", "WARNING - ESP-NOW initialization failed")
     
+    # Initialize UDP command listener (after WiFi)
+    log("main", "Phase 5: UDP command listener initialization")
+    if not udp_commands.init():
+        log("main", "WARNING - UDP command listener failed")
+    
     # Send initial message to Scheda B
     espnow_communication.send_message("Hello from Scheda A")
 
@@ -74,6 +80,9 @@ def main():
             
             # Update ESP-NOW communication
             espnow_communication.update()
+            
+            # Check for incoming UDP commands
+            udp_commands.update()
             
             # Minimal CPU usage - yield to other tasks
             # The update() function uses elapsed() timers internally

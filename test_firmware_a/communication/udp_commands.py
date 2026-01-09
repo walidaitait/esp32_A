@@ -1,0 +1,126 @@
+"""UDP command listener for ESP32-A.
+
+Listens for incoming UDP commands and passes them to command_handler.
+Uses non-blocking sockets to integrate with main loop.
+
+Protocol: JSON messages
+{
+    "target": "A",
+    "command": "simulate",
+    "args": ["temperature", "25.5"]
+}
+"""
+
+import socket
+import json
+from debug.debug import log
+from communication import command_handler
+
+# Configuration
+UDP_COMMAND_PORT = 37022  # Port to listen for commands
+_socket = None
+_initialized = False
+
+
+def init():
+    """Initialize UDP command listener (non-blocking socket)."""
+    global _socket, _initialized
+    
+    try:
+        _socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        _socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        _socket.bind(('', UDP_COMMAND_PORT))
+        _socket.setblocking(False)  # Non-blocking for integration with main loop
+        
+        _initialized = True
+        log("udp_cmd", "UDP command listener started on port {}".format(UDP_COMMAND_PORT))
+        return True
+    
+    except Exception as e:
+        log("udp_cmd", "Init failed: {}".format(e))
+        _initialized = False
+        return False
+
+
+def update():
+    """Check for incoming commands (non-blocking).
+    
+    Should be called repeatedly from main loop.
+    """
+    if not _initialized or not _socket:
+        return
+    
+    try:
+        # Try to receive data (non-blocking)
+        data, addr = _socket.recvfrom(1024)
+        
+        if not data:
+            return
+        
+        # Decode and parse JSON
+        try:
+            message = data.decode('utf-8')
+            cmd_data = json.loads(message)
+            
+            # Validate message structure
+            if not isinstance(cmd_data, dict):
+                log("udp_cmd", "Invalid message format (not a dict)")
+                return
+            
+            # Check if this command is for us (target A)
+            target = cmd_data.get("target", "").upper()
+            if target != "A":
+                # Not for us, ignore
+                return
+            
+            command = cmd_data.get("command", "")
+            args = cmd_data.get("args", [])
+            
+            if not command:
+                log("udp_cmd", "No command in message")
+                return
+            
+            log("udp_cmd", "Received: {} {}".format(command, args))
+            
+            # Handle command
+            response = command_handler.handle_command(command, args)
+            
+            # Log response
+            if response.get("success"):
+                log("udp_cmd", "OK: {}".format(response.get("message")))
+            else:
+                log("udp_cmd", "ERROR: {}".format(response.get("message")))
+            
+            # Optionally send response back to sender
+            _send_response(addr, response)
+        
+        except json.JSONDecodeError as e:
+            log("udp_cmd", "JSON decode error: {}".format(e))
+        except Exception as e:
+            log("udp_cmd", "Error processing command: {}".format(e))
+    
+    except OSError as e:
+        # No data available (EAGAIN/EWOULDBLOCK) - this is normal for non-blocking
+        if e.args[0] not in (11, 10035):  # EAGAIN (Unix) or WSAEWOULDBLOCK (Windows)
+            log("udp_cmd", "Socket error: {}".format(e))
+
+
+def _send_response(addr, response):
+    """Send response back to command sender.
+    
+    Args:
+        addr: Address tuple (ip, port) of sender
+        response: Response dict from command_handler
+    """
+    try:
+        if _socket is None:
+            return
+        response_json = json.dumps(response)
+        _socket.sendto(response_json.encode('utf-8'), addr)
+    except Exception as e:
+        log("udp_cmd", "Failed to send response: {}".format(e))
+
+
+def is_initialized():
+    """Check if UDP command listener is initialized."""
+    return _initialized
