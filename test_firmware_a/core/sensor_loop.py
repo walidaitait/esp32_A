@@ -3,7 +3,6 @@
 Manages all sensor reads and alarm evaluation in non-blocking fashion.
 """
 
-from typing import Any
 from core.timers import elapsed
 from core import state
 from debug.debug import log
@@ -23,13 +22,13 @@ _simulation_mode = False
 
 # Import sensor modules conditionally (only when not in simulation)
 # These will be imported lazily when needed
-temperature: Any = None
-co: Any = None
-ultrasonic: Any = None
-heart_rate: Any = None
-buttons: Any = None
-accelerometer: Any = None
-alarm_logic: Any = None
+temperature = None
+co = None
+ultrasonic = None
+heart_rate = None
+buttons = None
+accelerometer = None
+alarm_logic = None
 
 
 def set_simulation_mode(enabled):

@@ -12,7 +12,10 @@ Protocol: JSON messages
 """
 
 import socket
-import json
+try:
+    import ujson as json  # type: ignore  # MicroPython
+except ImportError:
+    import json  # Fallback
 from debug.debug import log
 from communication import command_handler
 

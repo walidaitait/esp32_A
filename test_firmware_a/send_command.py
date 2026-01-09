@@ -30,7 +30,10 @@ Configuration:
 """
 
 import socket
-import json
+try:
+    import ujson as json  # MicroPython
+except ImportError:
+    import json  # Standard Python
 import sys
 
 

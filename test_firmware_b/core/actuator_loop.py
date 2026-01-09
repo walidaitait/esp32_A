@@ -3,7 +3,6 @@
 Manages all actuator updates in non-blocking fashion using elapsed() timers.
 """
 
-from typing import Any
 from core.timers import elapsed
 from core import state
 from debug.debug import log
@@ -20,11 +19,11 @@ _simulation_mode = False
 
 # Import actuator modules at module level (only when not in simulation)
 # These will be imported lazily when needed
-leds: Any = None
-servo: Any = None
-lcd: Any = None
-buzzer: Any = None
-audio: Any = None
+leds = None
+servo = None
+lcd = None
+buzzer = None
+audio = None
 
 
 def set_simulation_mode(enabled):
@@ -107,19 +106,19 @@ def update():
         
         # Update LED blinking states
         if elapsed("led_update", LED_UPDATE_INTERVAL):
-            leds.update_led_test()
+            leds.update_led_test()  # type: ignore
         
         # Update servo position
         if elapsed("servo_update", SERVO_UPDATE_INTERVAL):
-            servo.update_servo_test()
+            servo.update_servo_test()  # type: ignore
         
         # Update LCD display
         if elapsed("lcd_update", LCD_UPDATE_INTERVAL):
-            lcd.update_lcd_test()
+            lcd.update_lcd_test()  # type: ignore
         
         # Update audio playback status
         if elapsed("audio_update", AUDIO_UPDATE_INTERVAL):
-            audio.update_audio_test()
+            audio.update_audio_test()  # type: ignore
         
         # Periodic heartbeat for system status - DISABLED
         # if elapsed("actuator_heartbeat", HEARTBEAT_INTERVAL):

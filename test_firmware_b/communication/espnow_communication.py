@@ -65,7 +65,10 @@ def init_espnow_comm():
         _initialized = True
         
         # Get actual MAC address
-        actual_mac = _wifi.config('mac')
+        try:
+            actual_mac = _wifi.config('mac')
+        except (AttributeError, OSError):
+            actual_mac = MAC_B  # Fallback to configured MAC
         mac_str = ":".join("{:02X}".format(b) for b in actual_mac)
         
         log("espnow_b", "ESP-NOW initialized (Server mode)")
