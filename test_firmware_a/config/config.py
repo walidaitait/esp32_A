@@ -29,10 +29,16 @@ def _load_config():
 _load_config()
 
 # ===============================
+# FIRMWARE VERSION
+# ===============================
+
+FIRMWARE_VERSION = _config.get('firmware_version', 1)
+
+# ===============================
 # SIMULATION MODE
 # ===============================
 
-SIMULATE_SENSORS = _config.get('simulate_sensors', True)
+SIMULATE_SENSORS = _config.get('simulate_sensors', False)
 
 # ===============================
 # SENSOR ENABLED FLAGS

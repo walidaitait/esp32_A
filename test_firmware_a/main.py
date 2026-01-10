@@ -51,11 +51,13 @@ def main():
         if not simulation.init_simulation():
             log("main", "WARNING - Simulation initialization failed")
         sensor_loop.set_simulation_mode(True)
+        state.simulation_mode = True
     else:
         log("main", "HARDWARE MODE - Using real sensors")
         if not sensor_loop.initialize():
             log("main", "WARNING - Some sensors failed to initialize")
         sensor_loop.set_simulation_mode(False)
+        state.simulation_mode = False
     
     # Initialize ESP-NOW communication (after WiFi and sensors)
     log("main", "Phase 4: ESP-NOW communication initialization")

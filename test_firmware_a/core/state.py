@@ -53,3 +53,6 @@ system_control = {
     "ota_update_requested": False,
     "reboot_requested": False,
 }
+
+# Simulation mode tracking
+simulation_mode = False

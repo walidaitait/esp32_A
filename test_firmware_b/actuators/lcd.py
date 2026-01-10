@@ -87,7 +87,7 @@ def write_line(line, text):
         return
     text = text[:16]
     # Pad with spaces to clear the entire 16-character line
-    text = text.ljust(16)
+    text = text + ' ' * (16 - len(text))
     _set_cursor(line, 0)
     for ch in text:
         _data(ord(ch))

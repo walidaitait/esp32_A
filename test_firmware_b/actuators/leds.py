@@ -48,12 +48,13 @@ def init_leds():
                 "on": False,
             }
 
-        # Enable default blinking if no further instructions are given
+        # Initialize LED states: green always ON, blue and red OFF
         _initialized = True
-        for name in _led_order:
-            set_led_state(name, "blinking")
+        set_led_state("green", "on")      # Green always ON
+        set_led_state("blue", "off")      # Blue OFF by default
+        set_led_state("red", "off")       # Red OFF by default
 
-        log("leds", "LED modules initialized (default blinking)")
+        log("leds", "LED modules initialized (Green=ON, Blue=OFF, Red=OFF)")
         return True
     except Exception as e:
         log("leds", "Initialization failed: {}".format(e))

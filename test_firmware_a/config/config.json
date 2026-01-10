@@ -1,5 +1,6 @@
 {
-  "simulate_sensors": true,
+  "firmware_version": 1,
+  "simulate_sensors": false,
   "ota_update_pending": true,
   "ota_button_enabled": false,
   "sensors": {

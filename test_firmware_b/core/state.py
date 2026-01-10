@@ -31,6 +31,7 @@ actuator_state = {
         "playing": False,
         "last_cmd": None,
     },
+    "simulation_mode": False,
 }
 
 # Packet tracking: survives reboot of A (memory of last packet IDs)

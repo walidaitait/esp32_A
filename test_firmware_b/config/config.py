@@ -29,10 +29,16 @@ def _load_config():
 _load_config()
 
 # ===============================
+# FIRMWARE VERSION
+# ===============================
+
+FIRMWARE_VERSION = _config.get('firmware_version', 1)
+
+# ===============================
 # SIMULATION MODE
 # ===============================
 
-SIMULATE_ACTUATORS = _config.get('simulate_actuators', True)
+SIMULATE_ACTUATORS = _config.get('simulate_actuators', False)
 
 # ===============================
 # ACTUATOR ENABLED FLAGS

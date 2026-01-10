@@ -6,6 +6,7 @@ Manages all actuator updates in non-blocking fashion using elapsed() timers.
 from core.timers import elapsed
 from core import state
 from debug.debug import log
+from time import ticks_ms, ticks_diff
 
 # Timing constants (milliseconds)
 LED_UPDATE_INTERVAL = 50       # Update LED blinking state every 50ms
@@ -13,9 +14,14 @@ SERVO_UPDATE_INTERVAL = 100    # Update servo position every 100ms
 LCD_UPDATE_INTERVAL = 500      # Update LCD display every 500ms
 AUDIO_UPDATE_INTERVAL = 100    # Check audio playback status every 100ms
 HEARTBEAT_INTERVAL = 5000      # Log system status every 5 seconds
+ESPNOW_TIMEOUT = 10000         # ESP-NOW connection timeout (10 seconds)
 
 # Simulation mode flag
 _simulation_mode = False
+
+# ESP-NOW connection tracking
+_last_espnow_message = 0
+_espnow_connected = False
 
 # Import actuator modules at module level (only when not in simulation)
 # These will be imported lazily when needed
@@ -35,6 +41,32 @@ def set_simulation_mode(enabled):
     global _simulation_mode
     _simulation_mode = enabled
     log("actuator", "Simulation mode: {}".format("ENABLED" if enabled else "DISABLED"))
+
+
+def set_espnow_connected(connected):
+    """Update ESP-NOW connection status.
+    
+    Called by ESP-NOW module when receiving messages.
+    """
+    global _last_espnow_message, _espnow_connected
+    _last_espnow_message = ticks_ms()
+    _espnow_connected = connected
+
+
+def _check_espnow_status():
+    """Check if ESP-NOW connection is still active (timeout check)."""
+    global _espnow_connected
+    
+    if _last_espnow_message > 0:
+        elapsed_time = ticks_diff(ticks_ms(), _last_espnow_message)
+        if elapsed_time > ESPNOW_TIMEOUT:
+            _espnow_connected = False
+        else:
+            _espnow_connected = True
+    else:
+        _espnow_connected = False
+    
+    return _espnow_connected
 
 
 def initialize():
@@ -94,10 +126,11 @@ def initialize():
         # Configurazione iniziale all'avvio (solo per componenti abilitati)
         log("actuator", "Setting up initial actuator states...")
         
-        # Lascia i LED in blinking di default (già impostato in init_leds)
+        # LEDs: Green always ON, Blue OFF (will blink only with ESP-NOW), Red OFF
         if config.LEDS_ENABLED and leds:
-            for led_name in ["green", "blue", "red"]:
-                leds.set_led_state(led_name, "blinking")
+            leds.set_led_state("green", "on")
+            leds.set_led_state("blue", "off")
+            leds.set_led_state("red", "off")
         
         # Servo già impostato a 0° durante init_servo()
         # LCD già con testo di default durante init_lcd()
@@ -126,6 +159,16 @@ def update():
         
         # Real hardware mode - update actuators (only enabled ones)
         from config import config
+        
+        # Check ESP-NOW connection status and update blue LED accordingly
+        if config.LEDS_ENABLED and leds is not None:
+            espnow_connected = _check_espnow_status()
+            if espnow_connected:
+                # ESP-NOW connected: Blue LED blinking
+                leds.set_led_state("blue", "blinking")
+            else:
+                # ESP-NOW disconnected: Blue LED OFF
+                leds.set_led_state("blue", "off")
         
         # Update LED blinking states
         if config.LEDS_ENABLED and leds is not None:

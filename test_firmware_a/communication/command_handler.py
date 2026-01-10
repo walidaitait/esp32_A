@@ -190,6 +190,7 @@ def _handle_status(args):
     
     status_info = {
         "wifi": "connected" if wifi.is_connected() else "disconnected",
+        "simulation_mode": state.simulation_mode,
         "alarm_level": state.alarm_state["level"],
         "alarm_source": state.alarm_state["source"],
         "temperature": state.sensor_data.get("temperature"),

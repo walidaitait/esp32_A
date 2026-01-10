@@ -16,6 +16,7 @@ from time import ticks_ms  # type: ignore
 from debug.debug import log
 from core import state
 from core.timers import elapsed
+from config import config
 
 # MAC addresses
 MAC_A = bytes.fromhex("5C013B875310")  # Self (A)
@@ -27,12 +28,14 @@ _wifi = None
 _send_interval = 5000  # Send sensor data every 5 seconds
 _state_log_interval = 15000  # Log complete state every 15 seconds
 _message_count = 0
+_version_mismatch_logged = False  # Prevent log spam
 
 
 def _get_sensor_data_string():
     """Format all sensor data into a compact string."""
     hr = state.sensor_data["heart_rate"]
-    data = "SENSORS: Temp={} CO={} HR={} SpO2={} Dist={} Btns={}|{}|{}".format(
+    data = "V:{} SENSORS: Temp={} CO={} HR={} SpO2={} Dist={} Btns={}|{}|{}".format(
+        config.FIRMWARE_VERSION,
         state.sensor_data.get("temperature", "N/A"),
         state.sensor_data.get("co", "N/A"),
         hr.get("bpm", "N/A") if hr else "N/A",
@@ -112,9 +115,27 @@ def send_message(data):
 def _parse_actuator_state(msg_str):
     """Parse received actuator state from Board B and update state.
     
-    Expected format: "ACTUATORS: LEDs=G:on,B:blinking,R:off Servo=90° LCD1='...' LCD2='...' Buzz=OFF Audio=STOP"
+    Expected format: "V:1 ACTUATORS: LEDs=G:on,B:blinking,R:off Servo=90° LCD1='...' LCD2='...' Buzz=OFF Audio=STOP"
     """
     try:
+        # Check version first
+        if "V:" in msg_str:
+            version_str = msg_str.split("V:")[1].split()[0].strip()
+            try:
+                remote_version = int(version_str)
+                if remote_version != config.FIRMWARE_VERSION:
+                    global _version_mismatch_logged
+                    if not _version_mismatch_logged:
+                        log("espnow_a", "ERROR: Firmware version mismatch! Local=v{}, Remote=v{}".format(
+                            config.FIRMWARE_VERSION, remote_version
+                        ))
+                        _version_mismatch_logged = True
+                    return  # Ignore message due to version mismatch
+                else:
+                    _version_mismatch_logged = False  # Reset flag when versions match
+            except:
+                pass
+        
         # Simple parsing - extract key values
         if "LEDs=G:" in msg_str:
             parts = msg_str.split("LEDs=G:")[1].split(",B:")
@@ -204,7 +225,8 @@ def update():
         if mac is not None and msg is not None:
             try:
                 msg_str = msg.decode("utf-8")
-                log("espnow_a", "[RX] {}".format(msg_str))
+                # Log disabled - uncomment for debugging
+                # log("espnow_a", "[RX] {}".format(msg_str))
                 _parse_actuator_state(msg_str)
             except:
                 pass

@@ -54,11 +54,13 @@ def main():
         if not simulation.init_simulation():
             log("main", "WARNING - Simulation initialization failed")
         actuator_loop.set_simulation_mode(True)
+        state.actuator_state["simulation_mode"] = True
     else:
         log("main", "HARDWARE MODE - Using real actuators")
         if not actuator_loop.initialize():
             log("main", "WARNING - Some actuators failed to initialize")
         actuator_loop.set_simulation_mode(False)
+        state.actuator_state["simulation_mode"] = False
     
     # Initialize ESP-NOW communication (after WiFi and actuators)
     log("main", "Phase 4: ESP-NOW communication initialization")
