@@ -29,6 +29,7 @@ _consecutive_timeouts = 0
 _trigger_time_ms = 0  # Tempo di inizio della misurazione
 _timeout_log_counter = 0
 _distance_log_counter = 0
+_last_good_distance_cm = None
 
 
 def init_ultrasonic():
@@ -66,6 +67,38 @@ def _echo_interrupt(pin):
             _measurement_pending = False
 
 
+def _blocking_single_read(timeout_us=30000):
+    """One-shot blocking read used as fallback when interrupts miss echoes."""
+    global _trig, _echo
+    try:
+        _trig.value(0)
+        sleep_us(2)
+        _trig.value(1)
+        sleep_us(15)
+        _trig.value(0)
+
+        duration = time_pulse_us(_echo, 1, timeout_us)
+        if duration <= 0:
+            return None
+
+        distance_cm = duration * SPEED_OF_SOUND_CM_US
+        if 2 <= distance_cm <= 400:
+            return distance_cm
+    except Exception as e:
+        log("ultrasonic", "blocking read error: {}".format(e))
+    return None
+
+
+def _smooth_distance(raw_distance):
+    """Light smoothing: blend with last good value to reduce jitter."""
+    global _last_good_distance_cm
+    if _last_good_distance_cm is None:
+        _last_good_distance_cm = raw_distance
+    else:
+        _last_good_distance_cm = (_last_good_distance_cm * 0.7) + (raw_distance * 0.3)
+    return round(_last_good_distance_cm, 2)
+
+
 def read_ultrasonic():
     global _last_read_ms, _measurement_pending, _measurement_ready, _echo_duration
     global _measurement_count, _failed_measurements, _trigger_time_ms
@@ -88,13 +121,21 @@ def read_ultrasonic():
             _measurement_pending = False
             _failed_measurements += 1
             _consecutive_timeouts += 1
-            state.sensor_data["ultrasonic_distance_cm"] = None
-            # Non-blocking policy: do not run blocking diagnostics automatically
+            # Try a simple blocking read after a few consecutive misses to keep data flowing
             if _consecutive_timeouts >= 3:
-                # Keep note of repeated timeouts; next successful read will reset this counter
+                fallback = _blocking_single_read()
                 _consecutive_timeouts = 0
-                _timeout_log_counter += 1
-                log("ultrasonic", "timeout series {} (failed total {})".format(_timeout_log_counter, _failed_measurements))
+                if fallback is not None:
+                    blended = _smooth_distance(fallback)
+                    state.sensor_data["ultrasonic_distance_cm"] = blended
+                    _distance_log_counter += 1
+                    log("ultrasonic", "fallback dist {:.2f} cm (failed total {})".format(blended, _failed_measurements))
+                else:
+                    state.sensor_data["ultrasonic_distance_cm"] = _last_good_distance_cm
+                    _timeout_log_counter += 1
+                    log("ultrasonic", "timeout series {} (failed total {})".format(_timeout_log_counter, _failed_measurements))
+            else:
+                state.sensor_data["ultrasonic_distance_cm"] = _last_good_distance_cm
         return
 
     if _measurement_ready:
@@ -108,19 +149,20 @@ def read_ultrasonic():
             
             # Filter out of range measurements (HC-SR04: 2cm - 400cm)
             if 2 <= distance_cm <= 400:
-                state.sensor_data["ultrasonic_distance_cm"] = round(distance_cm, 2)
+                blended = _smooth_distance(distance_cm)
+                state.sensor_data["ultrasonic_distance_cm"] = blended
                 _consecutive_timeouts = 0
                 # log("ultrasonic", f"✓ Distance: {distance_cm:.2f} cm (duration: {duration}µs)")
                 _distance_log_counter += 1
                 if _distance_log_counter % 10 == 0:
-                    log("ultrasonic", "ok dist {:.2f} cm dur {}us (count {}, failed {})".format(distance_cm, duration, _measurement_count, _failed_measurements))
+                    log("ultrasonic", "ok dist {:.2f} cm dur {}us (count {}, failed {})".format(blended, duration, _measurement_count, _failed_measurements))
             else:
                 # log("ultrasonic", f"⚠️  Out of range: {distance_cm:.2f} cm")
-                state.sensor_data["ultrasonic_distance_cm"] = None
+                state.sensor_data["ultrasonic_distance_cm"] = _last_good_distance_cm
                 _failed_measurements += 1
         else:
             # log("ultrasonic", "⚠️  Invalid duration (0)")
-            state.sensor_data["ultrasonic_distance_cm"] = None
+            state.sensor_data["ultrasonic_distance_cm"] = _last_good_distance_cm
             _failed_measurements += 1
         
         # Log statistics periodically (disabled for unified logging)

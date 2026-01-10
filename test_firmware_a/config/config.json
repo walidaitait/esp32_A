@@ -37,10 +37,10 @@
     "logic": 200
   },
   "co_config": {
-    "baseline_ms": 4000,
-    "min_guard_mv": 20,
+    "baseline_ms": 2000,
+    "min_guard_mv": 5,
     "ppm_per_v": 400,
-    "ppm_clamp": 500,
+    "ppm_clamp": 300,
     "offset_mv": 0
   },
   "thresholds": {

@@ -51,10 +51,10 @@ def read_co():
         mv = _adc_to_mv(raw)
 
         # Configurable parameters with safe defaults
-        baseline_ms = getattr(config, "CO_BASELINE_MS", 4000)  # short baseline window
-        guard_mv = getattr(config, "CO_MIN_GUARD_MV", 20)      # ignore deltas below this noise floor
-        ppm_per_volt = getattr(config, "CO_PPM_PER_V", 400)    # ppm per volt over baseline
-        clamp_max = getattr(config, "CO_PPM_CLAMP", 500)       # clamp maximum reported ppm
+        baseline_ms = getattr(config, "CO_BASELINE_MS", 2000)  # short baseline window
+        guard_mv = getattr(config, "CO_MIN_GUARD_MV", 5)       # ignore tiny noise
+        ppm_per_v = getattr(config, "CO_PPM_PER_V", 400)       # ppm per volt over baseline
+        clamp_max = getattr(config, "CO_PPM_CLAMP", 300)       # clamp maximum reported ppm
         offset_mv = getattr(config, "CO_OFFSET_MV", 0)         # optional offset after baseline
 
         now = ticks_ms()
@@ -74,6 +74,9 @@ def read_co():
         # If baseline was never set (edge cases), set it now
         if _baseline_mv is None:
             _baseline_mv = mv
+
+        # Lightly refresh baseline to follow slow drift without heavy math
+        _baseline_mv = (_baseline_mv * 0.99) + (mv * 0.01)
 
         # Delta from baseline
         delta_mv = mv - _baseline_mv - offset_mv
