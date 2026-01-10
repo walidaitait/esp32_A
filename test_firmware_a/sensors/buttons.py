@@ -11,14 +11,31 @@ from debug.debug import log
 
 _buttons = {}
 _last_state = {}
+_button_enabled = {}  # Track which buttons are enabled
 
 def init_buttons():
-    global _buttons, _last_state
+    global _buttons, _last_state, _button_enabled
     try:
-        _buttons = {
-            name: Pin(pin, Pin.IN, Pin.PULL_UP)
-            for name, pin in config.BUTTON_PINS.items()
+        # Build enabled flags map
+        _button_enabled = {
+            'b1': config.BUTTON_B1_ENABLED,
+            'b2': config.BUTTON_B2_ENABLED,
+            'b3': config.BUTTON_B3_ENABLED
         }
+        
+        # Only initialize enabled buttons
+        _buttons = {}
+        for name, pin in config.BUTTON_PINS.items():
+            if _button_enabled.get(name, False):
+                _buttons[name] = Pin(pin, Pin.IN, Pin.PULL_UP)
+                log("buttons", "Button {} enabled on pin {}".format(name, pin))
+            else:
+                log("buttons", "Button {} disabled (skipping init)".format(name))
+        
+        if not _buttons:
+            log("buttons", "No buttons enabled")
+            return True
+        
         # Wait for pins to stabilize
         sleep_ms(50)
         
@@ -31,16 +48,17 @@ def init_buttons():
         # With PULL_UP: pin.value() == 1 when NOT pressed, 0 when pressed
         _last_state = {name: pin.value() == 1 for name, pin in _buttons.items()}
         
-        # Update global state to match actual button state
+        # Update global state to match actual button state (only for enabled buttons)
         for name, pressed in _last_state.items():
             state.button_state[name] = pressed
         
-        log("buttons", "init_buttons: Buttons initialized")
+        log("buttons", "init_buttons: {} button(s) initialized".format(len(_buttons)))
         return True
     except Exception as e:
         log("buttons", "init_buttons: Initialization failed: {}".format(e))
         _buttons = {}
         _last_state = {}
+        _button_enabled = {}
         return False
 
 def read_buttons():

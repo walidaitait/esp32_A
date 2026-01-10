@@ -310,13 +310,52 @@ def _handle_status(args):
 
 
 def _handle_update(args):
-    """Handle update command: Trigger OTA update without button press"""
-    state.system_control["ota_update_requested"] = True
+    """Handle update command: Set OTA flag and reboot"""
+    import json
+    import machine  # type: ignore
+    
     log("cmd_handler", "OTA update requested via command")
-    return {
-        "success": True,
-        "message": "OTA update will start shortly. All processes will be stopped."
-    }
+    
+    try:
+        # Try to load existing config
+        try:
+            with open("config/config.json", "r") as f:
+                config_data = json.load(f)
+        except:
+            try:
+                with open("config.json", "r") as f:
+                    config_data = json.load(f)
+            except:
+                config_data = {}
+        
+        # Set OTA update flag
+        config_data["ota_update_pending"] = True
+        
+        # Write back to config.json
+        try:
+            with open("config/config.json", "w") as f:
+                json.dump(config_data, f)
+        except:
+            with open("config.json", "w") as f:
+                json.dump(config_data, f)
+        
+        log("cmd_handler", "OTA update flag set - rebooting")
+        
+        # Reboot to trigger OTA update on startup
+        import time  # type: ignore
+        time.sleep(1)
+        machine.reset()
+        
+        return {
+            "success": True,
+            "message": "OTA update will start after reboot."
+        }
+    except Exception as e:
+        log("cmd_handler", "Error setting OTA flag: {}".format(e))
+        return {
+            "success": False,
+            "message": "Error setting OTA flag: {}".format(e)
+        }
 
 
 def _handle_reboot(args):

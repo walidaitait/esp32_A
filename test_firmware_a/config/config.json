@@ -1,5 +1,19 @@
 {
   "simulate_sensors": true,
+  "ota_update_pending": true,
+  "ota_button_enabled": false,
+  "sensors": {
+    "temperature": {"enabled": true},
+    "co": {"enabled": true},
+    "ultrasonic": {"enabled": true},
+    "heart_rate": {"enabled": true},
+    "buttons": {
+      "b1": {"enabled": true},
+      "b2": {"enabled": true},
+      "b3": {"enabled": false}
+    },
+    "accelerometer": {"enabled": false}
+  },
   "pins": {
     "temp": 4,
     "co": 35,

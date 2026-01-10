@@ -35,6 +35,20 @@ _load_config()
 SIMULATE_ACTUATORS = _config.get('simulate_actuators', True)
 
 # ===============================
+# ACTUATOR ENABLED FLAGS
+# ===============================
+
+actuators_config = _config.get('actuators', {})
+LEDS_ENABLED = actuators_config.get('leds', {}).get('enabled', True)
+SERVO_ENABLED = actuators_config.get('servo', {}).get('enabled', True)
+LCD_ENABLED = actuators_config.get('lcd', {}).get('enabled', True)
+BUZZER_ENABLED = actuators_config.get('buzzer', {}).get('enabled', True)
+AUDIO_ENABLED = actuators_config.get('audio', {}).get('enabled', True)
+
+# OTA Button
+OTA_BUTTON_ENABLED = _config.get('ota_button_enabled', True)
+
+# ===============================
 # LED MODULES (DFRobot DFR0021-G/B/R)
 # ===============================
 # VCC 5V, common GND, SIG pins at 3.3V logic levels.

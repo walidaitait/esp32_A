@@ -51,31 +51,64 @@ def initialize():
     global temperature, co, ultrasonic, heart_rate, buttons, accelerometer, alarm_logic
     
     try:
-        # Import sensor modules in hardware mode
-        from sensors import temperature as temp_module
-        from sensors import co as co_module
-        from sensors import ultrasonic as ultrasonic_module
-        from sensors import heart_rate as heart_rate_module
-        from sensors import buttons as buttons_module
-        from sensors import accelerometer as accelerometer_module
-        from logic import alarm_logic as alarm_logic_module
+        # Import sensor modules in hardware mode (only enabled sensors)
+        from config import config
         
-        temperature = temp_module
-        co = co_module
-        ultrasonic = ultrasonic_module
-        heart_rate = heart_rate_module
-        buttons = buttons_module
-        accelerometer = accelerometer_module
+        if config.TEMPERATURE_ENABLED:
+            from sensors import temperature as temp_module
+            temperature = temp_module
+        
+        if config.CO_ENABLED:
+            from sensors import co as co_module
+            co = co_module
+        
+        if config.ULTRASONIC_ENABLED:
+            from sensors import ultrasonic as ultrasonic_module
+            ultrasonic = ultrasonic_module
+        
+        if config.HEART_RATE_ENABLED:
+            from sensors import heart_rate as heart_rate_module
+            heart_rate = heart_rate_module
+        
+        if config.BUTTONS_ENABLED:
+            from sensors import buttons as buttons_module
+            buttons = buttons_module
+        
+        if config.ACCELEROMETER_ENABLED:
+            from sensors import accelerometer as accelerometer_module
+            accelerometer = accelerometer_module
+        
+        # Always import alarm logic
+        from logic import alarm_logic as alarm_logic_module
         alarm_logic = alarm_logic_module
         
-        log("sensor", "Initializing sensors...")
-        temperature.init_temperature()
-        co.init_co()
-        ultrasonic.init_ultrasonic()
-        heart_rate.init_heart_rate()
-        buttons.init_buttons()
-        accelerometer.init_accelerometer()  # Currently not connected on board A; safe no-op if absent
-        log("sensor", "All sensors initialized")
+        log("sensor", "Initializing enabled sensors...")
+        
+        if config.TEMPERATURE_ENABLED and temperature:
+            temperature.init_temperature()
+            log("sensor", "Temperature sensor initialized")
+        
+        if config.CO_ENABLED and co:
+            co.init_co()
+            log("sensor", "CO sensor initialized")
+        
+        if config.ULTRASONIC_ENABLED and ultrasonic:
+            ultrasonic.init_ultrasonic()
+            log("sensor", "Ultrasonic sensor initialized")
+        
+        if config.HEART_RATE_ENABLED and heart_rate:
+            heart_rate.init_heart_rate()
+            log("sensor", "Heart rate sensor initialized")
+        
+        if config.BUTTONS_ENABLED and buttons:
+            buttons.init_buttons()
+            log("sensor", "Buttons initialized")
+        
+        if config.ACCELEROMETER_ENABLED and accelerometer:
+            accelerometer.init_accelerometer()
+            log("sensor", "Accelerometer initialized")
+        
+        log("sensor", "Enabled sensors initialized successfully")
         return True
     except Exception as e:
         log("sensor", "Init error: {}".format(e))
@@ -97,31 +130,37 @@ def update():
             return
         
         # Real hardware mode - read sensors based on their individual intervals
-        # Only read if modules are loaded (shouldn't happen if initialize() was called)
-        if temperature is None:
-            return
+        # Only read if modules are loaded AND enabled
+        from config import config
         
-        if elapsed("temp_read", TEMPERATURE_READ_INTERVAL, True):
-            temperature.read_temperature()
+        if config.TEMPERATURE_ENABLED and temperature is not None:
+            if elapsed("temp_read", TEMPERATURE_READ_INTERVAL, True):
+                temperature.read_temperature()
         
-        if elapsed("co_read", CO_READ_INTERVAL, True):
-            co.read_co()
+        if config.CO_ENABLED and co is not None:
+            if elapsed("co_read", CO_READ_INTERVAL, True):
+                co.read_co()
         
-        if elapsed("ultrasonic_read", ULTRASONIC_READ_INTERVAL, True):
-            ultrasonic.read_ultrasonic()
+        if config.ULTRASONIC_ENABLED and ultrasonic is not None:
+            if elapsed("ultrasonic_read", ULTRASONIC_READ_INTERVAL, True):
+                ultrasonic.read_ultrasonic()
         
-        if elapsed("heart_rate_read", HEART_RATE_READ_INTERVAL, True):
-            heart_rate.read_heart_rate()
+        if config.HEART_RATE_ENABLED and heart_rate is not None:
+            if elapsed("heart_rate_read", HEART_RATE_READ_INTERVAL, True):
+                heart_rate.read_heart_rate()
         
-        if elapsed("button_read", BUTTON_READ_INTERVAL, True):
-            buttons.read_buttons()
+        if config.BUTTONS_ENABLED and buttons is not None:
+            if elapsed("button_read", BUTTON_READ_INTERVAL, True):
+                buttons.read_buttons()
         
-        if elapsed("accelerometer_read", ACCELEROMETER_READ_INTERVAL, True):
-            accelerometer.read_accelerometer()  # Will remain idle if the sensor is not wired
+        if config.ACCELEROMETER_ENABLED and accelerometer is not None:
+            if elapsed("accelerometer_read", ACCELEROMETER_READ_INTERVAL, True):
+                accelerometer.read_accelerometer()
         
-        # Evaluate alarm logic
-        if elapsed("alarm_eval", ALARM_EVAL_INTERVAL):
-            alarm_logic.evaluate_logic()
+        # Evaluate alarm logic (always run if available)
+        if alarm_logic is not None:
+            if elapsed("alarm_eval", ALARM_EVAL_INTERVAL):
+                alarm_logic.evaluate_logic()
         
         # Periodic status logging - DISABLED
         # if elapsed("sensor_heartbeat", STATUS_LOG_INTERVAL):

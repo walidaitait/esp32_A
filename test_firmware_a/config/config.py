@@ -35,6 +35,28 @@ _load_config()
 SIMULATE_SENSORS = _config.get('simulate_sensors', True)
 
 # ===============================
+# SENSOR ENABLED FLAGS
+# ===============================
+
+sensors_config = _config.get('sensors', {})
+TEMPERATURE_ENABLED = sensors_config.get('temperature', {}).get('enabled', True)
+CO_ENABLED = sensors_config.get('co', {}).get('enabled', True)
+ULTRASONIC_ENABLED = sensors_config.get('ultrasonic', {}).get('enabled', True)
+HEART_RATE_ENABLED = sensors_config.get('heart_rate', {}).get('enabled', True)
+ACCELEROMETER_ENABLED = sensors_config.get('accelerometer', {}).get('enabled', False)
+
+# Buttons - individual enable flags
+buttons_config = sensors_config.get('buttons', {})
+BUTTON_B1_ENABLED = buttons_config.get('b1', {}).get('enabled', True)
+BUTTON_B2_ENABLED = buttons_config.get('b2', {}).get('enabled', True)
+BUTTON_B3_ENABLED = buttons_config.get('b3', {}).get('enabled', True)
+# Overall buttons enabled if at least one button is enabled
+BUTTONS_ENABLED = BUTTON_B1_ENABLED or BUTTON_B2_ENABLED or BUTTON_B3_ENABLED
+
+# OTA Button
+OTA_BUTTON_ENABLED = _config.get('ota_button_enabled', True)
+
+# ===============================
 # PIN ASSIGNMENTS
 # ===============================
 

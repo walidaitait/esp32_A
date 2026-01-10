@@ -128,15 +128,83 @@ def _get_file_list():
         log("ota", "Failed to read file list: " + str(e))
         return []
 
+def _clear_ota_pending_flag():
+    """Clear the OTA pending flag from config.json after successful update"""
+    import json
+    try:
+        try:
+            with open("config/config.json", "r") as f:
+                config_data = json.load(f)
+        except:
+            with open("config.json", "r") as f:
+                config_data = json.load(f)
+        
+        config_data["ota_update_pending"] = False
+        
+        try:
+            with open("config/config.json", "w") as f:
+                json.dump(config_data, f)
+        except:
+            with open("config.json", "w") as f:
+                json.dump(config_data, f)
+        
+        log("ota", "OTA pending flag cleared")
+    except Exception as e:
+        log("ota", "Error clearing OTA flag: " + str(e))
+
 # ================== PUBLIC ==================
 
 def check_and_update():
-    log("ota", "Checking update button")
-
-    if not _check_button_pressed():
-        log("ota", "Button not pressed, skipping OTA")
+    """Check for OTA update: button press OR config flag (post-reboot).
+    
+    On first boot (no config.json): Downloads all files.
+    On subsequent boots: Checks config.json for ota_update_pending flag.
+    """
+    import json
+    
+    should_update = False
+    is_first_install = False
+    button_enabled = True  # Default to True for backwards compatibility
+    config_data = {}  # Initialize to empty dict
+    
+    # Check if config.json exists
+    try:
+        with open("config/config.json", "r") as f:
+            config_data = json.load(f)
+    except:
+        try:
+            with open("config.json", "r") as f:
+                config_data = json.load(f)
+        except:
+            # First installation: no config.json found
+            log("ota", "First installation detected - will download all files")
+            is_first_install = True
+            should_update = True
+    
+    # Read button enabled flag from config
+    if not is_first_install:
+        button_enabled = config_data.get("ota_button_enabled", True)
+    
+    # Check if OTA update is pending in config (set by remote command)
+    if not is_first_install and config_data.get("ota_update_pending", False):
+        log("ota", "OTA update pending flag found in config")
+        should_update = True
+    
+    # Check if button is pressed (only if enabled and update not already triggered by config)
+    if not should_update and button_enabled:
+        log("ota", "Checking update button")
+        if not _check_button_pressed():
+            log("ota", "Button not pressed, skipping OTA")
+            return
+        log("ota", "Update button pressed")
+        should_update = True
+    elif not should_update and not button_enabled:
+        log("ota", "OTA button disabled in config, skipping button check")
         return
-
+    
+    if not should_update:
+        return
+    
     log("ota", "Update requested")
 
     if not _connect_wifi():
@@ -146,6 +214,9 @@ def check_and_update():
     files = _get_file_list()
     if not files:
         log("ota", "No files to update")
+        # Clear the pending flag before returning
+        if not is_first_install:
+            _clear_ota_pending_flag()
         return
 
     ok = True
@@ -154,11 +225,14 @@ def check_and_update():
             ok = False
 
     if ok:
-        log("ota", "OTA completed, rebooting")
+        log("ota", "OTA completed, clearing flag and rebooting")
+        # Clear the pending flag before reboot
+        _clear_ota_pending_flag()
         sleep(1)
         machine.reset()
     else:
         log("ota", "OTA finished with errors")
+        # Don't clear flag on error - will retry on next boot
 
 
 def perform_ota_update():

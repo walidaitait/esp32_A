@@ -79,14 +79,6 @@ def main():
             # === PRIORITY CHECK: System control commands ===
             # These take precedence over normal operation
             
-            # Check for OTA update request
-            if state.system_control["ota_update_requested"]:
-                log("main", "OTA update requested - stopping all processes")
-                state.system_control["ota_update_requested"] = False
-                ota_update.perform_ota_update()
-                # If we reach here, update failed - continue normal operation
-                log("main", "OTA update failed - resuming normal operation")
-            
             # Check for reboot request
             if state.system_control["reboot_requested"]:
                 log("main", "Reboot requested - stopping all processes")

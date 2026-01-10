@@ -1,5 +1,14 @@
 {
   "simulate_actuators": true,
+  "ota_update_pending": true,
+  "ota_button_enabled": true,
+  "actuators": {
+    "leds": {"enabled": true},
+    "servo": {"enabled": true},
+    "lcd": {"enabled": true},
+    "buzzer": {"enabled": true},
+    "audio": {"enabled": true}
+  },
   "leds": {
     "green": 16,
     "blue": 17,

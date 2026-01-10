@@ -46,38 +46,63 @@ def initialize():
     global leds, servo, lcd, buzzer, audio
     
     try:
-        # Import actuator modules in hardware mode
-        from actuators import leds as leds_module
-        from actuators import servo as servo_module
-        from actuators import lcd as lcd_module
-        from actuators import buzzer as buzzer_module
-        from actuators import audio as audio_module
+        # Import actuator modules in hardware mode (only enabled actuators)
+        from config import config
         
-        leds = leds_module
-        servo = servo_module
-        lcd = lcd_module
-        buzzer = buzzer_module
-        audio = audio_module
+        if config.LEDS_ENABLED:
+            from actuators import leds as leds_module
+            leds = leds_module
         
-        log("actuator", "Initializing actuators...")
-        leds.init_leds()
-        servo.init_servo()
-        lcd.init_lcd()
-        buzzer.init_buzzer()
-        audio.init_audio()
+        if config.SERVO_ENABLED:
+            from actuators import servo as servo_module
+            servo = servo_module
         
-        # Configurazione iniziale all'avvio
+        if config.LCD_ENABLED:
+            from actuators import lcd as lcd_module
+            lcd = lcd_module
+        
+        if config.BUZZER_ENABLED:
+            from actuators import buzzer as buzzer_module
+            buzzer = buzzer_module
+        
+        if config.AUDIO_ENABLED:
+            from actuators import audio as audio_module
+            audio = audio_module
+        
+        log("actuator", "Initializing enabled actuators...")
+        
+        if config.LEDS_ENABLED and leds:
+            leds.init_leds()
+            log("actuator", "LEDs initialized")
+        
+        if config.SERVO_ENABLED and servo:
+            servo.init_servo()
+            log("actuator", "Servo initialized")
+        
+        if config.LCD_ENABLED and lcd:
+            lcd.init_lcd()
+            log("actuator", "LCD initialized")
+        
+        if config.BUZZER_ENABLED and buzzer:
+            buzzer.init_buzzer()
+            log("actuator", "Buzzer initialized")
+        
+        if config.AUDIO_ENABLED and audio:
+            audio.init_audio()
+            log("actuator", "Audio initialized")
+        
+        # Configurazione iniziale all'avvio (solo per componenti abilitati)
         log("actuator", "Setting up initial actuator states...")
         
         # Lascia i LED in blinking di default (già impostato in init_leds)
-        for led_name in ["green", "blue", "red"]:
-            leds.set_led_state(led_name, "blinking")
+        if config.LEDS_ENABLED and leds:
+            for led_name in ["green", "blue", "red"]:
+                leds.set_led_state(led_name, "blinking")
         
         # Servo già impostato a 0° durante init_servo()
-        
         # LCD già con testo di default durante init_lcd()
         
-        log("actuator", "All actuators initialized")
+        log("actuator", "Enabled actuators initialized successfully")
         return True
     except Exception as e:
         log("actuator", "Init error: {}".format(e))
@@ -99,26 +124,28 @@ def update():
                 simulation.update_simulated_actuators()
             return
         
-        # Real hardware mode - update actuators
-        # Only update if modules are loaded (shouldn't happen if initialize() was called)
-        if leds is None:
-            return
+        # Real hardware mode - update actuators (only enabled ones)
+        from config import config
         
         # Update LED blinking states
-        if elapsed("led_update", LED_UPDATE_INTERVAL):
-            leds.update_led_test()  # type: ignore
+        if config.LEDS_ENABLED and leds is not None:
+            if elapsed("led_update", LED_UPDATE_INTERVAL):
+                leds.update_led_test()  # type: ignore
         
         # Update servo position
-        if elapsed("servo_update", SERVO_UPDATE_INTERVAL):
-            servo.update_servo_test()  # type: ignore
+        if config.SERVO_ENABLED and servo is not None:
+            if elapsed("servo_update", SERVO_UPDATE_INTERVAL):
+                servo.update_servo_test()  # type: ignore
         
         # Update LCD display
-        if elapsed("lcd_update", LCD_UPDATE_INTERVAL):
-            lcd.update_lcd_test()  # type: ignore
+        if config.LCD_ENABLED and lcd is not None:
+            if elapsed("lcd_update", LCD_UPDATE_INTERVAL):
+                lcd.update_lcd_test()  # type: ignore
         
         # Update audio playback status
-        if elapsed("audio_update", AUDIO_UPDATE_INTERVAL):
-            audio.update_audio_test()  # type: ignore
+        if config.AUDIO_ENABLED and audio is not None:
+            if elapsed("audio_update", AUDIO_UPDATE_INTERVAL):
+                audio.update_audio_test()  # type: ignore
         
         # Periodic heartbeat for system status - DISABLED
         # if elapsed("actuator_heartbeat", HEARTBEAT_INTERVAL):
