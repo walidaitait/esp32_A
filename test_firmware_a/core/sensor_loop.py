@@ -154,32 +154,53 @@ def update():
         
         if config.TEMPERATURE_ENABLED and temperature is not None:
             if elapsed("temp_read", TEMPERATURE_READ_INTERVAL, True):
-                temperature.read_temperature()
+                try:
+                    temperature.read_temperature()
+                except Exception as e:
+                    log("sensor", "update(temp) error: {}".format(e))
         
         if config.CO_ENABLED and co is not None:
             if elapsed("co_read", CO_READ_INTERVAL, True):
-                co.read_co()
+                try:
+                    co.read_co()
+                except Exception as e:
+                    log("sensor", "update(co) error: {}".format(e))
         
         if config.ULTRASONIC_ENABLED and ultrasonic is not None:
             if elapsed("ultrasonic_read", ULTRASONIC_READ_INTERVAL, True):
-                ultrasonic.read_ultrasonic()
+                try:
+                    ultrasonic.read_ultrasonic()
+                except Exception as e:
+                    log("sensor", "update(ultrasonic) error: {}".format(e))
         
         if config.HEART_RATE_ENABLED and heart_rate is not None:
             if elapsed("heart_rate_read", HEART_RATE_READ_INTERVAL, True):
-                heart_rate.read_heart_rate()
+                try:
+                    heart_rate.read_heart_rate()
+                except Exception as e:
+                    log("sensor", "update(heart_rate) error: {}".format(e))
         
         if config.BUTTONS_ENABLED and buttons is not None:
             if elapsed("button_read", BUTTON_READ_INTERVAL, True):
-                buttons.read_buttons()
+                try:
+                    buttons.read_buttons()
+                except Exception as e:
+                    log("sensor", "update(buttons) error: {}".format(e))
         
         if config.ACCELEROMETER_ENABLED and accelerometer is not None:
             if elapsed("accelerometer_read", ACCELEROMETER_READ_INTERVAL, True):
-                accelerometer.read_accelerometer()
+                try:
+                    accelerometer.read_accelerometer()
+                except Exception as e:
+                    log("sensor", "update(accelerometer) error: {}".format(e))
         
         # Evaluate alarm logic (always run if available)
         if alarm_logic is not None:
             if elapsed("alarm_eval", ALARM_EVAL_INTERVAL):
-                alarm_logic.evaluate_logic()
+                try:
+                    alarm_logic.evaluate_logic()
+                except Exception as e:
+                    log("sensor", "update(alarm_logic) error: {}".format(e))
         
         # Periodic status logging - DISABLED
         # if elapsed("sensor_heartbeat", STATUS_LOG_INTERVAL):

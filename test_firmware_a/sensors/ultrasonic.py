@@ -69,6 +69,7 @@ def _echo_interrupt(pin):
 def read_ultrasonic():
     global _last_read_ms, _measurement_pending, _measurement_ready, _echo_duration
     global _measurement_count, _failed_measurements, _trigger_time_ms
+    global _consecutive_timeouts, _timeout_log_counter, _distance_log_counter
     
     if _trig is None or _echo is None:
         return

@@ -9,6 +9,7 @@ sensor_data = {
     "heart_rate": {"ir": None, "red": None, "bpm": None, "spo2": None, "status": "Not initialized"},
     "ultrasonic_distance_cm": None,
     "ultrasonic_presence": False,  # True when something is detected within presence range
+    "acc": {"x": None, "y": None, "z": None},
 }
 
 button_state = {
