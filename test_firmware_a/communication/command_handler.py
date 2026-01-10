@@ -57,6 +57,10 @@ def handle_command(command, args):
         elif command == "reboot":
             return _handle_reboot(args)
         
+        # Change simulation mode: mode <real|sim>
+        elif command == "mode":
+            return _handle_mode(args)
+        
         else:
             return {"success": False, "message": "Unknown command: {}".format(command)}
     
@@ -227,3 +231,54 @@ def _handle_reboot(args):
         "success": True,
         "message": "System will reboot shortly."
     }
+
+
+def _handle_mode(args):
+    """Handle mode command: mode <real|sim>"""
+    import json
+    
+    if len(args) < 1:
+        return {"success": False, "message": "Usage: mode <real|sim>"}
+    
+    mode = args[0].lower()
+    
+    if mode not in ["real", "sim", "simulation"]:
+        return {"success": False, "message": "Invalid mode. Use: real, sim"}
+    
+    simulate = (mode in ["sim", "simulation"])
+    
+    # Save mode to config.json
+    try:
+        # Try to load existing config
+        try:
+            with open("config/config.json", "r") as f:
+                config_data = json.load(f)
+        except:
+            try:
+                with open("config.json", "r") as f:
+                    config_data = json.load(f)
+            except:
+                config_data = {}
+        
+        # Update simulate_sensors field
+        config_data["simulate_sensors"] = simulate
+        
+        # Write back to config.json
+        try:
+            with open("config/config.json", "w") as f:
+                json.dump(config_data, f)
+        except:
+            with open("config.json", "w") as f:
+                json.dump(config_data, f)
+        
+        log("cmd_handler", "Mode changed to: {}".format("simulation" if simulate else "real"))
+        
+        # Request reboot
+        state.system_control["reboot_requested"] = True
+        
+        return {
+            "success": True,
+            "message": "Mode set to {}. System will reboot.".format("simulation" if simulate else "real")
+        }
+    except Exception as e:
+        return {"success": False, "message": "Error saving mode: {}".format(e)}

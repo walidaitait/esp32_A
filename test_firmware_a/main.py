@@ -16,16 +16,16 @@ Architecture:
 import ota_update
 ota_update.check_and_update()
 
-# === SIMULATION MODE ===
-# Set to True to use simulated sensor values instead of real hardware
-SIMULATE_SENSORS = True
-
 from debug.debug import log, init_remote_logging
 from core import wifi
 from core import sensor_loop
 from core import state
 from communication import espnow_communication
 from communication import udp_commands
+from config import config
+
+# === SIMULATION MODE (loaded from config) ===
+SIMULATE_SENSORS = config.SIMULATE_SENSORS
 
 
 def main():

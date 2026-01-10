@@ -7,6 +7,7 @@
   "communication/udp_commands.py",
   "config/__init__.py",
   "config/config.py",
+  "config/config.json",
   "core/__init__.py",
   "core/sensor_loop.py",
   "core/state.py",

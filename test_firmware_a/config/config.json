@@ -1,0 +1,60 @@
+{
+  "simulate_sensors": true,
+  "pins": {
+    "temp": 4,
+    "co": 35,
+    "buttons": {
+      "b1": 16,
+      "b2": 17,
+      "b3": 19
+    },
+    "ultrasonic_trig": 5,
+    "ultrasonic_echo": 18,
+    "heart_rate_scl": 22,
+    "heart_rate_sda": 21
+  },
+  "intervals_ms": {
+    "temp": 1000,
+    "co": 1000,
+    "button": 50,
+    "heart_rate": 1000,
+    "ultrasonic": 100,
+    "logic": 200
+  },
+  "co_config": {
+    "baseline_ms": 4000,
+    "min_guard_mv": 20,
+    "ppm_per_v": 400,
+    "ppm_clamp": 500,
+    "offset_mv": 0
+  },
+  "thresholds": {
+    "co_critical_ppm": 50.0,
+    "temp_min_safe": 10.0,
+    "temp_max_safe": 35.0,
+    "bpm_low": 50,
+    "bpm_high": 120,
+    "spo2": 90
+  },
+  "alarm_flags": {
+    "co_enabled": true,
+    "temp_enabled": true,
+    "heart_enabled": true,
+    "ultrasonic_enabled": true
+  },
+  "alarm_windows_ms": {
+    "co_warning": 5000,
+    "co_danger": 30000,
+    "co_recovery": 10000,
+    "temp_warning": 10000,
+    "temp_danger": 60000,
+    "temp_recovery": 15000,
+    "hr_warning": 10000,
+    "hr_danger": 60000,
+    "hr_recovery": 15000,
+    "ultrasonic_presence_distance_cm": 50.0,
+    "ultrasonic_warning": 2000,
+    "ultrasonic_danger": 10000,
+    "ultrasonic_recovery": 5000
+  }
+}
