@@ -27,6 +27,8 @@ _measurement_count = 0
 _failed_measurements = 0
 _consecutive_timeouts = 0
 _trigger_time_ms = 0  # Tempo di inizio della misurazione
+_timeout_log_counter = 0
+_distance_log_counter = 0
 
 
 def init_ultrasonic():
@@ -90,6 +92,8 @@ def read_ultrasonic():
             if _consecutive_timeouts >= 3:
                 # Keep note of repeated timeouts; next successful read will reset this counter
                 _consecutive_timeouts = 0
+                _timeout_log_counter += 1
+                log("ultrasonic", "timeout series {} (failed total {})".format(_timeout_log_counter, _failed_measurements))
         return
 
     if _measurement_ready:
@@ -106,6 +110,9 @@ def read_ultrasonic():
                 state.sensor_data["ultrasonic_distance_cm"] = round(distance_cm, 2)
                 _consecutive_timeouts = 0
                 # log("ultrasonic", f"✓ Distance: {distance_cm:.2f} cm (duration: {duration}µs)")
+                _distance_log_counter += 1
+                if _distance_log_counter % 10 == 0:
+                    log("ultrasonic", "ok dist {:.2f} cm dur {}us (count {}, failed {})".format(distance_cm, duration, _measurement_count, _failed_measurements))
             else:
                 # log("ultrasonic", f"⚠️  Out of range: {distance_cm:.2f} cm")
                 state.sensor_data["ultrasonic_distance_cm"] = None

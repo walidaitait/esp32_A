@@ -26,7 +26,7 @@ _esp_now = None
 _initialized = False
 _wifi = None
 _send_interval = 5000  # Send sensor data every 5 seconds
-_state_log_interval = 15000  # Log complete state every 15 seconds
+_state_log_interval = None  # Disabled snapshots
 _message_count = 0
 _version_mismatch_logged = False  # Prevent log spam
 
@@ -237,8 +237,8 @@ def update():
             sensor_data = _get_sensor_data_string()
             send_message(sensor_data)
         
-        # Log complete state every 15 seconds
-        if elapsed("espnow_state_log", _state_log_interval):
+        # Snapshot logging disabled
+        if _state_log_interval and elapsed("espnow_state_log", _state_log_interval):
             _log_complete_state()
     except Exception as e:
         log("espnow_a", "Update error: {}".format(e))

@@ -16,6 +16,7 @@ _adc = None
 _baseline_mv = None  # Baseline in millivolts
 _baseline_samples = 0
 _baseline_start_ms = 0
+_read_count = 0
 
 def init_co():
     global _adc, _baseline_mv, _baseline_samples, _baseline_start_ms
@@ -38,13 +39,14 @@ def _adc_to_mv(raw_value):
 
 
 def read_co():
-    global _baseline_mv, _baseline_samples, _baseline_start_ms
+    global _baseline_mv, _baseline_samples, _baseline_start_ms, _read_count
     if _adc is None:
         return
     if not elapsed("co", config.CO_INTERVAL):
         return
 
     try:
+        _read_count += 1
         raw = _adc.read()
         mv = _adc_to_mv(raw)
 
@@ -65,6 +67,8 @@ def read_co():
                 _baseline_samples += 1
                 _baseline_mv = (_baseline_mv * (_baseline_samples - 1) + mv) / _baseline_samples
             state.sensor_data["co"] = 0.0
+            if _read_count % 10 == 0:
+                log("co", "baseline phase raw={} mv={:.1f} samples={} avg={:.1f}".format(raw, mv, _baseline_samples, _baseline_mv))
             return
 
         # If baseline was never set (edge cases), set it now
@@ -80,6 +84,11 @@ def read_co():
         ppm = max(0.0, min(clamp_max, ppm))
 
         state.sensor_data["co"] = round(ppm, 2)
+
+        if _read_count % 10 == 0:
+            log("co", "read raw={} mv={:.1f} baseline={:.1f} delta={:.1f} ppm={:.2f}".format(
+                raw, mv, _baseline_mv, delta_mv, ppm
+            ))
     except Exception as e:
         log("co", "read_co: Read error: {}".format(e))
         state.sensor_data["co"] = None

@@ -86,28 +86,46 @@ def initialize():
         log("sensor", "Initializing enabled sensors...")
         
         if config.TEMPERATURE_ENABLED and temperature:
-            temperature.init_temperature()
-            log("sensor", "Temperature sensor initialized")
-        
+            if temperature.init_temperature():
+                log("sensor", "Temperature sensor initialized")
+            else:
+                log("sensor", "Temperature sensor init failed - disabling")
+                temperature = None
+
         if config.CO_ENABLED and co:
-            co.init_co()
-            log("sensor", "CO sensor initialized")
-        
+            if co.init_co():
+                log("sensor", "CO sensor initialized")
+            else:
+                log("sensor", "CO sensor init failed - disabling")
+                co = None
+
         if config.ULTRASONIC_ENABLED and ultrasonic:
-            ultrasonic.init_ultrasonic()
-            log("sensor", "Ultrasonic sensor initialized")
-        
+            if ultrasonic.init_ultrasonic():
+                log("sensor", "Ultrasonic sensor initialized")
+            else:
+                log("sensor", "Ultrasonic sensor init failed - disabling")
+                ultrasonic = None
+
         if config.HEART_RATE_ENABLED and heart_rate:
-            heart_rate.init_heart_rate()
-            log("sensor", "Heart rate sensor initialized")
-        
+            if heart_rate.init_heart_rate():
+                log("sensor", "Heart rate sensor initialized")
+            else:
+                log("sensor", "Heart rate init failed - disabling")
+                heart_rate = None
+
         if config.BUTTONS_ENABLED and buttons:
-            buttons.init_buttons()
-            log("sensor", "Buttons initialized")
-        
+            if buttons.init_buttons():
+                log("sensor", "Buttons initialized")
+            else:
+                log("sensor", "Buttons init failed - disabling")
+                buttons = None
+
         if config.ACCELEROMETER_ENABLED and accelerometer:
-            accelerometer.init_accelerometer()
-            log("sensor", "Accelerometer initialized")
+            if accelerometer.init_accelerometer():
+                log("sensor", "Accelerometer initialized")
+            else:
+                log("sensor", "Accelerometer init failed - disabling")
+                accelerometer = None
         
         log("sensor", "Enabled sensors initialized successfully")
         return True
