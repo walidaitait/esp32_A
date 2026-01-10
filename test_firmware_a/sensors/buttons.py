@@ -28,21 +28,21 @@ def init_buttons():
         for name, pin in config.BUTTON_PINS.items():
             if _button_enabled.get(name, False):
                 _buttons[name] = Pin(pin, Pin.IN, Pin.PULL_UP)
-                log("buttons", "Button {} enabled on pin {}".format(name, pin))
+                log("sensor.buttons", "Button {} enabled on pin {}".format(name, pin))
             else:
-                log("buttons", "Button {} disabled (skipping init)".format(name))
+                log("sensor.buttons", "Button {} disabled (skipping init)".format(name))
         
         if not _buttons:
-            log("buttons", "No buttons enabled")
+            log("sensor.buttons", "No buttons enabled")
             return True
         
         # Wait for pins to stabilize
         sleep_ms(50)
         
         # Log raw pin values
-        log("buttons", "init_buttons: Raw pin values after stabilization")
+        log("sensor.buttons", "init_buttons: Raw pin values after stabilization")
         for name, pin in _buttons.items():
-            log("buttons", "init_buttons: {} = {}".format(name, pin.value()))
+            log("sensor.buttons", "init_buttons: {} = {}".format(name, pin.value()))
         
         # Initialize state based on actual pin readings
         # With PULL_UP: pin.value() == 1 when NOT pressed, 0 when pressed
@@ -52,10 +52,10 @@ def init_buttons():
         for name, pressed in _last_state.items():
             state.button_state[name] = pressed
         
-        log("buttons", "init_buttons: {} button(s) initialized".format(len(_buttons)))
+        log("sensor.buttons", "init_buttons: {} button(s) initialized".format(len(_buttons)))
         return True
     except Exception as e:
-        log("buttons", "init_buttons: Initialization failed: {}".format(e))
+        log("sensor.buttons", "init_buttons: Initialization failed: {}".format(e))
         _buttons = {}
         _last_state = {}
         _button_enabled = {}
@@ -73,8 +73,8 @@ def read_buttons():
             if pressed != _last_state[name]:
                 _last_state[name] = pressed
                 state.button_state[name] = pressed
-                log("buttons", "read_buttons: Button {} {}".format(name, "pressed" if pressed else "released"))
+                log("sensor.buttons", "read_buttons: Button {} {}".format(name, "pressed" if pressed else "released"))
             else:
                 state.button_state[name] = pressed
     except Exception as e:
-        log("buttons", "read_buttons: Read error: {}".format(e))
+        log("sensor.buttons", "read_buttons: Read error: {}".format(e))

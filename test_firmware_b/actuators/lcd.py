@@ -145,7 +145,7 @@ def init_lcd():
         )
         addrs = _i2c.scan()
         if not addrs:
-            log("lcd", "No I2C device found for LCD")
+            log("actuator.lcd", "No I2C device found for LCD")
             _initialized = False
             return False
         _addr = addrs[0]
@@ -153,10 +153,10 @@ def init_lcd():
         # Mark initialized before issuing clear so guard does not skip it
         _initialized = True
         clear()
-        log("lcd", "LCD 16x2 initialized on I2C addr 0x{:02X}".format(_addr))
+        log("actuator.lcd", "LCD 16x2 initialized on I2C addr 0x{:02X}".format(_addr))
         return True
     except Exception as e:
-        log("lcd", "Initialization failed: {}".format(e))
+        log("actuator.lcd", "Initialization failed: {}".format(e))
         _i2c = None
         _addr = None
         _initialized = False

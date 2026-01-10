@@ -59,7 +59,7 @@ def _update_alarm_level(kind, is_critical, warning_time, danger_time, recovery_t
 
     if level != prev_level:
         state.system_state[level_key] = level
-        log("alarm_logic", "update_alarm_level: [{}] {} -> {}".format(kind, prev_level, level))
+        log("alarm.logic", "update_alarm_level: [{}] {} -> {}".format(kind, prev_level, level))
 
 
 def _update_overall_alarm():
@@ -173,10 +173,10 @@ def evaluate_logic():
     # If presence was lost, record the time for delayed gate close
     if prev_presence and not presence:
         state.gate_state["last_presence_lost_ms"] = ticks_ms()
-        log("alarm_logic", "Gate: presence lost, will close after delay")
+        log("alarm.logic", "Gate: presence lost, will close after delay")
     elif not prev_presence and presence:
         state.gate_state["last_presence_lost_ms"] = None
-        log("alarm_logic", "Gate: presence detected, opening gate")
+        log("alarm.logic", "Gate: presence detected, opening gate")
 
     # Overall alarm state
     _update_overall_alarm()

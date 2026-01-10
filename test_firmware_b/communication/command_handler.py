@@ -75,7 +75,7 @@ def handle_command(command, args):
             return {"success": False, "message": "Unknown command: {}".format(command)}
     
     except Exception as e:
-        log("cmd_handler", "Error handling command '{}': {}".format(command, e))
+        log("communication.cmd_handler", "Error handling command '{}': {}".format(command, e))
         return {"success": False, "message": "Error: {}".format(e)}
 
 
@@ -100,7 +100,7 @@ def _handle_led(args):
     # Mark user override window for LED logic (if any auto-logic uses this name)
     timers.mark_user_action("led_update")
     
-    log("cmd_handler", "LED {} set to {}".format(color, mode))
+    log("communication.cmd_handler", "LED {} set to {}".format(color, mode))
     return {"success": True, "message": "LED {} set to {}".format(color, mode)}
 
 
@@ -124,7 +124,7 @@ def _handle_servo(args):
     # Protect servo from auto overrides for 20s
     timers.mark_user_action("servo_update")
     
-    log("cmd_handler", "Servo set to {} degrees".format(angle))
+    log("communication.cmd_handler", "Servo set to {} degrees".format(angle))
     return {"success": True, "message": "Servo set to {} degrees".format(angle)}
 
 
@@ -152,7 +152,7 @@ def _handle_lcd(args):
     # Protect LCD from auto overrides for 20s
     timers.mark_user_action("lcd_update")
     
-    log("cmd_handler", "LCD {} set to: {}".format(line, text))
+    log("communication.cmd_handler", "LCD {} set to: {}".format(line, text))
     return {"success": True, "message": "LCD {} set to: {}".format(line, text)}
 
 
@@ -174,7 +174,7 @@ def _handle_buzzer(args):
 
     timers.mark_user_action("buzzer_update")
     
-    log("cmd_handler", "Buzzer set to {}".format(mode))
+    log("communication.cmd_handler", "Buzzer set to {}".format(mode))
     return {"success": True, "message": "Buzzer set to {}".format(mode)}
 
 
@@ -195,7 +195,7 @@ def _handle_audio(args):
         except Exception:
             pass
         timers.mark_user_action("audio_update")
-        log("cmd_handler", "Audio play")
+        log("communication.cmd_handler", "Audio play")
         return {"success": True, "message": "Audio playing"}
     
     elif action == "pause":
@@ -207,7 +207,7 @@ def _handle_audio(args):
         except Exception:
             pass
         timers.mark_user_action("audio_update")
-        log("cmd_handler", "Audio pause")
+        log("communication.cmd_handler", "Audio pause")
         return {"success": True, "message": "Audio paused"}
     
     elif action == "stop":
@@ -219,19 +219,19 @@ def _handle_audio(args):
         except Exception:
             pass
         timers.mark_user_action("audio_update")
-        log("cmd_handler", "Audio stop")
+        log("communication.cmd_handler", "Audio stop")
         return {"success": True, "message": "Audio stopped"}
     
     elif action == "volume":
         volume = int(args[1])
         state.actuator_state["audio"]["last_cmd"] = "volume:{}".format(volume)
-        log("cmd_handler", "Audio volume set to {}".format(volume))
+        log("communication.cmd_handler", "Audio volume set to {}".format(volume))
         return {"success": True, "message": "Volume set to {}".format(volume)}
     
     elif action == "track":
         track = int(args[1])
         state.actuator_state["audio"]["last_cmd"] = "track:{}".format(track)
-        log("cmd_handler", "Audio track set to {}".format(track))
+        log("communication.cmd_handler", "Audio track set to {}".format(track))
         return {"success": True, "message": "Track set to {}".format(track)}
     
     else:
@@ -245,7 +245,7 @@ def _handle_state(args):
         "message": "Current actuator state",
         "state": state.actuator_state
     }
-    log("cmd_handler", "State query")
+    log("communication.cmd_handler", "State query")
     return response
 
 
@@ -268,7 +268,7 @@ def _handle_status(args):
         "status": status_info
     }
     
-    log("cmd_handler", "Status query")
+    log("communication.cmd_handler", "Status query")
     return response
 
 
@@ -277,7 +277,7 @@ def _handle_update(args):
     import json
     import machine  # type: ignore
     
-    log("cmd_handler", "OTA update requested via command")
+    log("communication.cmd_handler", "OTA update requested via command")
     
     try:
         # Try to load existing config
@@ -302,7 +302,7 @@ def _handle_update(args):
             with open("config.json", "w") as f:
                 json.dump(config_data, f)
         
-        log("cmd_handler", "OTA update flag set - rebooting")
+        log("communication.cmd_handler", "OTA update flag set - rebooting")
         
         # Reboot to trigger OTA update on startup
         import time  # type: ignore
@@ -314,7 +314,7 @@ def _handle_update(args):
             "message": "OTA update will start after reboot."
         }
     except Exception as e:
-        log("cmd_handler", "Error setting OTA flag: {}".format(e))
+        log("communication.cmd_handler", "Error setting OTA flag: {}".format(e))
         return {
             "success": False,
             "message": "Error setting OTA flag: {}".format(e)
@@ -324,7 +324,7 @@ def _handle_update(args):
 def _handle_reboot(args):
     """Handle reboot command: Trigger system reboot"""
     state.system_control["reboot_requested"] = True
-    log("cmd_handler", "System reboot requested via command")
+    log("communication.cmd_handler", "System reboot requested via command")
     return {
         "success": True,
         "message": "System will reboot shortly."
@@ -369,7 +369,7 @@ def _handle_mode(args):
             with open("config.json", "w") as f:
                 json.dump(config_data, f)
         
-        log("cmd_handler", "Mode changed to: {}".format("simulation" if simulate else "real"))
+        log("communication.cmd_handler", "Mode changed to: {}".format("simulation" if simulate else "real"))
         
         # Request reboot
         state.system_control["reboot_requested"] = True

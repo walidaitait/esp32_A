@@ -30,10 +30,10 @@ def init_ultrasonic():
         _trig = Pin(ULTRASONIC_TRIG_PIN, Pin.OUT)
         _echo = Pin(ULTRASONIC_ECHO_PIN, Pin.IN)
         _trig.value(0)
-        log("ultrasonic", "init_ultrasonic: Ultrasonic sensor initialized (blocking)")
+        log("sensor.ultrasonic", "init_ultrasonic: Ultrasonic sensor initialized (blocking)")
         return True
     except Exception as e:
-        log("ultrasonic", "init_ultrasonic: Initialization failed: {}".format(e))
+        log("sensor.ultrasonic", "init_ultrasonic: Initialization failed: {}".format(e))
         _trig = None
         _echo = None
         return False
@@ -80,7 +80,7 @@ def read_ultrasonic():
                 state.sensor_data["ultrasonic_distance_cm"] = blended
                 _distance_log_counter += 1
                 if _distance_log_counter % 100 == 0:  # Log only every 100 reads to reduce noise
-                    log("ultrasonic", "ok dist {:.2f} cm dur {}us (count {}, failed {})".format(
+                    log("sensor.ultrasonic", "ok dist {:.2f} cm dur {}us (count {}, failed {})".format(
                         blended, duration, _measurement_count, _failed_measurements))
             else:
                 state.sensor_data["ultrasonic_distance_cm"] = _last_good_distance_cm
@@ -91,7 +91,7 @@ def read_ultrasonic():
             _failed_measurements += 1
             
     except Exception as e:
-        log("ultrasonic", "read error: {}".format(e))
+        log("sensor.ultrasonic", "read error: {}".format(e))
         state.sensor_data["ultrasonic_distance_cm"] = _last_good_distance_cm
         _failed_measurements += 1
 

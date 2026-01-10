@@ -32,5 +32,8 @@
     "tx_pin": 27,
     "rx_pin": 26,
     "default_volume": 20
+  },
+  "gate": {
+    "close_delay_ms": 10000
   }
 }

@@ -19,11 +19,11 @@ def init_wifi():
     _wlan = network.WLAN(network.STA_IF)
     
     if _wlan.isconnected():
-        log("wifi", "Already connected: {}".format(_wlan.ifconfig()[0]))
+        log("core.wifi", "Already connected: {}".format(_wlan.ifconfig()[0]))
         _initialized = True
         return True
     
-    log("wifi", "Connecting to {}...".format(WIFI_SSID))
+    log("core.wifi", "Connecting to {}...".format(WIFI_SSID))
     _wlan.active(True)
     _wlan.connect(WIFI_SSID, WIFI_PASSWORD)
     
@@ -32,12 +32,12 @@ def init_wifi():
     start = time()
     while not _wlan.isconnected():
         if time() - start > timeout:
-            log("wifi", "Connection timeout")
+            log("core.wifi", "Connection timeout")
             _initialized = False
             return False
         sleep(0.2)
     
-    log("wifi", "Connected: {}".format(_wlan.ifconfig()[0]))
+    log("core.wifi", "Connected: {}".format(_wlan.ifconfig()[0]))
     _initialized = True
     return True
 

@@ -39,7 +39,7 @@ _spo2_buffer_size = 10
 def init_heart_rate():
     global _i2c, _sensor
     try:
-        log("heart_rate", "init_heart_rate: Initializing MAX30102 sensor...")
+        log("sensor.heart_rate", "init_heart_rate: Initializing MAX30102 sensor...")
         
         # Setup I2C using SoftI2C
         _i2c = SoftI2C(
@@ -48,38 +48,38 @@ def init_heart_rate():
             freq=400000
         )
         
-        log("heart_rate", "init_heart_rate: I2C initialized on SDA={}, SCL={}".format(config.HEART_RATE_SDA_PIN, config.HEART_RATE_SCL_PIN))
+        log("sensor.heart_rate", "init_heart_rate: I2C initialized on SDA={}, SCL={}".format(config.HEART_RATE_SDA_PIN, config.HEART_RATE_SCL_PIN))
         
         # Scan I2C bus
         devices = _i2c.scan()
-        log("heart_rate", "init_heart_rate: I2C scan found {} device(s): {}".format(len(devices), [hex(d) for d in devices]))
+        log("sensor.heart_rate", "init_heart_rate: I2C scan found {} device(s): {}".format(len(devices), [hex(d) for d in devices]))
         
         # Create sensor instance
         _sensor = MAX30102(i2c=_i2c)
-        log("heart_rate", "init_heart_rate: Sensor object created, expected address: {}".format(hex(_sensor.i2c_address)))
+        log("sensor.heart_rate", "init_heart_rate: Sensor object created, expected address: {}".format(hex(_sensor.i2c_address)))
         
         # Check if sensor is detected on I2C bus
         if _sensor.i2c_address not in devices:
-            log("heart_rate", "init_heart_rate: ERROR - Sensor not found at address {}".format(hex(_sensor.i2c_address)))
-            log("heart_rate", "init_heart_rate: Check wiring - SDA, SCL, VCC, GND")
-            log("heart_rate", "init_heart_rate: Try different I2C addresses if available")
+            log("sensor.heart_rate", "init_heart_rate: ERROR - Sensor not found at address {}".format(hex(_sensor.i2c_address)))
+            log("sensor.heart_rate", "init_heart_rate: Check wiring - SDA, SCL, VCC, GND")
+            log("sensor.heart_rate", "init_heart_rate: Try different I2C addresses if available")
             _sensor = None
             return False
         
-        log("heart_rate", "init_heart_rate: Sensor found at address {}".format(hex(_sensor.i2c_address)))
+        log("sensor.heart_rate", "init_heart_rate: Sensor found at address {}".format(hex(_sensor.i2c_address)))
         
         # Check part ID
         try:
             part_id_ok = _sensor.check_part_id()
             if not part_id_ok:
-                log("heart_rate", "init_heart_rate: WARNING - Device ID does not match MAX30102/MAX30105")
-                log("heart_rate", "init_heart_rate: Continuing anyway - might still work")
+                log("sensor.heart_rate", "init_heart_rate: WARNING - Device ID does not match MAX30102/MAX30105")
+                log("sensor.heart_rate", "init_heart_rate: Continuing anyway - might still work")
         except Exception as e:
-            log("heart_rate", "init_heart_rate: WARNING - Could not check part ID: {}".format(e))
-            log("heart_rate", "init_heart_rate: Continuing anyway...")
+            log("sensor.heart_rate", "init_heart_rate: WARNING - Could not check part ID: {}".format(e))
+            log("sensor.heart_rate", "init_heart_rate: Continuing anyway...")
         
         # Setup sensor - optimal configuration for reading RED and IR
-        log("heart_rate", "init_heart_rate: Configuring sensor...")
+        log("sensor.heart_rate", "init_heart_rate: Configuring sensor...")
         _sensor.setup_sensor(
             led_mode=2,  # RED + IR mode (mode 2)
             adc_range=16384,  # Max ADC range for better resolution
@@ -89,10 +89,10 @@ def init_heart_rate():
             pulse_width=411  # Pulse width 411us - max sensitivity
         )
         
-        log("heart_rate", "init_heart_rate: MAX30102 initialized successfully")
+        log("sensor.heart_rate", "init_heart_rate: MAX30102 initialized successfully")
         return True
     except Exception as e:
-        log("heart_rate", "init_heart_rate: Initialization failed: {}".format(e))
+        log("sensor.heart_rate", "init_heart_rate: Initialization failed: {}".format(e))
         import sys
         sys.print_exception(e)
         _sensor = None
@@ -331,7 +331,7 @@ def read_heart_rate():
                     state.sensor_data["heart_rate"]["spo2"] = int(spo2)
         
     except Exception as e:
-        log("heart_rate", "read_heart_rate: Read error: {}".format(e))
+        log("sensor.heart_rate", "read_heart_rate: Read error: {}".format(e))
         state.sensor_data["heart_rate"]["ir"] = None
         state.sensor_data["heart_rate"]["red"] = None
         state.sensor_data["heart_rate"]["status"] = "Error"

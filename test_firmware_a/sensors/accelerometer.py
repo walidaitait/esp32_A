@@ -38,10 +38,10 @@ def init_accelerometer():
         
         if valid_readings >= 2:  # At least 2 axes must read valid values
             _sensor_connected = True
-            log("accelerometer", "init_accelerometer: Accelerometer initialized and detected")
+            log("sensor.accelerometer", "init_accelerometer: Accelerometer initialized and detected")
             return True
         else:
-            log("accelerometer", "init_accelerometer: Sensor not detected (voltages: {})".format(voltages))
+            log("sensor.accelerometer", "init_accelerometer: Sensor not detected (voltages: {})".format(voltages))
             _adc_x = None
             _adc_y = None
             _adc_z = None
@@ -49,7 +49,7 @@ def init_accelerometer():
             return False
             
     except Exception as e:
-        log("accelerometer", "init_accelerometer: Initialization failed: {}".format(e))
+        log("sensor.accelerometer", "init_accelerometer: Initialization failed: {}".format(e))
         _adc_x = None
         _adc_y = None
         _adc_z = None
@@ -69,4 +69,4 @@ def read_accelerometer():
             g = (voltage - 1.65) / 0.3
             state.sensor_data["acc"][axis] = round(g, 2)
     except Exception as e:
-        log("accelerometer", "read_accelerometer: Read error: {}".format(e))
+        log("sensor.accelerometer", "read_accelerometer: Read error: {}".format(e))

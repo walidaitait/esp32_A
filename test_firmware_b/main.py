@@ -19,13 +19,20 @@ Architecture:
 import ota_update
 ota_update.check_and_update()
 
-from debug.debug import log, init_remote_logging
+from debug.debug import log, init_remote_logging, set_log_enabled, set_all_logs
 from core import wifi
 from core import actuator_loop
 from core import state
 from communication import espnow_communication
 from communication import udp_commands
 from config import config
+
+# === DISABLE UNNECESSARY LOGS FOR TESTING ===
+set_all_logs(False)
+set_log_enabled("sensor.ultrasonic", True)
+set_log_enabled("alarm.logic", True)
+set_log_enabled("actuator.servo.gate", True)
+set_log_enabled("main", True)
 
 # === SIMULATION MODE (loaded from config) ===
 SIMULATE_ACTUATORS = config.SIMULATE_ACTUATORS

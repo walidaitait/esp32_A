@@ -102,3 +102,9 @@ DFPLAYER_TX_PIN = dfplayer_config.get('tx_pin', 27)
 DFPLAYER_RX_PIN = dfplayer_config.get('rx_pin', 26)
 DFPLAYER_DEFAULT_VOLUME = dfplayer_config.get('default_volume', 20)
 
+# ===============================
+# GATE AUTOMATION
+# ===============================
+gate_config = _config.get('gate', {})
+GATE_CLOSE_DELAY_MS = gate_config.get('close_delay_ms', 10000)
+

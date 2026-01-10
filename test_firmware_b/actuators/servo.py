@@ -44,7 +44,7 @@ def _set_angle_immediate(angle):
         _pwm.duty(_angle_to_duty(_angle))
         state.actuator_state["servo"]["angle"] = _angle
     except Exception as e:
-        log("servo", "Set angle error: {}".format(e))
+        log("actuator.servo", "Set angle error: {}".format(e))
 
 
 def set_servo_angle(angle):
@@ -120,10 +120,10 @@ def init_servo():
         _set_angle_immediate(_angle)
         state.actuator_state["servo"]["moving"] = False
 
-        log("servo", "Servo initialized at 0° (smooth movement enabled)")
+        log("actuator.servo", "Servo initialized at 0° (smooth movement enabled)")
         return True
     except Exception as e:
-        log("servo", "Initialization failed: {}".format(e))
+        log("actuator.servo", "Initialization failed: {}".format(e))
         _pwm = None
         _initialized = False
         return False
@@ -149,7 +149,7 @@ def update_gate_automation():
         _gate_open = True
         _presence_lost_time_ms = None
         set_servo_angle(90)  # Open gate
-        log("servo", "Gate: presence detected, opening...")
+        log("actuator.servo.gate", "Gate: presence detected, opening...")
     
     # Presence still active -> keep gate open
     elif presence and _gate_open:
@@ -160,7 +160,7 @@ def update_gate_automation():
     elif not presence and _gate_open:
         if _presence_lost_time_ms is None:
             _presence_lost_time_ms = ticks_ms()
-            log("servo", "Gate: presence lost, countdown to close started")
+            log("actuator.servo.gate", "Gate: presence lost, countdown to close started")
         else:
             # Check if delay has elapsed
             close_delay_ms = getattr(config, "GATE_CLOSE_DELAY_MS", 10000)
@@ -171,7 +171,7 @@ def update_gate_automation():
                 _gate_open = False
                 _presence_lost_time_ms = None
                 set_servo_angle(0)  # Close gate
-                log("servo", "Gate: closing after delay ({} ms)".format(close_delay_ms))
+                log("actuator.servo.gate", "Gate: closing after delay ({} ms)".format(close_delay_ms))
     
     # No presence and gate already closed -> nothing to do
     else:

@@ -26,10 +26,10 @@ def init_co():
         _baseline_mv = None
         _baseline_samples = 0
         _baseline_start_ms = ticks_ms()
-        log("co", "init_co: CO sensor initialized")
+        log("sensor.co", "init_co: CO sensor initialized")
         return True
     except Exception as e:
-        log("co", "init_co: Initialization failed: {}".format(e))
+        log("sensor.co", "init_co: Initialization failed: {}".format(e))
         _adc = None
         return False
 
@@ -68,7 +68,7 @@ def read_co():
                 _baseline_mv = (_baseline_mv * (_baseline_samples - 1) + mv) / _baseline_samples
             state.sensor_data["co"] = 0.0
             if _read_count % 10 == 0:
-                log("co", "baseline phase raw={} mv={:.1f} samples={} avg={:.1f}".format(raw, mv, _baseline_samples, _baseline_mv))
+                log("sensor.co", "baseline phase raw={} mv={:.1f} samples={} avg={:.1f}".format(raw, mv, _baseline_samples, _baseline_mv))
             return
 
         # If baseline was never set (edge cases), set it now
@@ -94,5 +94,5 @@ def read_co():
             #     raw, mv, _baseline_mv, actual_delta, delta_mv, ppm
             # ))
     except Exception as e:
-        log("co", "read_co: Read error: {}".format(e))
+        log("sensor.co", "read_co: Read error: {}".format(e))
         state.sensor_data["co"] = None

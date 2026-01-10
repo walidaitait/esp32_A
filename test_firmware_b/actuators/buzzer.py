@@ -25,14 +25,14 @@ def set_tone(freq):
             try:
                 _pwm.freq(freq)
             except Exception as e:
-                log("buzzer", "freq set error: {}".format(e))
+                log("actuator.buzzer", "freq set error: {}".format(e))
             _pwm.duty(512)
             state.actuator_state["buzzer"]["active"] = True
         else:
             _pwm.duty(0)
             state.actuator_state["buzzer"]["active"] = False
     except Exception as e:
-        log("buzzer", "PWM error: {}".format(e))
+        log("actuator.buzzer", "PWM error: {}".format(e))
 
 
 def init_buzzer():
@@ -47,10 +47,10 @@ def init_buzzer():
         state.actuator_state["buzzer"]["active"] = False
         _initialized = True
 
-        log("buzzer", "Passive buzzer initialized on GPIO{}".format(buzzer_pin))
+        log("actuator.buzzer", "Passive buzzer initialized on GPIO{}".format(buzzer_pin))
         return True
     except Exception as e:
-        log("buzzer", "Initialization failed: {}".format(e))
+        log("actuator.buzzer", "Initialization failed: {}".format(e))
         _pwm = None
         _initialized = False
         return False

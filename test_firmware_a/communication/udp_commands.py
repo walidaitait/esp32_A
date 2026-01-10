@@ -36,11 +36,11 @@ def init():
         _socket.setblocking(False)  # Non-blocking for integration with main loop
         
         _initialized = True
-        log("udp_cmd", "UDP command listener started on port {}".format(UDP_COMMAND_PORT))
+        log("communication.udp_cmd", "UDP command listener started on port {}".format(UDP_COMMAND_PORT))
         return True
     
     except Exception as e:
-        log("udp_cmd", "Init failed: {}".format(e))
+        log("communication.udp_cmd", "Init failed: {}".format(e))
         _initialized = False
         return False
 
@@ -67,7 +67,7 @@ def update():
             
             # Validate message structure
             if not isinstance(cmd_data, dict):
-                log("udp_cmd", "Invalid message format (not a dict)")
+                log("communication.udp_cmd", "Invalid message format (not a dict)")
                 return
             
             # Check if this command is for us (target A)
@@ -80,32 +80,32 @@ def update():
             args = cmd_data.get("args", [])
             
             if not command:
-                log("udp_cmd", "No command in message")
+                log("communication.udp_cmd", "No command in message")
                 return
             
-            log("udp_cmd", "Received: {} {}".format(command, args))
+            log("communication.udp_cmd", "Received: {} {}".format(command, args))
             
             # Handle command
             response = command_handler.handle_command(command, args)
             
             # Log response
             if response.get("success"):
-                log("udp_cmd", "OK: {}".format(response.get("message")))
+                log("communication.udp_cmd", "OK: {}".format(response.get("message")))
             else:
-                log("udp_cmd", "ERROR: {}".format(response.get("message")))
+                log("communication.udp_cmd", "ERROR: {}".format(response.get("message")))
             
             # Optionally send response back to sender
             _send_response(addr, response)
         
         except json.JSONDecodeError as e:
-            log("udp_cmd", "JSON decode error: {}".format(e))
+            log("communication.udp_cmd", "JSON decode error: {}".format(e))
         except Exception as e:
-            log("udp_cmd", "Error processing command: {}".format(e))
+            log("communication.udp_cmd", "Error processing command: {}".format(e))
     
     except OSError as e:
         # No data available (EAGAIN/EWOULDBLOCK) - this is normal for non-blocking
         if e.args[0] not in (11, 10035):  # EAGAIN (Unix) or WSAEWOULDBLOCK (Windows)
-            log("udp_cmd", "Socket error: {}".format(e))
+            log("communication.udp_cmd", "Socket error: {}".format(e))
 
 
 def _send_response(addr, response):
@@ -121,7 +121,7 @@ def _send_response(addr, response):
         response_json = json.dumps(response)
         _socket.sendto(response_json.encode('utf-8'), addr)
     except Exception as e:
-        log("udp_cmd", "Failed to send response: {}".format(e))
+        log("communication.udp_cmd", "Failed to send response: {}".format(e))
 
 
 def is_initialized():

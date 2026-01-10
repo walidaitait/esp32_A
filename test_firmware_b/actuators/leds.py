@@ -54,10 +54,10 @@ def init_leds():
         set_led_state("blue", "off")      # Blue OFF by default
         set_led_state("red", "off")       # Red OFF by default
 
-        log("leds", "LED modules initialized (Green=ON, Blue=OFF, Red=OFF)")
+        log("actuator.leds", "LED modules initialized (Green=ON, Blue=OFF, Red=OFF)")
         return True
     except Exception as e:
-        log("leds", "Initialization failed: {}".format(e))
+        log("actuator.leds", "Initialization failed: {}".format(e))
         _initialized = False
         return False
 

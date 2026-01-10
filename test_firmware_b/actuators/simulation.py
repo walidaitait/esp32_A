@@ -20,8 +20,8 @@ SIMULATED_AUDIO_PLAYING = False
 
 def init_simulation():
     """Initialize simulation mode."""
-    log("simulation", "Actuator simulation mode enabled")
-    log("simulation", "Fixed values: LEDs={}/{}/{}, Servo={}°, LCD='{}/{}', Buzzer={}, Audio={}".format(
+    log("core.simulation", "Actuator simulation mode enabled")
+    log("core.simulation", "Fixed values: LEDs={}/{}/{}, Servo={}°, LCD='{}/{}', Buzzer={}, Audio={}".format(
         SIMULATED_LED_GREEN_MODE, SIMULATED_LED_BLUE_MODE, SIMULATED_LED_RED_MODE,
         SIMULATED_SERVO_ANGLE, SIMULATED_LCD_LINE1, SIMULATED_LCD_LINE2,
         SIMULATED_BUZZER_ACTIVE, SIMULATED_AUDIO_PLAYING

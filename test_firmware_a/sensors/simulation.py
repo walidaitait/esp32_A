@@ -21,8 +21,8 @@ SIMULATED_BUTTON_B3 = False
 
 def init_simulation():
     """Initialize simulation mode."""
-    log("simulation", "Sensor simulation mode enabled")
-    log("simulation", "Fixed values: T={}, CO={}, HR={}, SpO2={}, Dist={}cm".format(
+    log("core.simulation", "Sensor simulation mode enabled")
+    log("core.simulation", "Fixed values: T={}, CO={}, HR={}, SpO2={}, Dist={}cm".format(
         SIMULATED_TEMPERATURE, SIMULATED_CO, SIMULATED_HEART_RATE_BPM,
         SIMULATED_HEART_RATE_SPO2, SIMULATED_ULTRASONIC_DISTANCE
     ))

@@ -41,7 +41,7 @@ def set_simulation_mode(enabled):
     """
     global _simulation_mode
     _simulation_mode = enabled
-    log("actuator", "Simulation mode: {}".format("ENABLED" if enabled else "DISABLED"))
+    log("core.actuator", "Simulation mode: {}".format("ENABLED" if enabled else "DISABLED"))
 
 
 def set_espnow_connected(connected):
@@ -73,7 +73,7 @@ def _check_espnow_status():
 def initialize():
     """Initialize all actuators."""
     if _simulation_mode:
-        log("actuator", "Skipping hardware initialization (simulation mode)")
+        log("core.actuator", "Skipping hardware initialization (simulation mode)")
         return True
     
     global leds, servo, lcd, buzzer, audio
@@ -102,30 +102,30 @@ def initialize():
             from actuators import audio as audio_module
             audio = audio_module
         
-        log("actuator", "Initializing enabled actuators...")
+        log("core.actuator", "Initializing enabled actuators...")
         
         if config.LEDS_ENABLED and leds:
             leds.init_leds()
-            log("actuator", "LEDs initialized")
+            log("core.actuator", "LEDs initialized")
         
         if config.SERVO_ENABLED and servo:
             servo.init_servo()
-            log("actuator", "Servo initialized")
+            log("core.actuator", "Servo initialized")
         
         if config.LCD_ENABLED and lcd:
             lcd.init_lcd()
-            log("actuator", "LCD initialized")
+            log("core.actuator", "LCD initialized")
         
         if config.BUZZER_ENABLED and buzzer:
             buzzer.init_buzzer()
-            log("actuator", "Buzzer initialized")
+            log("core.actuator", "Buzzer initialized")
         
         if config.AUDIO_ENABLED and audio:
             audio.init_audio()
-            log("actuator", "Audio initialized")
+            log("core.actuator", "Audio initialized")
         
         # Configurazione iniziale all'avvio (solo per componenti abilitati)
-        log("actuator", "Setting up initial actuator states...")
+        log("core.actuator", "Setting up initial actuator states...")
         
         # LEDs: Green always ON, Blue OFF (will blink only with ESP-NOW), Red OFF
         if config.LEDS_ENABLED and leds:
@@ -136,10 +136,10 @@ def initialize():
         # Servo già impostato a 0° durante init_servo()
         # LCD già con testo di default durante init_lcd()
         
-        log("actuator", "Enabled actuators initialized successfully")
+        log("core.actuator", "Enabled actuators initialized successfully")
         return True
     except Exception as e:
-        log("actuator", "Init error: {}".format(e))
+        log("core.actuator", "Init error: {}".format(e))
         return False
 
 
@@ -208,7 +208,7 @@ def update():
         #     _log_status()
             
     except Exception as e:
-        log("actuator", "Update error: {}".format(e))
+        log("core.actuator", "Update error: {}".format(e))
 
 
 def _log_status():
@@ -225,4 +225,4 @@ def _log_status():
         "ON" if buzzer_active else "OFF",
         "ON" if audio_playing else "OFF"
     )
-    log("actuator", status_msg)
+    log("core.actuator", status_msg)

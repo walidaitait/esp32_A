@@ -67,7 +67,7 @@ def init_audio():
         _initialized = True
         return True
     except Exception as e:
-        log("audio", "Initialization failed: {}".format(e))
+        log("actuator.audio", "Initialization failed: {}".format(e))
         _uart = None
         _initialized = False
         return False

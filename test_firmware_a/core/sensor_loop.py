@@ -40,13 +40,13 @@ def set_simulation_mode(enabled):
     """
     global _simulation_mode
     _simulation_mode = enabled
-    log("sensor", "Simulation mode: {}".format("ENABLED" if enabled else "DISABLED"))
+    log("core.sensor", "Simulation mode: {}".format("ENABLED" if enabled else "DISABLED"))
 
 
 def initialize():
     """Initialize all sensors."""
     if _simulation_mode:
-        log("sensor", "Skipping hardware initialization (simulation mode)")
+        log("core.sensor", "Skipping hardware initialization (simulation mode)")
         return True
     
     global temperature, co, ultrasonic, heart_rate, buttons, accelerometer, alarm_logic
@@ -83,54 +83,54 @@ def initialize():
         from logic import alarm_logic as alarm_logic_module
         alarm_logic = alarm_logic_module
         
-        log("sensor", "Initializing enabled sensors...")
+        log("core.sensor", "Initializing enabled sensors...")
         
         if config.TEMPERATURE_ENABLED and temperature:
             if temperature.init_temperature():
-                log("sensor", "Temperature sensor initialized")
+                log("core.sensor", "Temperature sensor initialized")
             else:
-                log("sensor", "Temperature sensor init failed - disabling")
+                log("core.sensor", "Temperature sensor init failed - disabling")
                 temperature = None
 
         if config.CO_ENABLED and co:
             if co.init_co():
-                log("sensor", "CO sensor initialized")
+                log("core.sensor", "CO sensor initialized")
             else:
-                log("sensor", "CO sensor init failed - disabling")
+                log("core.sensor", "CO sensor init failed - disabling")
                 co = None
 
         if config.ULTRASONIC_ENABLED and ultrasonic:
             if ultrasonic.init_ultrasonic():
-                log("sensor", "Ultrasonic sensor initialized")
+                log("core.sensor", "Ultrasonic sensor initialized")
             else:
-                log("sensor", "Ultrasonic sensor init failed - disabling")
+                log("core.sensor", "Ultrasonic sensor init failed - disabling")
                 ultrasonic = None
 
         if config.HEART_RATE_ENABLED and heart_rate:
             if heart_rate.init_heart_rate():
-                log("sensor", "Heart rate sensor initialized")
+                log("core.sensor", "Heart rate sensor initialized")
             else:
-                log("sensor", "Heart rate init failed - disabling")
+                log("core.sensor", "Heart rate init failed - disabling")
                 heart_rate = None
 
         if config.BUTTONS_ENABLED and buttons:
             if buttons.init_buttons():
-                log("sensor", "Buttons initialized")
+                log("core.sensor", "Buttons initialized")
             else:
-                log("sensor", "Buttons init failed - disabling")
+                log("core.sensor", "Buttons init failed - disabling")
                 buttons = None
 
         if config.ACCELEROMETER_ENABLED and accelerometer:
             if accelerometer.init_accelerometer():
-                log("sensor", "Accelerometer initialized")
+                log("core.sensor", "Accelerometer initialized")
             else:
-                log("sensor", "Accelerometer init failed - disabling")
+                log("core.sensor", "Accelerometer init failed - disabling")
                 accelerometer = None
         
-        log("sensor", "Enabled sensors initialized successfully")
+        log("core.sensor", "Enabled sensors initialized successfully")
         return True
     except Exception as e:
-        log("sensor", "Init error: {}".format(e))
+        log("core.sensor", "Init error: {}".format(e))
         return False
 
 
@@ -157,42 +157,42 @@ def update():
                 try:
                     temperature.read_temperature()
                 except Exception as e:
-                    log("sensor", "update(temp) error: {}".format(e))
+                    log("core.sensor", "update(temp) error: {}".format(e))
         
         if config.CO_ENABLED and co is not None:
             if elapsed("co_read", CO_READ_INTERVAL, True):
                 try:
                     co.read_co()
                 except Exception as e:
-                    log("sensor", "update(co) error: {}".format(e))
+                    log("core.sensor", "update(co) error: {}".format(e))
         
         if config.ULTRASONIC_ENABLED and ultrasonic is not None:
             if elapsed("ultrasonic_read", ULTRASONIC_READ_INTERVAL, True):
                 try:
                     ultrasonic.read_ultrasonic()
                 except Exception as e:
-                    log("sensor", "update(ultrasonic) error: {}".format(e))
+                    log("core.sensor", "update(ultrasonic) error: {}".format(e))
         
         if config.HEART_RATE_ENABLED and heart_rate is not None:
             if elapsed("heart_rate_read", HEART_RATE_READ_INTERVAL, True):
                 try:
                     heart_rate.read_heart_rate()
                 except Exception as e:
-                    log("sensor", "update(heart_rate) error: {}".format(e))
+                    log("core.sensor", "update(heart_rate) error: {}".format(e))
         
         if config.BUTTONS_ENABLED and buttons is not None:
             if elapsed("button_read", BUTTON_READ_INTERVAL, True):
                 try:
                     buttons.read_buttons()
                 except Exception as e:
-                    log("sensor", "update(buttons) error: {}".format(e))
+                    log("core.sensor", "update(buttons) error: {}".format(e))
         
         if config.ACCELEROMETER_ENABLED and accelerometer is not None:
             if elapsed("accelerometer_read", ACCELEROMETER_READ_INTERVAL, True):
                 try:
                     accelerometer.read_accelerometer()
                 except Exception as e:
-                    log("sensor", "update(accelerometer) error: {}".format(e))
+                    log("core.sensor", "update(accelerometer) error: {}".format(e))
         
         # Evaluate alarm logic (always run if available)
         if alarm_logic is not None:
@@ -200,14 +200,14 @@ def update():
                 try:
                     alarm_logic.evaluate_logic()
                 except Exception as e:
-                    log("sensor", "update(alarm_logic) error: {}".format(e))
+                    log("core.sensor", "update(alarm_logic) error: {}".format(e))
         
         # Periodic status logging - DISABLED
         # if elapsed("sensor_heartbeat", STATUS_LOG_INTERVAL):
         #     _log_status()
             
     except Exception as e:
-        log("sensor", "Update error: {}".format(e))
+        log("core.sensor", "Update error: {}".format(e))
 
 
 def _log_status():
@@ -224,4 +224,4 @@ def _log_status():
         sensor_data.get("acc", "N/A"),
         alarm_level
     )
-    log("sensor", status_msg)
+    log("core.sensor", status_msg)

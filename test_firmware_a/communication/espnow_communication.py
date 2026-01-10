@@ -81,14 +81,14 @@ def init_espnow_comm():
             actual_mac = MAC_A  # Fallback to configured MAC
         mac_str = ":".join("{:02X}".format(b) for b in actual_mac)
         
-        log("espnow_a", "ESP-NOW initialized (Client mode)")
-        log("espnow_a", "My MAC: {}".format(mac_str))
-        log("espnow_a", "Peer added: Scheda B ({})" .format(
+        log("communication.espnow", "ESP-NOW initialized (Client mode)")
+        log("communication.espnow", "My MAC: {}".format(mac_str))
+        log("communication.espnow", "Peer added: Scheda B ({})" .format(
             ":".join("{:02X}".format(b) for b in MAC_B)
         ))
         return True
     except Exception as e:
-        log("espnow_a", "Initialization failed: {}".format(e))
+        log("communication.espnow", "Initialization failed: {}".format(e))
         _esp_now = None
         _initialized = False
         return False
@@ -104,7 +104,7 @@ def send_message(data):
         True if message was sent, False otherwise
     """
     if not _initialized or _esp_now is None:
-        log("espnow_a", "ESP-NOW not initialized")
+        log("communication.espnow", "ESP-NOW not initialized")
         return False
     
     try:
@@ -114,7 +114,7 @@ def send_message(data):
         _esp_now.send(MAC_B, data)
         return True
     except Exception as e:
-        log("espnow_a", "Send error: {}".format(e))
+        log("communication.espnow", "Send error: {}".format(e))
         return False
 
 
@@ -132,7 +132,7 @@ def _parse_actuator_state(msg_str):
                 if remote_version != config.FIRMWARE_VERSION:
                     global _version_mismatch_logged
                     if not _version_mismatch_logged:
-                        log("espnow_a", "ERROR: Firmware version mismatch! Local=v{}, Remote=v{}".format(
+                        log("communication.espnow", "ERROR: Firmware version mismatch! Local=v{}, Remote=v{}".format(
                             config.FIRMWARE_VERSION, remote_version
                         ))
                         _version_mismatch_logged = True
@@ -176,7 +176,7 @@ def _parse_actuator_state(msg_str):
         
         state.received_actuator_state["last_update"] = ticks_ms()
     except Exception as e:
-        log("espnow_a", "Parse error: {}".format(e))
+        log("communication.espnow", "Parse error: {}".format(e))
 
 
 def _log_complete_state():

@@ -74,15 +74,15 @@ def init_espnow_comm():
             actual_mac = MAC_B  # Fallback to configured MAC
         mac_str = ":".join("{:02X}".format(b) for b in actual_mac)
         
-        log("espnow_b", "ESP-NOW initialized (Server mode)")
-        log("espnow_b", "My MAC: {}".format(mac_str))
-        log("espnow_b", "Peer added: Scheda A ({})".format(
+        log("communication.espnow", "ESP-NOW initialized (Server mode)")
+        log("communication.espnow", "My MAC: {}".format(mac_str))
+        log("communication.espnow", "Peer added: Scheda A ({})".format(
             ":".join("{:02X}".format(b) for b in MAC_A)
         ))
-        log("espnow_b", "Ready to receive messages")
+        log("communication.espnow", "Ready to receive messages")
         return True
     except Exception as e:
-        log("espnow_b", "Initialization failed: {}".format(e))
+        log("communication.espnow", "Initialization failed: {}".format(e))
         _esp_now = None
         _initialized = False
         return False
@@ -98,7 +98,7 @@ def send_message(data):
         True if sent successfully, False otherwise
     """
     if not _initialized or _esp_now is None:
-        log("espnow_b", "ESP-NOW not initialized")
+        log("communication.espnow", "ESP-NOW not initialized")
         return False
     
     try:
@@ -108,7 +108,7 @@ def send_message(data):
         _esp_now.send(MAC_A, data)
         return True
     except Exception as e:
-        log("espnow_b", "Send error: {}".format(e))
+        log("communication.espnow", "Send error: {}".format(e))
         return False
 
 
@@ -126,7 +126,7 @@ def _parse_sensor_state(msg_str):
                 if remote_version != config.FIRMWARE_VERSION:
                     global _version_mismatch_logged
                     if not _version_mismatch_logged:
-                        log("espnow_b", "ERROR: Firmware version mismatch! Local=v{}, Remote=v{}".format(
+                        log("communication.espnow", "ERROR: Firmware version mismatch! Local=v{}, Remote=v{}".format(
                             config.FIRMWARE_VERSION, remote_version
                         ))
                         _version_mismatch_logged = True
@@ -147,7 +147,7 @@ def _parse_sensor_state(msg_str):
         if "CO=" in msg_str:
             co_str = msg_str.split("CO=")[1].split()[0].strip()
             try:
-                state.received_sensor_state["co"] = int(co_str) if co_str != "N/A" else None
+                state.received_sensor_state["co"] = float(co_str) if co_str != "N/A" else None
             except:
                 state.received_sensor_state["co"] = None
         
@@ -168,7 +168,7 @@ def _parse_sensor_state(msg_str):
         if "Dist=" in msg_str:
             dist_str = msg_str.split("Dist=")[1].split()[0].strip()
             try:
-                state.received_sensor_state["ultrasonic_distance"] = int(dist_str) if dist_str != "N/A" else None
+                state.received_sensor_state["ultrasonic_distance"] = float(dist_str) if dist_str != "N/A" else None
             except:
                 state.received_sensor_state["ultrasonic_distance"] = None
 
@@ -197,50 +197,50 @@ def _parse_sensor_state(msg_str):
         
         state.received_sensor_state["last_update"] = ticks_ms()
     except Exception as e:
-        log("espnow_b", "Parse error: {}".format(e))
+        log("communication.espnow", "Parse error: {}".format(e))
 
 
 def _log_complete_state():
     """Log complete state including local actuators and received sensors."""
-    log("espnow_b", "=" * 60)
-    log("espnow_b", "COMPLETE STATE SNAPSHOT (Board B)")
-    log("espnow_b", "=" * 60)
+    log("communication.espnow", "=" * 60)
+    log("communication.espnow", "COMPLETE STATE SNAPSHOT (Board B)")
+    log("communication.espnow", "=" * 60)
     
     # Local actuator data (sent to A)
     modes = state.actuator_state["led_modes"]
-    log("espnow_b", "LOCAL ACTUATORS (sent to A):")
-    log("espnow_b", "  LEDs: Green={}, Blue={}, Red={}".format(
+    log("communication.espnow", "LOCAL ACTUATORS (sent to A):")
+    log("communication.espnow", "  LEDs: Green={}, Blue={}, Red={}".format(
         modes.get("green", "off"), modes.get("blue", "off"), modes.get("red", "off")
     ))
-    log("espnow_b", "  Servo: {}°".format(
+    log("communication.espnow", "  Servo: {}°".format(
         state.actuator_state["servo"].get("angle", "N/A")
     ))
-    log("espnow_b", "  LCD: '{}' / '{}'".format(
+    log("communication.espnow", "  LCD: '{}' / '{}'".format(
         state.actuator_state["lcd"].get("line1", ""),
         state.actuator_state["lcd"].get("line2", "")
     ))
-    log("espnow_b", "  Buzzer: {}, Audio: {}".format(
+    log("communication.espnow", "  Buzzer: {}, Audio: {}".format(
         "ON" if state.actuator_state["buzzer"].get("active", False) else "OFF",
         "PLAY" if state.actuator_state["audio"].get("playing", False) else "STOP"
     ))
     
     # Received sensor data from A
-    log("espnow_b", "")
-    log("espnow_b", "RECEIVED SENSORS (from A):")
+    log("communication.espnow", "")
+    log("communication.espnow", "RECEIVED SENSORS (from A):")
     recv = state.received_sensor_state
-    log("espnow_b", "  Temperature: {}°C".format(recv["temperature"] if recv["temperature"] is not None else "N/A"))
-    log("espnow_b", "  CO: {} ppm".format(recv["co"] if recv["co"] is not None else "N/A"))
-    log("espnow_b", "  Heart Rate: {} bpm, SpO2: {}%".format(
+    log("communication.espnow", "  Temperature: {}°C".format(recv["temperature"] if recv["temperature"] is not None else "N/A"))
+    log("communication.espnow", "  CO: {} ppm".format(recv["co"] if recv["co"] is not None else "N/A"))
+    log("communication.espnow", "  Heart Rate: {} bpm, SpO2: {}%".format(
         recv["heart_rate_bpm"] if recv["heart_rate_bpm"] is not None else "N/A",
         recv["heart_rate_spo2"] if recv["heart_rate_spo2"] is not None else "N/A"
     ))
-    log("espnow_b", "  Ultrasonic: {} cm".format(
+    log("communication.espnow", "  Ultrasonic: {} cm".format(
         recv["ultrasonic_distance"] if recv["ultrasonic_distance"] is not None else "N/A"
     ))
-    log("espnow_b", "  Buttons: B1={}, B2={}, B3={}".format(
+    log("communication.espnow", "  Buttons: B1={}, B2={}, B3={}".format(
         recv["button_b1"], recv["button_b2"], recv["button_b3"]
     ))
-    log("espnow_b", "=" * 60)
+    log("communication.espnow", "=" * 60)
 
 
 def update():
@@ -276,7 +276,7 @@ def update():
                 pass
         
         # Log complete state every 15 seconds
-        if elapsed("espnow_state_log", _state_log_interval):
+        if _state_log_interval and elapsed("espnow_state_log", _state_log_interval):
             _log_complete_state()
     except Exception as e:
-        log("espnow_b", "Update error: {}".format(e))
+        log("communication.espnow", "Update error: {}".format(e))
