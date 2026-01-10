@@ -98,8 +98,11 @@ def set_led_state(
         return
 
     now = ticks_ms()
+    current_mode = state.actuator_state.get("led_modes", {}).get(name)
 
     if mode == "off":
+        if current_mode == "off":
+            return
         _led_pins[name].value(0)
         state.actuator_state["leds"][name] = False
         if "led_modes" in state.actuator_state:
@@ -111,6 +114,8 @@ def set_led_state(
         return
 
     if mode == "on":
+        if current_mode == "on":
+            return
         _led_pins[name].value(1)
         state.actuator_state["leds"][name] = True
         if "led_modes" in state.actuator_state:
@@ -138,6 +143,14 @@ def set_led_state(
 
         r = _led_runtime.get(name)
         if r is None:
+            return
+
+        if (
+            r["mode"] == "blinking"
+            and r["blink_interval"] == blink_interval_ms
+            and r["on_duration"] == on_duration_ms
+            and r["total_duration"] == total_duration_ms
+        ):
             return
 
         r["mode"] = "blinking"
