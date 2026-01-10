@@ -83,7 +83,7 @@ def read_co():
         if delta_mv < guard_mv:
             delta_mv = 0
 
-        ppm = (delta_mv / 1000.0) * ppm_per_volt
+        ppm = (delta_mv / 1000.0) * ppm_per_v
         ppm = max(0.0, min(clamp_max, ppm))
 
         state.sensor_data["co"] = round(ppm, 2)
