@@ -163,4 +163,5 @@ ULTRASONIC_PRESENCE_DISTANCE_CM = windows.get('ultrasonic_presence_distance_cm',
 ULTRASONIC_WARNING_TIME_MS = windows.get('ultrasonic_warning', 2000)
 ULTRASONIC_DANGER_TIME_MS = windows.get('ultrasonic_danger', 10000)
 ULTRASONIC_RECOVERY_TIME_MS = windows.get('ultrasonic_recovery', 5000)
+GATE_CLOSE_DELAY_MS = windows.get('gate_close_delay_ms', 10000)
 

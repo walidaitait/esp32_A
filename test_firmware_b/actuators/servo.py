@@ -12,6 +12,11 @@ _moving = False
 _last_update = 0
 _move_speed = 2  # Degrees per 50ms update cycle (max ~90°/s)
 
+# Gate automation state (received from ESP32-A)
+_presence_detected = False
+_gate_open = False
+_presence_lost_time_ms = None
+
 # Typical PWM parameters for servo: 50Hz, pulse 0.5-2.5ms
 _PWM_FREQ = 50
 _MIN_US = 500
@@ -127,3 +132,49 @@ def init_servo():
 def update_servo_test():
     """Update servo: handle smooth movement."""
     _update_servo_smooth()
+
+
+def update_gate_automation():
+    """Update gate based on presence detection from ESP32-A (called from main loop)."""
+    global _presence_detected, _gate_open, _presence_lost_time_ms, _target_angle
+    
+    if _pwm is None:
+        return
+    
+    # Read presence state from received sensor data
+    presence = state.received_sensor_state.get("presence_detected", False)
+    
+    # State change: presence detected -> open gate
+    if presence and not _gate_open:
+        _gate_open = True
+        _presence_lost_time_ms = None
+        set_servo_angle(90)  # Open gate
+        log("servo", "Gate: presence detected, opening...")
+    
+    # Presence still active -> keep gate open
+    elif presence and _gate_open:
+        # Gate already open and presence still detected, nothing to do
+        pass
+    
+    # Presence lost -> start countdown to close
+    elif not presence and _gate_open:
+        if _presence_lost_time_ms is None:
+            _presence_lost_time_ms = ticks_ms()
+            log("servo", "Gate: presence lost, countdown to close started")
+        else:
+            # Check if delay has elapsed
+            close_delay_ms = getattr(config, "GATE_CLOSE_DELAY_MS", 10000)
+            elapsed = ticks_diff(ticks_ms(), _presence_lost_time_ms)
+            
+            if elapsed >= close_delay_ms:
+                # Close gate
+                _gate_open = False
+                _presence_lost_time_ms = None
+                set_servo_angle(0)  # Close gate
+                log("servo", "Gate: closing after delay ({} ms)".format(close_delay_ms))
+    
+    # No presence and gate already closed -> nothing to do
+    else:
+        pass
+    
+    _presence_detected = presence

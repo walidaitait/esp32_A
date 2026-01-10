@@ -34,13 +34,19 @@ _version_mismatch_logged = False  # Prevent log spam
 def _get_sensor_data_string():
     """Format all sensor data into a compact string."""
     hr = state.sensor_data["heart_rate"]
-    data = "V:{} SENSORS: Temp={} CO={} HR={} SpO2={} Dist={} Btns={}|{}|{}".format(
+    presence = state.sensor_data.get("ultrasonic_presence", False)
+    alarm_level = state.alarm_state.get("level", "normal")
+    alarm_source = state.alarm_state.get("source", "none") or "none"
+    data = "V:{} SENSORS: Temp={} CO={} HR={} SpO2={} Dist={} Presence={} Alarm={}:{} Btns={}|{}|{}".format(
         config.FIRMWARE_VERSION,
         state.sensor_data.get("temperature", "N/A"),
         state.sensor_data.get("co", "N/A"),
         hr.get("bpm", "N/A") if hr else "N/A",
         hr.get("spo2", "N/A") if hr else "N/A",
         state.sensor_data.get("ultrasonic_distance_cm", "N/A"),
+        presence,
+        alarm_level,
+        alarm_source,
         state.button_state.get("b1", False),
         state.button_state.get("b2", False),
         state.button_state.get("b3", False)

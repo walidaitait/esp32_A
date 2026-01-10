@@ -70,6 +70,7 @@
     "ultrasonic_presence_distance_cm": 50.0,
     "ultrasonic_warning": 2000,
     "ultrasonic_danger": 10000,
-    "ultrasonic_recovery": 5000
+    "ultrasonic_recovery": 5000,
+    "gate_close_delay_ms": 10000
   }
 }

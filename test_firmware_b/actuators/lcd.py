@@ -175,3 +175,18 @@ def update_lcd_test():
     if not _displaying_custom and not _clear_pending:
         restore_default()
 
+
+def update_alarm_display(level, source):
+    """Display alarm info. Normal -> default; warning/danger -> show messages."""
+    if not _initialized:
+        return
+    if level == "normal":
+        # Only restore default if we were showing alarm
+        if _displaying_custom:
+            restore_default()
+        return
+
+    line1 = "Warning" if level == "warning" else "Danger"
+    line2 = source.upper() if source else "ALARM"
+    display_custom(line1[:16], line2[:16])
+

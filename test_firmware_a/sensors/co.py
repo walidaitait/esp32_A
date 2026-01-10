@@ -90,9 +90,9 @@ def read_co():
 
         if _read_count % 10 == 0:
             actual_delta = mv - _baseline_mv - offset_mv  # Show unfiltered delta for diagnostics
-            log("co", "read raw={} mv={:.1f} baseline={:.1f} delta_raw={:.1f} delta_filt={:.1f} ppm={:.2f}".format(
-                raw, mv, _baseline_mv, actual_delta, delta_mv, ppm
-            ))
+            # Disabled: log("co", "read raw={} mv={:.1f} baseline={:.1f} delta_raw={:.1f} delta_filt={:.1f} ppm={:.2f}".format(
+            #     raw, mv, _baseline_mv, actual_delta, delta_mv, ppm
+            # ))
     except Exception as e:
         log("co", "read_co: Read error: {}".format(e))
         state.sensor_data["co"] = None

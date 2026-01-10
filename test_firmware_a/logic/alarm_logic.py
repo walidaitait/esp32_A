@@ -165,6 +165,24 @@ def evaluate_logic():
     presence_dist = getattr(config, "ULTRASONIC_PRESENCE_DISTANCE_CM", 50.0)
     presence = distance is not None and distance <= presence_dist
     state.sensor_data["ultrasonic_presence"] = presence
+    
+    # Update gate control state
+    prev_presence = state.gate_state.get("presence_detected", False)
+    state.gate_state["presence_detected"] = presence
+    
+    # If presence was lost, record the time for delayed gate close
+    if prev_presence and not presence:
+        state.gate_state["last_presence_lost_ms"] = ticks_ms()
+        log("alarm_logic", "Gate: presence lost, will close after delay")
+    elif not prev_presence and presence:
+        state.gate_state["last_presence_lost_ms"] = None
+        log("alarm_logic", "Gate: presence detected, opening gate")
 
     # Overall alarm state
     _update_overall_alarm()
+    
+    # Update alarm type/source for actuators
+    if state.alarm_state["level"] != "normal":
+        state.alarm_state["type"] = state.alarm_state["source"]
+    else:
+        state.alarm_state["type"] = None

@@ -62,6 +62,18 @@ def init_leds():
         return False
 
 
+def apply_alarm(level):
+    """Apply alarm indication on red LED based on level."""
+    if not _initialized:
+        return
+    if level == "danger":
+        set_led_state("red", "on")
+    elif level == "warning":
+        set_led_state("red", "blinking", blink_interval_ms=500, on_duration_ms=250)
+    else:
+        set_led_state("red", "off")
+
+
 def _all_off():
     """Turn off all LEDs and reset internal state."""
     for name, pin in _led_pins.items():

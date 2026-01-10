@@ -15,6 +15,7 @@ LCD_UPDATE_INTERVAL = 500      # Update LCD display every 500ms
 AUDIO_UPDATE_INTERVAL = 100    # Check audio playback status every 100ms
 HEARTBEAT_INTERVAL = 5000      # Log system status every 5 seconds
 ESPNOW_TIMEOUT = 10000         # ESP-NOW connection timeout (10 seconds)
+ALARM_UPDATE_INTERVAL = 200    # Update alarm indicators every 200ms
 
 # Simulation mode flag
 _simulation_mode = False
@@ -179,6 +180,7 @@ def update():
         if config.SERVO_ENABLED and servo is not None:
             if elapsed("servo_update", SERVO_UPDATE_INTERVAL):
                 servo.update_servo_test()  # type: ignore
+                servo.update_gate_automation()  # type: ignore
         
         # Update LCD display
         if config.LCD_ENABLED and lcd is not None:
@@ -189,6 +191,17 @@ def update():
         if config.AUDIO_ENABLED and audio is not None:
             if elapsed("audio_update", AUDIO_UPDATE_INTERVAL):
                 audio.update_audio_test()  # type: ignore
+
+        # Alarm-driven actuators (LED red, buzzer, LCD alert)
+        if elapsed("alarm_update", ALARM_UPDATE_INTERVAL):
+            alarm_level = state.received_sensor_state.get("alarm_level", "normal")
+            alarm_source = state.received_sensor_state.get("alarm_source")
+            if config.LEDS_ENABLED and leds is not None:
+                leds.apply_alarm(alarm_level)  # type: ignore
+            if config.BUZZER_ENABLED and buzzer is not None:
+                buzzer.update_alarm_feedback(alarm_level)  # type: ignore
+            if config.LCD_ENABLED and lcd is not None:
+                lcd.update_alarm_display(alarm_level, alarm_source)  # type: ignore
         
         # Periodic heartbeat for system status - DISABLED
         # if elapsed("actuator_heartbeat", HEARTBEAT_INTERVAL):

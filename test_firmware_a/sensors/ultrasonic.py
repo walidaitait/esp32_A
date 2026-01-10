@@ -52,9 +52,6 @@ def _smooth_distance(raw_distance):
 def read_ultrasonic():
     global _last_read_ms, _measurement_count, _failed_measurements, _distance_log_counter
     
-def read_ultrasonic():
-    global _last_read_ms, _measurement_count, _failed_measurements, _distance_log_counter
-    
     if _trig is None or _echo is None:
         return
 
@@ -82,7 +79,7 @@ def read_ultrasonic():
                 blended = _smooth_distance(distance_cm)
                 state.sensor_data["ultrasonic_distance_cm"] = blended
                 _distance_log_counter += 1
-                if _distance_log_counter % 10 == 0:
+                if _distance_log_counter % 100 == 0:  # Log only every 100 reads to reduce noise
                     log("ultrasonic", "ok dist {:.2f} cm dur {}us (count {}, failed {})".format(
                         blended, duration, _measurement_count, _failed_measurements))
             else:

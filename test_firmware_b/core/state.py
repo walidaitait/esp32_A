@@ -48,6 +48,9 @@ received_sensor_state = {
     "button_b1": False,
     "button_b2": False,
     "button_b3": False,
+    "presence_detected": False,    # Gate control: presence detected from ultrasonic
+    "alarm_level": "normal",       # Alarm level (normal | warning | danger)
+    "alarm_source": None,          # Alarm source (co | temp | heart)
     "last_update": None,
 }
 

@@ -26,7 +26,7 @@ _esp_now = None
 _initialized = False
 _wifi = None
 _messages_received = 0
-_state_log_interval = 15000  # Log complete state every 15 seconds
+_state_log_interval = None  # Disabled snapshots
 _version_mismatch_logged = False  # Prevent log spam
 
 
@@ -171,6 +171,21 @@ def _parse_sensor_state(msg_str):
                 state.received_sensor_state["ultrasonic_distance"] = int(dist_str) if dist_str != "N/A" else None
             except:
                 state.received_sensor_state["ultrasonic_distance"] = None
+
+        if "Presence=" in msg_str:
+            pres_str = msg_str.split("Presence=")[1].split()[0].strip()
+            state.received_sensor_state["presence_detected"] = (pres_str.lower() == "true")
+
+        if "Alarm=" in msg_str:
+            alarm_str = msg_str.split("Alarm=")[1].split()[0].strip()
+            # Expect format level:source
+            if ":" in alarm_str:
+                level_part, source_part = alarm_str.split(":", 1)
+                state.received_sensor_state["alarm_level"] = level_part
+                state.received_sensor_state["alarm_source"] = source_part
+            else:
+                state.received_sensor_state["alarm_level"] = alarm_str
+                state.received_sensor_state["alarm_source"] = None
         
         if "Btns=" in msg_str:
             btns_str = msg_str.split("Btns=")[1].strip()

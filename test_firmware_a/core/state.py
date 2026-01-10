@@ -29,6 +29,14 @@ system_state = {
 alarm_state = {
     "level": "normal",   # normal | warning | danger
     "source": None,        # co | temp | heart | None
+    "type": None,        # tipo di allarme (co, temp, heart)
+}
+
+# Gate control state (for presence-based automation)
+gate_state = {
+    "presence_detected": False,     # True when ultrasonic detects presence < threshold
+    "gate_open": False,             # True when gate is open (servo at 90°)
+    "last_presence_lost_ms": None,  # Timestamp when presence was last lost
 }
 
 # Last packet ID received from ESP32-B (for future bidirectional comm)
