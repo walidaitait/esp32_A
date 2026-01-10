@@ -74,15 +74,10 @@ def _handle_threshold(args):
     if len(args) < 2:
         return {"success": False, "message": "Usage: threshold <sensor> <value>"}
     
-    sensor = args[0].lower()
+    # Args are already validated and normalized by send_command.py
+    sensor = args[0]
+    value = args[1]
     
-    try:
-        value = float(args[1])
-    except ValueError:
-        return {"success": False, "message": "Invalid value. Must be a number"}
-    
-    # This is a placeholder - you would need to add threshold storage
-    # to state.py and implement in alarm_logic.py
     log("cmd_handler", "Threshold {} set to {}".format(sensor, value))
     return {"success": True, "message": "Threshold {} set to {} (placeholder)".format(sensor, value)}
 
@@ -92,12 +87,13 @@ def _handle_simulate(args):
     if len(args) < 2:
         return {"success": False, "message": "Usage: simulate <sensor> <value>"}
     
-    sensor = args[0].lower()
+    # Args are already validated and normalized by send_command.py
+    sensor = args[0]
     value_str = args[1]
     
-    # Parse value based on sensor type
+    # Parse value
     try:
-        if sensor == "temperature" or sensor == "temp":
+        if sensor == "temperature":
             value = float(value_str)
             state.sensor_data["temperature"] = value
             timers.mark_user_action("temp_read")
@@ -111,14 +107,14 @@ def _handle_simulate(args):
             log("cmd_handler", "CO simulated: {} ppm".format(value))
             return {"success": True, "message": "CO set to {} ppm".format(value)}
         
-        elif sensor == "ultrasonic" or sensor == "distance":
+        elif sensor == "ultrasonic":
             value = float(value_str)
             state.sensor_data["ultrasonic_distance_cm"] = value
             timers.mark_user_action("ultrasonic_read")
             log("cmd_handler", "Ultrasonic simulated: {} cm".format(value))
             return {"success": True, "message": "Distance set to {} cm".format(value)}
         
-        elif sensor == "heart" or sensor == "bpm":
+        elif sensor == "heart":
             value = int(value_str)
             if state.sensor_data["heart_rate"] is None:
                 state.sensor_data["heart_rate"] = {}
@@ -148,7 +144,8 @@ def _handle_alarm(args):
     if len(args) < 1:
         return {"success": False, "message": "Usage: alarm <trigger|clear|test>"}
     
-    action = args[0].lower()
+    # Args are already validated and normalized by send_command.py
+    action = args[0]
     
     if action == "trigger":
         state.alarm_state["level"] = "danger"
@@ -169,9 +166,6 @@ def _handle_alarm(args):
             "message": "Alarm test",
             "alarm": state.alarm_state
         }
-    
-    else:
-        return {"success": False, "message": "Invalid action. Use: trigger, clear, test"}
 
 
 def _handle_state(args):

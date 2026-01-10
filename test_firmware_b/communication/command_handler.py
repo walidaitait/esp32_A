@@ -84,15 +84,10 @@ def _handle_led(args):
     if len(args) < 2:
         return {"success": False, "message": "Usage: led <color> <state>"}
     
-    color = args[0].lower()
-    mode = args[1].lower()
+    color = args[0]
+    mode = args[1]
     
-    if color not in ["green", "blue", "red"]:
-        return {"success": False, "message": "Invalid color. Use: green, blue, red"}
-    
-    if mode not in ["on", "off", "blinking"]:
-        return {"success": False, "message": "Invalid state. Use: on, off, blinking"}
-    
+    # Args are already validated and normalized by send_command.py
     # Update hardware (if initialized) and state
     try:
         from actuators import leds as leds_module
@@ -114,28 +109,23 @@ def _handle_servo(args):
     if len(args) < 1:
         return {"success": False, "message": "Usage: servo <angle>"}
     
-    try:
-        angle = int(args[0])
-        if angle < 0 or angle > 180:
-            return {"success": False, "message": "Angle must be 0-180"}
-        
-        # Apply immediately to hardware if available
-        try:
-            from actuators import servo as servo_module
-            servo_module.set_servo_angle(angle)
-        except Exception:
-            # Fallback to state-only
-            state.actuator_state["servo"]["angle"] = angle
-            state.actuator_state["servo"]["moving"] = True
-
-        # Protect servo from auto overrides for 20s
-        timers.mark_user_action("servo_update")
-        
-        log("cmd_handler", "Servo set to {} degrees".format(angle))
-        return {"success": True, "message": "Servo set to {} degrees".format(angle)}
+    # Args are already validated and normalized by send_command.py
+    angle = int(args[0])
     
-    except ValueError:
-        return {"success": False, "message": "Invalid angle. Must be integer 0-180"}
+    # Apply immediately to hardware if available
+    try:
+        from actuators import servo as servo_module
+        servo_module.set_servo_angle(angle)
+    except Exception:
+        # Fallback to state-only
+        state.actuator_state["servo"]["angle"] = angle
+        state.actuator_state["servo"]["moving"] = True
+
+    # Protect servo from auto overrides for 20s
+    timers.mark_user_action("servo_update")
+    
+    log("cmd_handler", "Servo set to {} degrees".format(angle))
+    return {"success": True, "message": "Servo set to {} degrees".format(angle)}
 
 
 def _handle_lcd(args):
@@ -143,20 +133,9 @@ def _handle_lcd(args):
     if len(args) < 2:
         return {"success": False, "message": "Usage: lcd <line> <text>"}
     
-    line = args[0].lower()
-    text = " ".join(args[1:])  # Join remaining args as text
-    
-    if line not in ["line1", "line2", "1", "2"]:
-        return {"success": False, "message": "Invalid line. Use: line1, line2, 1, or 2"}
-    
-    # Normalize line names
-    if line == "1":
-        line = "line1"
-    elif line == "2":
-        line = "line2"
-    
-    # Truncate to 16 characters (LCD limit)
-    text = text[:16]
+    # Args are already validated and normalized by send_command.py
+    line = args[0]
+    text = args[1]
     
     # Update state first
     state.actuator_state["lcd"][line] = text
@@ -182,11 +161,8 @@ def _handle_buzzer(args):
     if len(args) < 1:
         return {"success": False, "message": "Usage: buzzer <state>"}
     
-    mode = args[0].lower()
-    
-    if mode not in ["on", "off"]:
-        return {"success": False, "message": "Invalid state. Use: on, off"}
-    
+    # Args are already validated and normalized by send_command.py
+    mode = args[0]
     desired_on = (mode == "on")
     state.actuator_state["buzzer"]["active"] = desired_on
 
@@ -207,7 +183,8 @@ def _handle_audio(args):
     if len(args) < 1:
         return {"success": False, "message": "Usage: audio <play|pause|stop|volume|track> [params]"}
     
-    action = args[0].lower()
+    # Args are already validated and normalized by send_command.py
+    action = args[0]
     
     if action == "play":
         state.actuator_state["audio"]["playing"] = True
@@ -246,30 +223,16 @@ def _handle_audio(args):
         return {"success": True, "message": "Audio stopped"}
     
     elif action == "volume":
-        if len(args) < 2:
-            return {"success": False, "message": "Usage: audio volume <0-30>"}
-        try:
-            volume = int(args[1])
-            if volume < 0 or volume > 30:
-                return {"success": False, "message": "Volume must be 0-30"}
-            state.actuator_state["audio"]["last_cmd"] = "volume:{}".format(volume)
-            log("cmd_handler", "Audio volume set to {}".format(volume))
-            return {"success": True, "message": "Volume set to {}".format(volume)}
-        except ValueError:
-            return {"success": False, "message": "Invalid volume"}
+        volume = int(args[1])
+        state.actuator_state["audio"]["last_cmd"] = "volume:{}".format(volume)
+        log("cmd_handler", "Audio volume set to {}".format(volume))
+        return {"success": True, "message": "Volume set to {}".format(volume)}
     
     elif action == "track":
-        if len(args) < 2:
-            return {"success": False, "message": "Usage: audio track <1-255>"}
-        try:
-            track = int(args[1])
-            if track < 1 or track > 255:
-                return {"success": False, "message": "Track must be 1-255"}
-            state.actuator_state["audio"]["last_cmd"] = "track:{}".format(track)
-            log("cmd_handler", "Audio track set to {}".format(track))
-            return {"success": True, "message": "Track set to {}".format(track)}
-        except ValueError:
-            return {"success": False, "message": "Invalid track number"}
+        track = int(args[1])
+        state.actuator_state["audio"]["last_cmd"] = "track:{}".format(track)
+        log("cmd_handler", "Audio track set to {}".format(track))
+        return {"success": True, "message": "Track set to {}".format(track)}
     
     else:
         return {"success": False, "message": "Invalid audio action. Use: play, pause, stop, volume, track"}
