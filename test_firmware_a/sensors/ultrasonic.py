@@ -25,6 +25,7 @@ _measurement_pending = False
 _measurement_ready = False
 _measurement_count = 0
 _failed_measurements = 0
+_consecutive_timeouts = 0
 _trigger_time_ms = 0  # Tempo di inizio della misurazione
 
 
@@ -32,7 +33,11 @@ def init_ultrasonic():
     global _trig, _echo
     try:
         _trig = Pin(ULTRASONIC_TRIG_PIN, Pin.OUT)
-        _echo = Pin(ULTRASONIC_ECHO_PIN, Pin.IN)
+        # Prefer a pull-down on ECHO to avoid floating input if available
+        try:
+            _echo = Pin(ULTRASONIC_ECHO_PIN, Pin.IN, Pin.PULL_DOWN)
+        except Exception:
+            _echo = Pin(ULTRASONIC_ECHO_PIN, Pin.IN)
         _trig.value(0)
         # Set up interrupt for echo pin
         _echo.irq(trigger=Pin.IRQ_RISING | Pin.IRQ_FALLING, handler=_echo_interrupt)
@@ -79,7 +84,12 @@ def read_ultrasonic():
             # log("ultrasonic", "⚠️  Measurement timeout - no echo received")
             _measurement_pending = False
             _failed_measurements += 1
+            _consecutive_timeouts += 1
             state.sensor_data["ultrasonic_distance_cm"] = None
+            # Non-blocking policy: do not run blocking diagnostics automatically
+            if _consecutive_timeouts >= 3:
+                # Keep note of repeated timeouts; next successful read will reset this counter
+                _consecutive_timeouts = 0
         return
 
     if _measurement_ready:
@@ -94,6 +104,7 @@ def read_ultrasonic():
             # Filter out of range measurements (HC-SR04: 2cm - 400cm)
             if 2 <= distance_cm <= 400:
                 state.sensor_data["ultrasonic_distance_cm"] = round(distance_cm, 2)
+                _consecutive_timeouts = 0
                 # log("ultrasonic", f"✓ Distance: {distance_cm:.2f} cm (duration: {duration}µs)")
             else:
                 # log("ultrasonic", f"⚠️  Out of range: {distance_cm:.2f} cm")
@@ -128,4 +139,7 @@ def read_ultrasonic():
         _measurement_pending = False
         _failed_measurements += 1
         state.sensor_data["ultrasonic_distance_cm"] = None
+
+
+# Note: any blocking diagnostics removed to honor non-blocking policy
 

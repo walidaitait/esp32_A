@@ -7,14 +7,15 @@ from core.timers import elapsed
 from core import state
 from debug.debug import log
 
-# Timing constants (milliseconds)
-TEMPERATURE_READ_INTERVAL = 2000  # Read temperature every 2 seconds
-CO_READ_INTERVAL = 500            # Read CO sensor every 500ms
-ULTRASONIC_READ_INTERVAL = 1000   # Read ultrasonic every 1 second
-HEART_RATE_READ_INTERVAL = 1000   # Read heart rate every 1 second
-BUTTON_READ_INTERVAL = 50         # Check buttons every 50ms
+# Timing constants (milliseconds) - use values from config where available
+from config import config as _cfg
+TEMPERATURE_READ_INTERVAL = _cfg.TEMP_INTERVAL
+CO_READ_INTERVAL = _cfg.CO_INTERVAL
+ULTRASONIC_READ_INTERVAL = _cfg.ULTRASONIC_INTERVAL
+HEART_RATE_READ_INTERVAL = _cfg.HEART_RATE_INTERVAL
+BUTTON_READ_INTERVAL = _cfg.BUTTON_INTERVAL
 ACCELEROMETER_READ_INTERVAL = 200 # Read accelerometer every 200ms
-ALARM_EVAL_INTERVAL = 500         # Evaluate alarm logic every 500ms
+ALARM_EVAL_INTERVAL = _cfg.LOGIC_INTERVAL
 STATUS_LOG_INTERVAL = 2500        # Log complete status every 2.5 seconds
 
 # Simulation mode flag
