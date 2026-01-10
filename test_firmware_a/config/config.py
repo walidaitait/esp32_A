@@ -107,7 +107,7 @@ LOGIC_INTERVAL = intervals.get('logic', 200)
 
 co_config = _config.get('co_config', {})
 CO_BASELINE_MS = co_config.get('baseline_ms', 2000)
-CO_MIN_GUARD_MV = co_config.get('min_guard_mv', 5)
+CO_MIN_GUARD_MV = co_config.get('min_guard_mv', 3)
 CO_PPM_PER_V = co_config.get('ppm_per_v', 400)
 CO_PPM_CLAMP = co_config.get('ppm_clamp', 300)
 CO_OFFSET_MV = co_config.get('offset_mv', 0)

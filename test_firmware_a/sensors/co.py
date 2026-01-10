@@ -52,7 +52,7 @@ def read_co():
 
         # Configurable parameters with safe defaults
         baseline_ms = getattr(config, "CO_BASELINE_MS", 2000)  # short baseline window
-        guard_mv = getattr(config, "CO_MIN_GUARD_MV", 5)       # ignore tiny noise
+        guard_mv = getattr(config, "CO_MIN_GUARD_MV", 3)       # ignore tiny noise
         ppm_per_v = getattr(config, "CO_PPM_PER_V", 400)       # ppm per volt over baseline
         clamp_max = getattr(config, "CO_PPM_CLAMP", 300)       # clamp maximum reported ppm
         offset_mv = getattr(config, "CO_OFFSET_MV", 0)         # optional offset after baseline
@@ -89,8 +89,9 @@ def read_co():
         state.sensor_data["co"] = round(ppm, 2)
 
         if _read_count % 10 == 0:
-            log("co", "read raw={} mv={:.1f} baseline={:.1f} delta={:.1f} ppm={:.2f}".format(
-                raw, mv, _baseline_mv, delta_mv, ppm
+            actual_delta = mv - _baseline_mv - offset_mv  # Show unfiltered delta for diagnostics
+            log("co", "read raw={} mv={:.1f} baseline={:.1f} delta_raw={:.1f} delta_filt={:.1f} ppm={:.2f}".format(
+                raw, mv, _baseline_mv, actual_delta, delta_mv, ppm
             ))
     except Exception as e:
         log("co", "read_co: Read error: {}".format(e))

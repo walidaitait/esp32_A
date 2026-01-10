@@ -38,7 +38,7 @@
   },
   "co_config": {
     "baseline_ms": 2000,
-    "min_guard_mv": 5,
+    "min_guard_mv": 3,
     "ppm_per_v": 400,
     "ppm_clamp": 300,
     "offset_mv": 0
