@@ -13,6 +13,7 @@ Supported commands:
 
 from debug.debug import log
 from core import state
+from core import timers
 
 
 def handle_command(command, args):
@@ -47,6 +48,14 @@ def handle_command(command, args):
         # Get system status: status
         elif command == "status":
             return _handle_status(args)
+        
+        # Trigger OTA update: update
+        elif command == "update":
+            return _handle_update(args)
+        
+        # Trigger system reboot: reboot
+        elif command == "reboot":
+            return _handle_reboot(args)
         
         else:
             return {"success": False, "message": "Unknown command: {}".format(command)}
@@ -87,18 +96,21 @@ def _handle_simulate(args):
         if sensor == "temperature" or sensor == "temp":
             value = float(value_str)
             state.sensor_data["temperature"] = value
+            timers.mark_user_action("temp_read")
             log("cmd_handler", "Temperature simulated: {}°C".format(value))
             return {"success": True, "message": "Temperature set to {}°C".format(value)}
         
         elif sensor == "co":
             value = int(value_str)
             state.sensor_data["co"] = value
+            timers.mark_user_action("co_read")
             log("cmd_handler", "CO simulated: {} ppm".format(value))
             return {"success": True, "message": "CO set to {} ppm".format(value)}
         
         elif sensor == "ultrasonic" or sensor == "distance":
             value = float(value_str)
             state.sensor_data["ultrasonic_distance_cm"] = value
+            timers.mark_user_action("ultrasonic_read")
             log("cmd_handler", "Ultrasonic simulated: {} cm".format(value))
             return {"success": True, "message": "Distance set to {} cm".format(value)}
         
@@ -107,6 +119,7 @@ def _handle_simulate(args):
             if state.sensor_data["heart_rate"] is None:
                 state.sensor_data["heart_rate"] = {}
             state.sensor_data["heart_rate"]["bpm"] = value
+            timers.mark_user_action("heart_rate_read")
             log("cmd_handler", "Heart rate simulated: {} bpm".format(value))
             return {"success": True, "message": "Heart rate set to {} bpm".format(value)}
         
@@ -115,6 +128,7 @@ def _handle_simulate(args):
             if state.sensor_data["heart_rate"] is None:
                 state.sensor_data["heart_rate"] = {}
             state.sensor_data["heart_rate"]["spo2"] = value
+            timers.mark_user_action("heart_rate_read")
             log("cmd_handler", "SpO2 simulated: {}%".format(value))
             return {"success": True, "message": "SpO2 set to {}%".format(value)}
         
@@ -193,3 +207,23 @@ def _handle_status(args):
     
     log("cmd_handler", "Status query")
     return response
+
+
+def _handle_update(args):
+    """Handle update command: Trigger OTA update without button press"""
+    state.system_control["ota_update_requested"] = True
+    log("cmd_handler", "OTA update requested via command")
+    return {
+        "success": True,
+        "message": "OTA update will start shortly. All processes will be stopped."
+    }
+
+
+def _handle_reboot(args):
+    """Handle reboot command: Trigger system reboot"""
+    state.system_control["reboot_requested"] = True
+    log("cmd_handler", "System reboot requested via command")
+    return {
+        "success": True,
+        "message": "System will reboot shortly."
+    }

@@ -49,3 +49,9 @@ received_sensor_state = {
     "button_b3": False,
     "last_update": None,
 }
+
+# System control flags (set by remote commands)
+system_control = {
+    "ota_update_requested": False,
+    "reboot_requested": False,
+}

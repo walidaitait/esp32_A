@@ -15,6 +15,7 @@ Supported commands:
 
 from debug.debug import log
 from core import state
+from core import timers
 
 
 def handle_command(command, args):
@@ -58,6 +59,14 @@ def handle_command(command, args):
         elif command == "status":
             return _handle_status(args)
         
+        # Trigger OTA update: update
+        elif command == "update":
+            return _handle_update(args)
+        
+        # Trigger system reboot: reboot
+        elif command == "reboot":
+            return _handle_reboot(args)
+        
         else:
             return {"success": False, "message": "Unknown command: {}".format(command)}
     
@@ -80,9 +89,17 @@ def _handle_led(args):
     if mode not in ["on", "off", "blinking"]:
         return {"success": False, "message": "Invalid state. Use: on, off, blinking"}
     
-    # Update state
-    state.actuator_state["led_modes"][color] = mode
-    state.actuator_state["leds"][color] = (mode == "on")  # Physical state
+    # Update hardware (if initialized) and state
+    try:
+        from actuators import leds as leds_module
+        leds_module.set_led_state(color, mode)
+    except Exception:
+        # Fallback: state only if hardware not available
+        state.actuator_state["led_modes"][color] = mode
+        state.actuator_state["leds"][color] = (mode == "on")
+
+    # Mark user override window for LED logic (if any auto-logic uses this name)
+    timers.mark_user_action("led_update")
     
     log("cmd_handler", "LED {} set to {}".format(color, mode))
     return {"success": True, "message": "LED {} set to {}".format(color, mode)}
@@ -98,8 +115,17 @@ def _handle_servo(args):
         if angle < 0 or angle > 180:
             return {"success": False, "message": "Angle must be 0-180"}
         
-        state.actuator_state["servo"]["angle"] = angle
-        state.actuator_state["servo"]["moving"] = True
+        # Apply immediately to hardware if available
+        try:
+            from actuators import servo as servo_module
+            servo_module.set_servo_angle(angle)
+        except Exception:
+            # Fallback to state-only
+            state.actuator_state["servo"]["angle"] = angle
+            state.actuator_state["servo"]["moving"] = True
+
+        # Protect servo from auto overrides for 20s
+        timers.mark_user_action("servo_update")
         
         log("cmd_handler", "Servo set to {} degrees".format(angle))
         return {"success": True, "message": "Servo set to {} degrees".format(angle)}
@@ -128,7 +154,20 @@ def _handle_lcd(args):
     # Truncate to 16 characters (LCD limit)
     text = text[:16]
     
+    # Update state first
     state.actuator_state["lcd"][line] = text
+
+    # Apply to hardware if available by displaying both lines
+    try:
+        from actuators import lcd as lcd_module
+        l1 = state.actuator_state["lcd"].get("line1", "")
+        l2 = state.actuator_state["lcd"].get("line2", "")
+        lcd_module.display_custom(l1, l2)
+    except Exception:
+        pass
+
+    # Protect LCD from auto overrides for 20s
+    timers.mark_user_action("lcd_update")
     
     log("cmd_handler", "LCD {} set to: {}".format(line, text))
     return {"success": True, "message": "LCD {} set to: {}".format(line, text)}
@@ -144,7 +183,16 @@ def _handle_buzzer(args):
     if mode not in ["on", "off"]:
         return {"success": False, "message": "Invalid state. Use: on, off"}
     
-    state.actuator_state["buzzer"]["active"] = (mode == "on")
+    desired_on = (mode == "on")
+    state.actuator_state["buzzer"]["active"] = desired_on
+
+    try:
+        from actuators import buzzer as buzzer_module
+        buzzer_module.set_tone(1000 if desired_on else 0)
+    except Exception:
+        pass
+
+    timers.mark_user_action("buzzer_update")
     
     log("cmd_handler", "Buzzer set to {}".format(mode))
     return {"success": True, "message": "Buzzer set to {}".format(mode)}
@@ -160,18 +208,36 @@ def _handle_audio(args):
     if action == "play":
         state.actuator_state["audio"]["playing"] = True
         state.actuator_state["audio"]["last_cmd"] = "play"
+        try:
+            from actuators import audio as audio_module
+            audio_module.play_first()
+        except Exception:
+            pass
+        timers.mark_user_action("audio_update")
         log("cmd_handler", "Audio play")
         return {"success": True, "message": "Audio playing"}
     
     elif action == "pause":
         state.actuator_state["audio"]["playing"] = False
         state.actuator_state["audio"]["last_cmd"] = "pause"
+        try:
+            from actuators import audio as audio_module
+            audio_module.stop()
+        except Exception:
+            pass
+        timers.mark_user_action("audio_update")
         log("cmd_handler", "Audio pause")
         return {"success": True, "message": "Audio paused"}
     
     elif action == "stop":
         state.actuator_state["audio"]["playing"] = False
         state.actuator_state["audio"]["last_cmd"] = "stop"
+        try:
+            from actuators import audio as audio_module
+            audio_module.stop()
+        except Exception:
+            pass
+        timers.mark_user_action("audio_update")
         log("cmd_handler", "Audio stop")
         return {"success": True, "message": "Audio stopped"}
     
@@ -237,3 +303,23 @@ def _handle_status(args):
     
     log("cmd_handler", "Status query")
     return response
+
+
+def _handle_update(args):
+    """Handle update command: Trigger OTA update without button press"""
+    state.system_control["ota_update_requested"] = True
+    log("cmd_handler", "OTA update requested via command")
+    return {
+        "success": True,
+        "message": "OTA update will start shortly. All processes will be stopped."
+    }
+
+
+def _handle_reboot(args):
+    """Handle reboot command: Trigger system reboot"""
+    state.system_control["reboot_requested"] = True
+    log("cmd_handler", "System reboot requested via command")
+    return {
+        "success": True,
+        "message": "System will reboot shortly."
+    }

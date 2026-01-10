@@ -176,3 +176,35 @@ def check_and_update():
         machine.reset()
     else:
         log("ota", "OTA finished with errors")
+
+
+def perform_ota_update():
+    """Perform OTA update without button press (triggered by command).
+    
+    Returns:
+        bool: True if update completed successfully, False otherwise
+    """
+    log("ota", "OTA update triggered by command")
+
+    if not _connect_wifi():
+        log("ota", "OTA aborted (WiFi)")
+        return False
+
+    files = _get_file_list()
+    if not files:
+        log("ota", "No files to update")
+        return False
+
+    ok = True
+    for f in files:
+        if not _download_file(f):
+            ok = False
+
+    if ok:
+        log("ota", "OTA completed, rebooting")
+        sleep(1)
+        machine.reset()
+        return True  # Won't reach here due to reset
+    else:
+        log("ota", "OTA finished with errors")
+        return False

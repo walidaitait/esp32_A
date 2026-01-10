@@ -26,6 +26,7 @@ SIMULATE_ACTUATORS = True
 from debug.debug import log, init_remote_logging
 from core import wifi
 from core import actuator_loop
+from core import state
 from communication import espnow_communication
 from communication import udp_commands
 
@@ -75,6 +76,27 @@ def main():
     
     while True:
         try:
+            # === PRIORITY CHECK: System control commands ===
+            # These take precedence over normal operation
+            
+            # Check for OTA update request
+            if state.system_control["ota_update_requested"]:
+                log("main", "OTA update requested - stopping all processes")
+                state.system_control["ota_update_requested"] = False
+                ota_update.perform_ota_update()
+                # If we reach here, update failed - continue normal operation
+                log("main", "OTA update failed - resuming normal operation")
+            
+            # Check for reboot request
+            if state.system_control["reboot_requested"]:
+                log("main", "Reboot requested - stopping all processes")
+                state.system_control["reboot_requested"] = False
+                import machine #type: ignore
+                log("main", "Rebooting now...")
+                machine.reset()
+            
+            # === NORMAL OPERATION ===
+            
             # Update all actuators without blocking
             actuator_loop.update()
             

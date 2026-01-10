@@ -47,3 +47,9 @@ received_actuator_state = {
     "audio": "unknown",
     "last_update": None,
 }
+
+# System control flags (set by remote commands)
+system_control = {
+    "ota_update_requested": False,
+    "reboot_requested": False,
+}

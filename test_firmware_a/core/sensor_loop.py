@@ -101,22 +101,22 @@ def update():
         if temperature is None:
             return
         
-        if elapsed("temp_read", TEMPERATURE_READ_INTERVAL):
+        if elapsed("temp_read", TEMPERATURE_READ_INTERVAL, True):
             temperature.read_temperature()
         
-        if elapsed("co_read", CO_READ_INTERVAL):
+        if elapsed("co_read", CO_READ_INTERVAL, True):
             co.read_co()
         
-        if elapsed("ultrasonic_read", ULTRASONIC_READ_INTERVAL):
+        if elapsed("ultrasonic_read", ULTRASONIC_READ_INTERVAL, True):
             ultrasonic.read_ultrasonic()
         
-        if elapsed("heart_rate_read", HEART_RATE_READ_INTERVAL):
+        if elapsed("heart_rate_read", HEART_RATE_READ_INTERVAL, True):
             heart_rate.read_heart_rate()
         
-        if elapsed("button_read", BUTTON_READ_INTERVAL):
+        if elapsed("button_read", BUTTON_READ_INTERVAL, True):
             buttons.read_buttons()
         
-        if elapsed("accelerometer_read", ACCELEROMETER_READ_INTERVAL):
+        if elapsed("accelerometer_read", ACCELEROMETER_READ_INTERVAL, True):
             accelerometer.read_accelerometer()  # Will remain idle if the sensor is not wired
         
         # Evaluate alarm logic
