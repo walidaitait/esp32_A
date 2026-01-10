@@ -131,6 +131,7 @@ def _download_file(filename):
 
 def _get_file_list():
     try:
+        gc.collect()  # free heap before TLS handshake
         r = urequests.get(BASE_URL + "filelist.json")
         files = r.json()  # MUST be a list
         r.close()
