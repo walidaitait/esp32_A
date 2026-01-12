@@ -39,11 +39,6 @@ UPDATE_HOLD_TIME = 5  # seconds
 def log(name, message):
     msg = "[{}] {}".format(name, message)
     print(msg)
-    try:
-        with open("ota_log.txt", "a") as f:
-            f.write(msg + "\n")
-    except:
-        pass
 
 # ================== WIFI ==================
 
