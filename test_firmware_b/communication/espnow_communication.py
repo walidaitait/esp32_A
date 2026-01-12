@@ -186,6 +186,10 @@ def _parse_sensor_state(msg_str):
             else:
                 state.received_sensor_state["alarm_level"] = alarm_str
                 state.received_sensor_state["alarm_source"] = None
+            log("communication.espnow", "Alarm received: level={}, source={}".format(
+                state.received_sensor_state["alarm_level"], 
+                state.received_sensor_state["alarm_source"]
+            ))
         
         if "Btns=" in msg_str:
             btns_str = msg_str.split("Btns=")[1].strip()

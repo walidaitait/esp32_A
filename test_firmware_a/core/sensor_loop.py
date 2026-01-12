@@ -141,11 +141,19 @@ def update():
     to determine when to read without blocking the main loop.
     """
     try:
-        # In simulation mode, update simulated values periodically
+        # In simulation mode, initialize simulated values and run alarm logic
         if _simulation_mode:
             from sensors import simulation
-            if elapsed("simulation_update", 1000):  # Update simulation every 1 second
+            # Initialize simulated sensors once (first call)
+            if elapsed("simulation_init", 1000):
                 simulation.update_simulated_sensors()
+            # Still evaluate alarm logic based on current sensor values
+            if alarm_logic is not None:
+                if elapsed("alarm_eval", ALARM_EVAL_INTERVAL):
+                    try:
+                        alarm_logic.evaluate_logic()
+                    except Exception as e:
+                        log("core.sensor", "update(alarm_logic) error: {}".format(e))
             return
         
         # Real hardware mode - read sensors based on their individual intervals

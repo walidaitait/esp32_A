@@ -199,6 +199,9 @@ def update():
             if config.LEDS_ENABLED and leds is not None:
                 leds.apply_alarm(alarm_level)  # type: ignore
             if config.BUZZER_ENABLED and buzzer is not None:
+                # Update buzzer sound playback (phase transitions, tone control)
+                buzzer.update()  # type: ignore
+                # Set which sound to play based on alarm level
                 buzzer.update_alarm_feedback(alarm_level)  # type: ignore
             if config.LCD_ENABLED and lcd is not None:
                 lcd.update_alarm_display(alarm_level, alarm_source)  # type: ignore

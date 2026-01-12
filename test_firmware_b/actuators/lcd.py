@@ -183,10 +183,12 @@ def update_alarm_display(level, source):
     if level == "normal":
         # Only restore default if we were showing alarm
         if _displaying_custom:
+            log("actuator.lcd", "update_alarm_display: Clearing alarm display (normal)")
             restore_default()
         return
 
     line1 = "Warning" if level == "warning" else "Danger"
     line2 = source.upper() if source else "ALARM"
+    log("actuator.lcd", "update_alarm_display: LCD '{}' / '{}' ({})".format(line1, line2, level))
     display_custom(line1[:16], line2[:16])
 

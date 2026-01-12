@@ -23,8 +23,11 @@ def _elapsed(name, interval_ms):
 
 # ================== CONFIG ==================
 
-# Use different branch/folder if you want to separate updates for A and B
-BASE_URL = "https://raw.githubusercontent.com/walidaitait/esp32_A/main/test_firmware_b/"
+BASE_URL_ROOT = "https://raw.githubusercontent.com/walidaitait/esp32_A/main/"
+FIRMWARE_FOLDER = "test_firmware_b"  # Change this if folder name changes
+BASE_URL = BASE_URL_ROOT + FIRMWARE_FOLDER + "/"
+ONSTART_CONFIG_FILE = "onstart_config.json"  # Downloaded config file name
+ONSTART_CONFIG_URL = BASE_URL_ROOT + ONSTART_CONFIG_FILE  # Full URL to download
 CHUNK_SIZE = 1024  # bytes per read while streaming
 
 # OTA button (use a free GPIO that doesn't conflict with actuators)
@@ -170,13 +173,87 @@ def _clear_ota_pending_flag():
     except Exception as e:
         log("ota", "Error clearing OTA flag: " + str(e))
 
+
+def _download_onstart_config():
+    """Download onstart_config.json from server.
+    
+    Returns:
+        bool: True if downloaded successfully, False otherwise
+    """
+    log("ota", "Downloading onstart_config.json")
+    try:
+        gc.collect()
+        r = urequests.get(ONSTART_CONFIG_URL)
+        if r.status_code != 200:
+            log("ota", "HTTP error " + str(r.status_code) + " for onstart_config")
+            r.close()
+            return False
+        
+        with open(ONSTART_CONFIG_FILE, "w") as f:
+            f.write(r.text)
+        
+        r.close()
+        gc.collect()
+        log("ota", "onstart_config.json downloaded")
+        return True
+    except Exception as e:
+        log("ota", "Error downloading onstart_config: " + str(e))
+        return False
+
+
+def _read_onstart_config():
+    """Read onstart_config.json and check if update is requested for this board.
+    
+    Returns:
+        bool: True if update requested in onstart config, False otherwise
+    """
+    import json
+    try:
+        with open(ONSTART_CONFIG_FILE, "r") as f:
+            config = json.load(f)
+        
+        # Check if update is requested for ESP32-B
+        update_requested = config.get("esp32_b", {}).get("update_requested", False)
+        
+        if update_requested:
+            log("ota", "onstart_config: Update requested for ESP32-B")
+        else:
+            log("ota", "onstart_config: No update requested")
+        
+        return update_requested
+    except Exception as e:
+        log("ota", "Error reading onstart_config: " + str(e))
+        return False
+
+
+def _cleanup_onstart_config():
+    """Remove the downloaded onstart_config.json file."""
+    try:
+        os.remove(ONSTART_CONFIG_FILE)
+        log("ota", "onstart_config.json removed")
+    except:
+        pass  # File might not exist, that's OK
+
 # ================== PUBLIC ==================
 
 def check_and_update():
-    """Check for OTA update: button press OR config flag (post-reboot).
+    """Check for OTA update with new flow:
     
-    On first boot (no config.json): Downloads all files.
-    On subsequent boots: Checks config.json for ota_update_pending flag.
+    1. Check if config.json exists
+       - If NO: First installation, download all files
+       - If YES: Proceed to step 2
+    
+    2. Connect to WiFi and download onstart_config.json
+       - If download succeeds: Check if update_requested for this board
+       - If update requested in onstart_config: Set should_update = True
+    
+    3. Check local config.json for ota_update_pending flag
+    
+    4. Check if button is pressed (if enabled)
+    
+    5. Perform update if requested from any source
+    
+    6. Cleanup: Remove onstart_config.json at the end
     """
     import json
     
@@ -185,7 +262,7 @@ def check_and_update():
     button_enabled = True  # Default to True for backwards compatibility
     config_data = {}  # Initialize to empty dict
     
-    # Check if config.json exists
+    # STEP 1: Check if config.json exists
     try:
         with open("config/config.json", "r") as f:
             config_data = json.load(f)
@@ -199,34 +276,54 @@ def check_and_update():
             is_first_install = True
             should_update = True
     
+    # STEP 2: If NOT first install, connect WiFi and check onstart_config
+    if not is_first_install:
+        log("ota", "Connecting to WiFi to check onstart_config")
+        if _connect_wifi():
+            # Download onstart_config.json
+            if _download_onstart_config():
+                # Read and check if update is requested
+                if _read_onstart_config():
+                    log("ota", "Update requested via onstart_config")
+                    should_update = True
+        else:
+            log("ota", "WiFi connection failed, skipping onstart_config check")
+            # WiFi failed, cleanup and return (abort OTA)
+            _cleanup_onstart_config()
+            return
+    
     # Read button enabled flag from config
     if not is_first_install:
         button_enabled = config_data.get("ota_button_enabled", True)
     
-    # Check if OTA update is pending in config (set by remote command)
+    # STEP 3: Check if OTA update is pending in local config.json
     if not is_first_install and config_data.get("ota_update_pending", False):
-        log("ota", "OTA update pending flag found in config")
+        log("ota", "OTA update pending flag found in local config.json")
         should_update = True
     
-    # Check if button is pressed (only if enabled and update not already triggered by config)
+    # STEP 4: Check if button is pressed (only if enabled and update not already triggered)
     if not should_update and button_enabled:
         log("ota", "Checking update button")
-        if not _check_button_pressed():
+        if _check_button_pressed():
+            log("ota", "Update button pressed")
+            should_update = True
+        else:
             log("ota", "Button not pressed, skipping OTA")
-            return
-        log("ota", "Update button pressed")
-        should_update = True
     elif not should_update and not button_enabled:
         log("ota", "OTA button disabled in config, skipping button check")
-        return
     
+    # If no update needed, cleanup and return
     if not should_update:
+        _cleanup_onstart_config()
         return
     
+    # STEP 5: Perform OTA update
     log("ota", "Update requested")
 
-    if not _connect_wifi():
+    # Connect WiFi if not already connected (first install case)
+    if is_first_install and not _connect_wifi():
         log("ota", "OTA aborted (WiFi)")
+        _cleanup_onstart_config()
         return
 
     files = _get_file_list()
@@ -235,6 +332,7 @@ def check_and_update():
         # Clear the pending flag before returning
         if not is_first_install:
             _clear_ota_pending_flag()
+        _cleanup_onstart_config()
         return
 
     ok = True
@@ -242,6 +340,9 @@ def check_and_update():
         if not _download_file(f):
             ok = False
 
+    # STEP 6: Cleanup and finalize
+    _cleanup_onstart_config()
+    
     if ok:
         log("ota", "OTA completed, clearing flag and rebooting")
         # Clear the pending flag before reboot

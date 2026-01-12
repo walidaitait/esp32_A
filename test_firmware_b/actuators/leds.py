@@ -68,10 +68,13 @@ def apply_alarm(level):
         return
     if level == "danger":
         set_led_state("red", "on")
+        log("actuator.leds", "apply_alarm: RED LED ON (danger)")
     elif level == "warning":
         set_led_state("red", "blinking", blink_interval_ms=500, on_duration_ms=250)
+        log("actuator.leds", "apply_alarm: RED LED BLINKING (warning)")
     else:
         set_led_state("red", "off")
+        log("actuator.leds", "apply_alarm: RED LED OFF (normal)")
 
 
 def _all_off():

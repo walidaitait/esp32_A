@@ -5,9 +5,31 @@ from debug.debug import log
 
 _pwm = None
 _initialized = False
-_alarm_mode = "normal"
-_last_toggle_ms = 0
-_tone_on = False
+
+# ============================================================================
+# SOUND DEFINITIONS - Add new sounds here in the future
+# Format: (duration_ms, is_tone_on, frequency_hz)
+# ============================================================================
+_sounds = {
+    "warning": [
+        (200, True, 1200),      # beep 1
+        (100, False, 0),        # pause between beeps
+        (200, True, 1200),      # beep 2
+        (2000, False, 0),       # long pause before repeat
+    ],
+    "danger": [
+        (500, True, 1800),      # beep 1 (long)
+        (200, False, 0),        # pause between beeps
+        (500, True, 1800),      # beep 2 (long)
+        (1000, False, 0),       # pause before repeat
+    ],
+}
+
+# Sound playback state
+_current_sound = None           # Name of currently playing sound (or None)
+_sound_start_ms = 0             # When current sound phase started
+_sound_phase = 0                # Which phase we're in
+_tone_active = False            # Is tone currently playing
 
 
 def set_tone(freq):
@@ -40,7 +62,6 @@ def init_buzzer():
     try:
         buzzer_pin = 25  # GPIO25
         pin = Pin(buzzer_pin, Pin.OUT)
-        # Frequenza iniziale arbitraria
         _pwm = PWM(pin, freq=1000)
         _pwm.duty(0)
 
@@ -56,43 +77,108 @@ def init_buzzer():
         return False
 
 
+def play_sound(sound_name):
+    """Start playing a sound from the sounds dictionary.
+    
+    Args:
+        sound_name: Key in _sounds dict (e.g., "warning", "danger")
+    
+    Returns:
+        True if sound started, False if not found
+    """
+    global _current_sound, _sound_start_ms, _sound_phase, _tone_active
+    
+    if not _initialized:
+        return False
+    
+    if sound_name not in _sounds:
+        log("actuator.buzzer", "play_sound: Sound '{}' not found".format(sound_name))
+        return False
+    
+    if _current_sound != sound_name:
+        _current_sound = sound_name
+        _sound_phase = 0
+        _sound_start_ms = ticks_ms()
+        _tone_active = False
+        log("actuator.buzzer", "play_sound: Starting '{}'".format(sound_name))
+    
+    return True
+
+
+def stop_sound():
+    """Stop current sound playback immediately."""
+    global _current_sound, _tone_active
+    
+    if _current_sound is not None:
+        log("actuator.buzzer", "stop_sound: Stopping '{}'".format(_current_sound))
+        _current_sound = None
+        _tone_active = False
+        set_tone(0)
+    else:
+        _tone_active = False
+        set_tone(0)
+
+
+def update():
+    """Update sound playback state (call every loop cycle).
+    
+    Handles phase transitions and tone playback without blocking.
+    """
+    global _current_sound, _sound_start_ms, _sound_phase, _tone_active
+    
+    if not _initialized or _current_sound is None:
+        # No sound playing, ensure buzzer is off
+        if _tone_active:
+            set_tone(0)
+            _tone_active = False
+        return
+    
+    sound_pattern = _sounds[_current_sound]
+    now = ticks_ms()
+    
+    # Get current phase info
+    duration_ms, should_beep, freq = sound_pattern[_sound_phase]
+    
+    # Check if we need to advance to next phase
+    elapsed_in_phase = ticks_diff(now, _sound_start_ms)
+    
+    if elapsed_in_phase >= duration_ms:
+        # Move to next phase (loop back to start)
+        _sound_phase = (_sound_phase + 1) % len(sound_pattern)
+        _sound_start_ms = now
+        
+        # Get new phase info
+        duration_ms, should_beep, freq = sound_pattern[_sound_phase]
+    
+    # Apply tone for current phase
+    if should_beep and freq > 0:
+        if not _tone_active:
+            set_tone(freq)
+            _tone_active = True
+    else:
+        if _tone_active:
+            set_tone(0)
+            _tone_active = False
+
+
+def update_alarm_feedback(level):
+    """Drive buzzer based on alarm level.
+    
+    WARNING: plays "warning" sound
+    DANGER: plays "danger" sound
+    NORMAL: stops all sounds
+    """
+    if not _initialized:
+        return
+    
+    if level == "normal":
+        stop_sound()
+    elif level == "warning":
+        play_sound("warning")
+    elif level == "danger":
+        play_sound("danger")
 
 
 def update_buzzer_test():
     """Placeholder for future buzzer tests."""
     pass
-
-
-def update_alarm_feedback(level):
-    """Drive buzzer based on alarm level: warning -> slow beep, danger -> fast beep."""
-    global _alarm_mode, _last_toggle_ms, _tone_on
-    if not _initialized:
-        return
-
-    now = ticks_ms()
-
-    if level == "danger":
-        period = 300  # ms
-        freq = 1800
-    elif level == "warning":
-        period = 700
-        freq = 1200
-    else:
-        # Normal -> silence
-        _alarm_mode = "normal"
-        _tone_on = False
-        set_tone(0)
-        return
-
-    # Toggle tone based on period
-    if _alarm_mode != level:
-        _alarm_mode = level
-        _tone_on = False
-        _last_toggle_ms = now
-        set_tone(0)
-        return
-
-    if ticks_diff(now, _last_toggle_ms) >= period:
-        _last_toggle_ms = now
-        _tone_on = not _tone_on
-        set_tone(freq if _tone_on else 0)

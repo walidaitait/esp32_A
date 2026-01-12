@@ -9,7 +9,7 @@ from debug.debug import log
 
 # Fixed simulated values (can be made dynamic in the future)
 SIMULATED_TEMPERATURE = 23.5
-SIMULATED_CO = 150
+SIMULATED_CO = 10  # Safe value (< 50 PPM threshold)
 SIMULATED_HEART_RATE_BPM = 75
 SIMULATED_HEART_RATE_SPO2 = 98
 SIMULATED_ULTRASONIC_DISTANCE = 45
@@ -30,24 +30,24 @@ def init_simulation():
 
 
 def update_simulated_sensors():
-    """Update state with simulated sensor values.
+    """Initialize simulated sensor values with defaults.
     
-    NOTE: Only sets default values if they haven't been set by a command.
-    This allows remote commands to override simulation values.
+    Sets default values ONLY if sensors are None (first initialization).
+    Allows remote commands to override values at runtime.
+    Alarm logic is NOT simulated - it runs on actual sensor values.
     """
-    # Update sensor data only if not already set by command
-    # (Check if value differs from current SIMULATED value = it was changed by command)
-    if state.sensor_data.get("temperature") == SIMULATED_TEMPERATURE or state.sensor_data.get("temperature") is None:
+    # Initialize sensor data with defaults if not yet set
+    if state.sensor_data.get("temperature") is None:
         state.sensor_data["temperature"] = SIMULATED_TEMPERATURE
     
-    if state.sensor_data.get("co") == SIMULATED_CO or state.sensor_data.get("co") is None:
+    if state.sensor_data.get("co") is None:
         state.sensor_data["co"] = SIMULATED_CO
     
-    if state.sensor_data.get("ultrasonic_distance_cm") == SIMULATED_ULTRASONIC_DISTANCE or state.sensor_data.get("ultrasonic_distance_cm") is None:
+    if state.sensor_data.get("ultrasonic_distance_cm") is None:
         state.sensor_data["ultrasonic_distance_cm"] = SIMULATED_ULTRASONIC_DISTANCE
     
-    # Heart rate - only update if None or hasn't been modified
-    if state.sensor_data.get("heart_rate") is None or state.sensor_data.get("heart_rate", {}).get("status") != "simulated":
+    # Heart rate - initialize only if None
+    if state.sensor_data.get("heart_rate") is None:
         state.sensor_data["heart_rate"] = {
             "ir": 10000,  # Simulated IR value
             "red": 9500,  # Simulated RED value
@@ -59,15 +59,13 @@ def update_simulated_sensors():
     if state.sensor_data.get("ultrasonic_presence") is None:
         state.sensor_data["ultrasonic_presence"] = SIMULATED_ULTRASONIC_PRESENCE
     
-    # Update button states (these should not be changed by commands)
-    state.button_state["b1"] = SIMULATED_BUTTON_B1
-    state.button_state["b2"] = SIMULATED_BUTTON_B2
-    state.button_state["b3"] = SIMULATED_BUTTON_B3
+    # Initialize button states if not set
+    if state.button_state.get("b1") is None:
+        state.button_state["b1"] = SIMULATED_BUTTON_B1
+    if state.button_state.get("b2") is None:
+        state.button_state["b2"] = SIMULATED_BUTTON_B2
+    if state.button_state.get("b3") is None:
+        state.button_state["b3"] = SIMULATED_BUTTON_B3
     
-    # Update system state (simulated alarm levels)
-    state.system_state["co_level"] = "normal"
-    state.system_state["temp_level"] = "normal"
-    state.system_state["heart_level"] = "normal"
-    
-    state.alarm_state["level"] = "normal"
-    state.alarm_state["source"] = None
+    # NOTE: Alarm levels are NOT reset here.
+    # They are computed by alarm_logic.evaluate_logic() based on actual sensor values.

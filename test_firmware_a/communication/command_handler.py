@@ -4,8 +4,9 @@ Interprets and executes commands from any source (UDP, MQTT, HTTP, etc.).
 Commands are transport-agnostic - this module only cares about command logic.
 
 Supported commands:
-- threshold <sensor> <value>: Set alarm threshold (temp/co/heart)
 - simulate <sensor> <value>: Force simulated sensor value
+- test_alarm <warning|danger|reset>: Test alarm scenarios
+- test_sensor <sensor> <action> [value]: Test specific sensor
 - alarm <action>: Alarm control (trigger/clear/test)
 - state: Get current sensor state
 - status: Get system status
@@ -36,6 +37,14 @@ def handle_command(command, args):
         # Simulation control: simulate <sensor> <value>
         elif command == "simulate":
             return _handle_simulate(args)
+        
+        # Test alarm scenarios: test_alarm <warning|danger|reset>
+        elif command == "test_alarm":
+            return _handle_test_alarm(args)
+        
+        # Test specific sensor: test_sensor <sensor> <action> [value]
+        elif command == "test_sensor":
+            return _handle_test_sensor(args)
         
         # Alarm control: alarm <action>
         elif command == "alarm":
@@ -137,6 +146,149 @@ def _handle_simulate(args):
     
     except ValueError:
         return {"success": False, "message": "Invalid value for sensor {}".format(sensor)}
+
+
+def _handle_test_alarm(args):
+    """Handle test_alarm command: test_alarm <warning|danger|reset>
+    
+    Simulates alarm scenarios by setting sensor values to trigger specific alarm levels.
+    """
+    if len(args) < 1:
+        return {"success": False, "message": "Usage: test_alarm <warning|danger|reset>"}
+    
+    action = args[0].lower()
+    
+    if action == "warning":
+        # Trigger warning: CO just above warning threshold but below danger
+        state.sensor_data["co"] = 60  # Above critical (50 PPM) by 10
+        timers.mark_user_action("co_read")
+        log("cmd_handler", "TEST: CO set to 60 ppm -> should trigger WARNING in ~5 seconds")
+        return {
+            "success": True,
+            "message": "Alarm TEST: Warning scenario activated. CO set to 60 ppm. Should reach WARNING state in ~5 seconds."
+        }
+    
+    elif action == "danger":
+        # Trigger danger: CO well above threshold
+        state.sensor_data["co"] = 120  # Well above critical
+        timers.mark_user_action("co_read")
+        log("cmd_handler", "TEST: CO set to 120 ppm -> should trigger DANGER in ~30 seconds")
+        return {
+            "success": True,
+            "message": "Alarm TEST: Danger scenario activated. CO set to 120 ppm. Should reach DANGER state in ~30 seconds."
+        }
+    
+    elif action == "reset":
+        # Reset to safe value
+        state.sensor_data["co"] = 10
+        state.sensor_data["temperature"] = 23.5
+        state.sensor_data["heart_rate"]["bpm"] = 75
+        state.sensor_data["heart_rate"]["spo2"] = 98
+        timers.mark_user_action("co_read")
+        timers.mark_user_action("temp_read")
+        timers.mark_user_action("heart_rate_read")
+        log("cmd_handler", "TEST: All sensors reset to safe values")
+        return {
+            "success": True,
+            "message": "Alarm TEST: All sensors reset to safe values. Alarm should recover to NORMAL within recovery times."
+        }
+    
+    else:
+        return {"success": False, "message": "Invalid test_alarm action. Use: warning, danger, reset"}
+
+
+def _handle_test_sensor(args):
+    """Handle test_sensor command: test_sensor <sensor> <action> [value]
+    
+    Test individual sensors without triggering full alarm logic.
+    Actions: set <value>, min, max, normal
+    """
+    if len(args) < 2:
+        return {"success": False, "message": "Usage: test_sensor <sensor> <action> [value]"}
+    
+    sensor = args[0].lower()
+    action = args[1].lower()
+    
+    try:
+        if sensor == "co":
+            if action == "set" and len(args) >= 3:
+                value = int(args[2])
+                state.sensor_data["co"] = value
+                timers.mark_user_action("co_read")
+                log("cmd_handler", "TEST: CO sensor set to {} ppm".format(value))
+                return {"success": True, "message": "CO set to {} ppm".format(value)}
+            elif action == "min":
+                state.sensor_data["co"] = 0
+                timers.mark_user_action("co_read")
+                return {"success": True, "message": "CO set to minimum (0 ppm)"}
+            elif action == "max":
+                state.sensor_data["co"] = 200
+                timers.mark_user_action("co_read")
+                return {"success": True, "message": "CO set to maximum (200 ppm)"}
+            elif action == "normal":
+                state.sensor_data["co"] = 10
+                timers.mark_user_action("co_read")
+                return {"success": True, "message": "CO set to normal (10 ppm)"}
+            else:
+                return {"success": False, "message": "CO actions: set <ppm>, min, max, normal"}
+        
+        elif sensor == "temperature":
+            if action == "set" and len(args) >= 3:
+                value = float(args[2])
+                state.sensor_data["temperature"] = value
+                timers.mark_user_action("temp_read")
+                log("cmd_handler", "TEST: Temperature set to {}°C".format(value))
+                return {"success": True, "message": "Temperature set to {}°C".format(value)}
+            elif action == "min":
+                state.sensor_data["temperature"] = 5  # Below safe min (10°C)
+                timers.mark_user_action("temp_read")
+                return {"success": True, "message": "Temperature set to minimum (5°C - UNSAFE)"}
+            elif action == "max":
+                state.sensor_data["temperature"] = 40  # Above safe max (35°C)
+                timers.mark_user_action("temp_read")
+                return {"success": True, "message": "Temperature set to maximum (40°C - UNSAFE)"}
+            elif action == "normal":
+                state.sensor_data["temperature"] = 23.5
+                timers.mark_user_action("temp_read")
+                return {"success": True, "message": "Temperature set to normal (23.5°C)"}
+            else:
+                return {"success": False, "message": "Temperature actions: set <°C>, min, max, normal"}
+        
+        elif sensor == "heart" or sensor == "hr":
+            if action == "set" and len(args) >= 3:
+                value = int(args[2])
+                if state.sensor_data["heart_rate"] is None:
+                    state.sensor_data["heart_rate"] = {}
+                state.sensor_data["heart_rate"]["bpm"] = value
+                timers.mark_user_action("heart_rate_read")
+                log("cmd_handler", "TEST: Heart rate set to {} bpm".format(value))
+                return {"success": True, "message": "Heart rate set to {} bpm".format(value)}
+            elif action == "low":
+                if state.sensor_data["heart_rate"] is None:
+                    state.sensor_data["heart_rate"] = {}
+                state.sensor_data["heart_rate"]["bpm"] = 40  # Below safe min (50 bpm)
+                timers.mark_user_action("heart_rate_read")
+                return {"success": True, "message": "Heart rate set to low (40 bpm - UNSAFE)"}
+            elif action == "high":
+                if state.sensor_data["heart_rate"] is None:
+                    state.sensor_data["heart_rate"] = {}
+                state.sensor_data["heart_rate"]["bpm"] = 140  # Above safe max (120 bpm)
+                timers.mark_user_action("heart_rate_read")
+                return {"success": True, "message": "Heart rate set to high (140 bpm - UNSAFE)"}
+            elif action == "normal":
+                if state.sensor_data["heart_rate"] is None:
+                    state.sensor_data["heart_rate"] = {}
+                state.sensor_data["heart_rate"]["bpm"] = 75
+                timers.mark_user_action("heart_rate_read")
+                return {"success": True, "message": "Heart rate set to normal (75 bpm)"}
+            else:
+                return {"success": False, "message": "Heart rate actions: set <bpm>, low, high, normal"}
+        
+        else:
+            return {"success": False, "message": "Unknown sensor: {}. Available: co, temperature, heart".format(sensor)}
+    
+    except (ValueError, TypeError):
+        return {"success": False, "message": "Invalid value format for {}".format(sensor)}
 
 
 def _handle_alarm(args):
