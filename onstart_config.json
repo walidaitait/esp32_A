@@ -2,12 +2,12 @@
   "description": "Centralized startup configuration for ESP32 boards",
   "last_updated": "2026-01-12",
   "esp32_a": {
-    "update_requested": true,
+    "update_requested": false,
     "firmware_version_target": 1,
     "notes": "Set update_requested to true to trigger OTA update on next boot"
   },
   "esp32_b": {
-    "update_requested": true,
+    "update_requested": false,
     "firmware_version_target": 1,
     "notes": "Set update_requested to true to trigger OTA update on next boot"
   }
