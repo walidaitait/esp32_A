@@ -32,13 +32,9 @@ actuator_state = {
         "playing": False,
         "last_cmd": None,
     },
+    "button": False,
     "simulation_mode": False,
     "sos_mode": False,  # Emergency SOS call active
-}
-
-# Button state
-button_state = {
-    "button": False,
 }
 
 # Packet tracking: survives reboot of A (memory of last packet IDs)

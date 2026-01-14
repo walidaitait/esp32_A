@@ -40,7 +40,7 @@ def init_buttons():
         _last_state = _button.value() == 1  # True if NOT pressed (pin HIGH)
         
         # Update global state
-        state.button_state["button"] = _last_state
+        state.actuator_state["button"] = _last_state
         
         log("actuator.buttons", "init_buttons: Button initialized, current state: {}".format(
             "pressed" if _last_state else "released"))
@@ -65,11 +65,11 @@ def read_buttons():
         
         if pressed != _last_state:
             _last_state = pressed
-            state.button_state["button"] = pressed
+            state.actuator_state["button"] = pressed
             log("actuator.buttons", "read_buttons: Button {}".format(
                 "pressed" if pressed else "released"))
         else:
-            state.button_state["button"] = pressed
+            state.actuator_state["button"] = pressed
     except Exception as e:
         log("actuator.buttons", "read_buttons: Read error: {}".format(e))
 

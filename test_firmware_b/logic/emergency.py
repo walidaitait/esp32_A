@@ -32,7 +32,7 @@ def update():
     """
     global _sos_active, _button_press_start, _click_count, _last_click_time, _last_button_state
     
-    current_button = state.button_state.get("button", False)
+    current_button = state.actuator_state.get("button", False)
     now = ticks_ms()
     
     result = {

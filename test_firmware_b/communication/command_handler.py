@@ -269,8 +269,7 @@ def _handle_state(args):
     response = {
         "success": True,
         "message": "Current actuator state",
-        "state": state.actuator_state,
-        "button_state": state.button_state
+        "state": state.actuator_state
     }
     log("communication.cmd_handler", "State query")
     return response
