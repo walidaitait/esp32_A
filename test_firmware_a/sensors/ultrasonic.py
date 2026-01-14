@@ -78,10 +78,6 @@ def read_ultrasonic():
             if 2 <= distance_cm <= 400:
                 blended = _smooth_distance(distance_cm)
                 state.sensor_data["ultrasonic_distance_cm"] = blended
-                _distance_log_counter += 1
-                if _distance_log_counter % 100 == 0:  # Log only every 100 reads to reduce noise
-                    log("sensor.ultrasonic", "ok dist {:.2f} cm dur {}us (count {}, failed {})".format(
-                        blended, duration, _measurement_count, _failed_measurements))
             else:
                 state.sensor_data["ultrasonic_distance_cm"] = _last_good_distance_cm
                 _failed_measurements += 1

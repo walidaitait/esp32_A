@@ -177,11 +177,13 @@ def update_alarm_feedback(level):
     elif level == "warning":
         if state.actuator_state["buzzer"].get("alarm_muted"):
             stop_sound()
+            log("actuator.buzzer", "update_alarm_feedback: WARNING sound muted by user")
             return
         play_sound("warning")
     elif level == "danger":
         if state.actuator_state["buzzer"].get("alarm_muted"):
             stop_sound()
+            log("actuator.buzzer", "update_alarm_feedback: DANGER sound muted by user")
             return
         play_sound("danger")
 

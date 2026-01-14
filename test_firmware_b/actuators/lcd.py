@@ -166,18 +166,34 @@ def init_lcd():
 
 
 def update_lcd_test():
-    """Update LCD: handle pending operations and restore default if needed."""
+    """Update LCD: handle pending operations and restore default if needed.
+    
+    Does NOT restore default if there's an active user lock (custom content from commands).
+    """
     if not _initialized:
         return
+    
     # Check if clear command has completed
     _check_clear_complete()
-    # If not displaying custom content and no clear pending, restore default
-    if not _displaying_custom and not _clear_pending:
+    
+    # Import timers here to check if user has locked the LCD
+    from core import timers
+    lcd_locked = timers.user_override_active("lcd_update")
+    
+    # Only restore default if:
+    # - Not currently displaying custom content AND
+    # - No clear pending AND  
+    # - User hasn't locked LCD via command
+    if not _displaying_custom and not _clear_pending and not lcd_locked:
         restore_default()
 
 
 def update_alarm_display(level, source):
-    """Display alarm info. Normal -> default; warning/danger -> show messages."""
+    """Display alarm info. Normal -> default; warning/danger -> show messages.
+    
+    Note: Only called when user_override_active("lcd_update") is False,
+    so it respects custom LCD content set via commands.
+    """
     if not _initialized:
         return
     if level == "normal":

@@ -179,7 +179,7 @@ def update():
                 if sos_mode:
                     # Single click in SOS mode → close SOS call
                     state.actuator_state["sos_mode"] = False
-                    log("core.actuator", "=== SOS CALL ENDED (single click) ===")
+                    log("core.actuator", "=== SOS CALL ENDED (single button click) ===")
                     
                     # Clear SOS display
                     if config.LCD_ENABLED and lcd is not None:
@@ -189,7 +189,7 @@ def update():
                     alarm_level = state.received_sensor_state.get("alarm_level", "normal")
                     if alarm_level in ("warning", "danger"):
                         state.actuator_state["buzzer"]["alarm_muted"] = True
-                        log("core.actuator", "Alarm buzzer muted by single click")
+                        log("core.actuator", ">>> Alarm BUZZER MUTED ({} level) by single button click".format(alarm_level.upper()))
             
             # Handle SOS activation (long press or 5 rapid clicks)
             if sos_events["sos_activated"]:

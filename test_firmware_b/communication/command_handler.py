@@ -163,11 +163,11 @@ def _handle_lcd(args):
         from actuators import lcd as lcd_module
         l1 = state.actuator_state["lcd"].get("line1", "")
         l2 = state.actuator_state["lcd"].get("line2", "")
-        lcd_module.display_custom(l1, l2)
+        lcd_module.display_custom(l1, l2)  # This sets _displaying_custom = True internally
     except Exception:
         pass
 
-    # Protect LCD from auto overrides for 20s
+    # Protect LCD from auto overrides until "auto" command is sent
     timers.set_user_lock("lcd_update")
     
     log("communication.cmd_handler", "LCD {} set to: {}".format(line, text))

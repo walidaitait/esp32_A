@@ -22,5 +22,7 @@
   "core/wifi.py",
   "debug/__init__.py",
   "debug/debug.py",
-  "debug/remote_log.py"
+  "debug/remote_log.py",
+  "logic/__init__.py",
+  "logic/emergency.py"
 ]
