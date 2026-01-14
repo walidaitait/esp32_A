@@ -6,7 +6,7 @@ Manages all actuator updates in non-blocking fashion using elapsed() timers.
 from core.timers import elapsed, user_override_active
 from core import state
 from debug.debug import log
-from time import ticks_ms, ticks_diff
+from time import ticks_ms, ticks_diff, sleep_ms
 
 # Timing constants (milliseconds)
 LED_UPDATE_INTERVAL = 50       # Update LED blinking state every 50ms
@@ -17,6 +17,7 @@ HEARTBEAT_INTERVAL = 5000      # Log system status every 5 seconds
 ESPNOW_TIMEOUT = 10000         # ESP-NOW connection timeout (10 seconds)
 ALARM_UPDATE_INTERVAL = 200    # Update alarm indicators every 200ms
 EMERGENCY_UPDATE_INTERVAL = 50 # Update emergency logic every 50ms
+EMERGENCY_INIT_DELAY = 2000    # Delay before enabling emergency detection (avoid false triggers during boot)
 
 # Simulation mode flag
 _simulation_mode = False
@@ -133,6 +134,10 @@ def initialize():
         # Configurazione iniziale all'avvio (solo per componenti abilitati)
         log("core.actuator", "Setting up initial actuator states...")
         
+        # IMPORTANT: Reset SOS mode to False at boot (prevent false activation)
+        state.actuator_state["sos_mode"] = False
+        log("core.actuator", "SOS mode explicitly reset to False")
+        
         # LEDs: Green always ON, Blue OFF (will blink only with ESP-NOW), Red OFF
         if config.LEDS_ENABLED and leds:
             leds.set_led_state("green", "on")
@@ -140,7 +145,14 @@ def initialize():
             leds.set_led_state("red", "off")
         
         # Servo già impostato a 0° durante init_servo()
-        # LCD già con testo di default durante init_lcd()
+        
+        # LCD: Force clear and default text display
+        if config.LCD_ENABLED and lcd:
+            lcd.clear()  # type: ignore
+            # Wait for clear to complete (blocking during init is OK)
+            sleep_ms(5)
+            lcd.restore_default()  # type: ignore
+            log("core.actuator", "LCD cleared and default text set")
         
         log("core.actuator", "Enabled actuators initialized successfully")
         return True
@@ -169,7 +181,8 @@ def update():
         
         # === EMERGENCY SOS LOGIC (highest priority) ===
         # Check for emergency SOS activation/deactivation patterns
-        if emergency is not None and elapsed("emergency_update", EMERGENCY_UPDATE_INTERVAL):
+        # Delay emergency detection for first 2 seconds after boot to avoid false triggers
+        if emergency is not None and elapsed("emergency_update", EMERGENCY_UPDATE_INTERVAL) and elapsed("boot_delay", EMERGENCY_INIT_DELAY, False):
             sos_events = emergency.update()  # type: ignore
             
             # Handle single click based on current context
