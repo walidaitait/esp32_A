@@ -53,11 +53,11 @@ def main():
     log("main", "Phase 2: Remote logging initialization")
     init_remote_logging('B')
     
-    # Initialize button (if enabled)
+    # Initialize button (if enabled) - needed for emergency SOS detection
     log("main", "Phase 3a: Button initialization")
     if config.BUTTON_ENABLED:
-        from actuators import buttons
-        if not buttons.init_buttons():
+        from actuators import buttons as buttons_module
+        if not buttons_module.init_buttons():
             log("main", "WARNING - Button initialization failed")
     
     # Initialize all actuators (or simulation mode)

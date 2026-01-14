@@ -4,6 +4,7 @@
   "actuators/__init__.py",
   "actuators/audio.py",
   "actuators/buzzer.py",
+  "actuators/buttons.py",
   "actuators/lcd.py",
   "actuators/leds.py",
   "actuators/servo.py",
