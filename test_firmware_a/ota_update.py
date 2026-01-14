@@ -162,29 +162,34 @@ def _check_remote_version(local_version):
     try:
         gc.collect()
         url = BASE_URL + "config/config.json"
-        log("ota", "Checking remote version at " + url)
+        log("ota", "  - Downloading config from: " + url)
         
         r = urequests.get(url)
         if r.status_code != 200:
-            log("ota", "Failed to fetch remote config: HTTP " + str(r.status_code))
+            log("ota", "  - ERROR: HTTP {} (failed to fetch remote config)".format(r.status_code))
             r.close()
             return False
         
+        log("ota", "  - Successfully downloaded remote config")
         remote_config = r.json()
         r.close()
         
-        remote_version = remote_config.get("firmware_version", 0)
-        log("ota", "Local version: {}, Remote version: {}".format(local_version, remote_version))
+        remote_version = remote_config.get("firmware_version", None)
+        log("ota", "  - Local version: {} | Remote version: {}".format(local_version, remote_version))
+        
+        if remote_version is None:
+            log("ota", "  - ERROR: Remote config has no firmware_version field")
+            return False
         
         if remote_version > local_version:
-            log("ota", "Remote version is newer - update available")
+            log("ota", "  - UPDATE AVAILABLE: {}".format(remote_version) + " > " + str(local_version))
             return True
         else:
-            log("ota", "Local version is up to date")
+            log("ota", "  - Version check: local is up to date")
             return False
             
     except Exception as e:
-        log("ota", "Error checking remote version: " + str(e))
+        log("ota", "  - ERROR checking remote version: " + str(e))
         return False
 
 
@@ -248,16 +253,19 @@ def check_and_update():
     # STEP 4: Check remote version on GitHub (only if update not already triggered)
     if not should_update and not is_first_install:
         # Need WiFi to check remote version
+        log("ota", "STEP 4: Checking remote version on GitHub")
         if not _connect_wifi():
-            log("ota", "Cannot check remote version - WiFi failed")
+            log("ota", "STEP 4 FAILED: Cannot check remote version - WiFi failed")
             return
         
         local_version = config_data.get("firmware_version", 0)
+        log("ota", "STEP 4: Local version = {}".format(local_version))
         if _check_remote_version(local_version):
-            log("ota", "Newer version available on GitHub")
+            log("ota", "STEP 4 SUCCESS: Newer version available on GitHub - will download")
             should_update = True
         else:
-            log("ota", "No update needed")
+            log("ota", "STEP 4: Local version is already up to date")
+            return
     
     # If no update needed, return
     if not should_update:
