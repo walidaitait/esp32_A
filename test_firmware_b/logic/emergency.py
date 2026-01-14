@@ -44,9 +44,9 @@ def update():
     # === SOS ACTIVE STATE ===
     # If SOS is already active, only listen for single click to exit
     if _sos_active:
-        # Detect button press (falling edge: True → False) to exit SOS
-        # current_button = True means NOT pressed, False means pressed
-        if not current_button and _last_button_state:
+        # Detect button press (rising edge: False → True) to exit SOS
+        # current_button = True means pressed, False means NOT pressed
+        if current_button and not _last_button_state:
             # Single click in SOS mode = close SOS call
             _sos_active = False
             result["sos_deactivated"] = True
@@ -57,14 +57,14 @@ def update():
         return result
     
     # === SOS DETECTION STATE ===
-    # Detect falling edge (button pressed: True → False)
-    # current_button = True means NOT pressed, False means pressed
-    if not current_button and _last_button_state:
+    # Detect rising edge (button pressed: False → True)
+    # current_button = True means pressed, False means NOT pressed
+    if current_button and not _last_button_state:
         _button_press_start = now
         log("emergency", "Button pressed at {}".format(now))
     
-    # Detect rising edge (button released: False → True) = completed click
-    elif current_button and not _last_button_state:
+    # Detect falling edge (button released: True → False) = completed click
+    elif not current_button and _last_button_state:
         if _button_press_start is not None:
             press_duration = ticks_diff(now, _button_press_start)
             log("emergency", "Button released, duration: {} ms".format(press_duration))
@@ -92,8 +92,8 @@ def update():
             _button_press_start = None
     
     # Check for long press (while button is still held)
-    # current_button = False means button is pressed (pin LOW)
-    elif not current_button and _button_press_start is not None:
+    # current_button = True means button is pressed (pin LOW)
+    elif current_button and _button_press_start is not None:
         press_duration = ticks_diff(now, _button_press_start)
         
         # Check if long press threshold reached (5 seconds)

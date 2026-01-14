@@ -37,13 +37,13 @@ def init_buttons():
         
         # Initialize state based on actual pin reading
         # With PULL_UP: pin.value() == 1 when NOT pressed, 0 when pressed
-        # pressed = True means NOT pressed (consistency with ESP32-A)
-        _last_state = _button.value() == 1  # True if NOT pressed (pin HIGH)
+        # For emergency.py: True = pressed, False = NOT pressed (inverted from ESP32-A)
+        _last_state = _button.value() == 0  # True if pressed (pin LOW)
         
         # Update global state
         state.actuator_state["button"] = _last_state
         
-        log("actuator.buttons", "init_buttons: Button initialized, current state: {} (True=not pressed, False=pressed)".format(
+        log("actuator.buttons", "init_buttons: Button initialized, current state: {} (True=pressed, False=not pressed)".format(
             _last_state))
         return True
     except Exception as e:
@@ -64,14 +64,14 @@ def read_buttons():
     
     try:
         # With PULL_UP: HIGH (1) = not pressed, LOW (0) = pressed
-        # pressed = True means NOT pressed (consistency with ESP32-A)
-        pressed = _button.value() == 1  # True if NOT pressed (pin HIGH)
+        # For emergency.py: True = pressed, False = NOT pressed (inverted from ESP32-A)
+        pressed = _button.value() == 0  # True if pressed (pin LOW)
         
         if pressed != _last_state:
             _last_state = pressed
             state.actuator_state["button"] = pressed
-            log("actuator.buttons", "read_buttons: Button {}" .
-                "released" if pressed else "pressed"))
+            log("actuator.buttons", "read_buttons: Button {}".format(
+                "pressed" if pressed else "released"))
         else:
             state.actuator_state["button"] = pressed
     except Exception as e:
