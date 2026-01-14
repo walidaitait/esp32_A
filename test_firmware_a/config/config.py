@@ -59,9 +59,6 @@ BUTTON_B3_ENABLED = buttons_config.get('b3', {}).get('enabled', True)
 # Overall buttons enabled if at least one button is enabled
 BUTTONS_ENABLED = BUTTON_B1_ENABLED or BUTTON_B2_ENABLED or BUTTON_B3_ENABLED
 
-# OTA Button
-OTA_BUTTON_ENABLED = _config.get('ota_button_enabled', True)
-
 # ===============================
 # PIN ASSIGNMENTS
 # ===============================

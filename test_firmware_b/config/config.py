@@ -51,8 +51,13 @@ LCD_ENABLED = actuators_config.get('lcd', {}).get('enabled', True)
 BUZZER_ENABLED = actuators_config.get('buzzer', {}).get('enabled', True)
 AUDIO_ENABLED = actuators_config.get('audio', {}).get('enabled', True)
 
-# OTA Button
-OTA_BUTTON_ENABLED = _config.get('ota_button_enabled', True)
+# ===============================
+# BUTTON (Physical button on GPIO18)
+# ===============================
+BUTTON_ENABLED = _config.get('button_enabled', True)
+button_config = _config.get('button', {})
+BUTTON_PIN = button_config.get('pin', 18)
+BUTTON_INTERVAL = button_config.get('interval_ms', 50)
 
 # ===============================
 # LED MODULES (DFRobot DFR0021-G/B/R)

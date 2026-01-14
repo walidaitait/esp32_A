@@ -26,12 +26,19 @@ actuator_state = {
     },
     "buzzer": {
         "active": False,
+        "alarm_muted": False,
     },
     "audio": {
         "playing": False,
         "last_cmd": None,
     },
     "simulation_mode": False,
+    "sos_mode": False,  # Emergency SOS call active
+}
+
+# Button state
+button_state = {
+    "button": False,
 }
 
 # Packet tracking: survives reboot of A (memory of last packet IDs)

@@ -173,9 +173,16 @@ def update_alarm_feedback(level):
     
     if level == "normal":
         stop_sound()
+        state.actuator_state["buzzer"]["alarm_muted"] = False
     elif level == "warning":
+        if state.actuator_state["buzzer"].get("alarm_muted"):
+            stop_sound()
+            return
         play_sound("warning")
     elif level == "danger":
+        if state.actuator_state["buzzer"].get("alarm_muted"):
+            stop_sound()
+            return
         play_sound("danger")
 
 

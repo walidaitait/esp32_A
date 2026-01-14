@@ -53,8 +53,15 @@ def main():
     log("main", "Phase 2: Remote logging initialization")
     init_remote_logging('B')
     
+    # Initialize button (if enabled)
+    log("main", "Phase 3a: Button initialization")
+    if config.BUTTON_ENABLED:
+        from actuators import buttons
+        if not buttons.init_buttons():
+            log("main", "WARNING - Button initialization failed")
+    
     # Initialize all actuators (or simulation mode)
-    log("main", "Phase 3: Actuator initialization")
+    log("main", "Phase 3b: Actuator initialization")
     if SIMULATE_ACTUATORS:
         from actuators import simulation
         log("main", "SIMULATION MODE - Using simulated actuators")
@@ -97,6 +104,11 @@ def main():
                 machine.reset()
             
             # === NORMAL OPERATION ===
+            
+            # Read button state (if enabled)
+            if config.BUTTON_ENABLED:
+                from actuators import buttons
+                buttons.read_buttons()
             
             # Update all actuators without blocking
             actuator_loop.update()

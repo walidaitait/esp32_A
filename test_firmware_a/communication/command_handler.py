@@ -100,44 +100,66 @@ def _handle_simulate(args):
     sensor = args[0]
     value_str = args[1]
     
+    auto_value = value_str.lower() == "auto"
+
     # Parse value
     try:
         if sensor == "temperature":
+            if auto_value:
+                timers.clear_user_lock("temp_read")
+                log("cmd_handler", "Temperature back to auto")
+                return {"success": True, "message": "Temperature set to auto"}
             value = float(value_str)
             state.sensor_data["temperature"] = value
-            timers.mark_user_action("temp_read")
+            timers.set_user_lock("temp_read")
             log("cmd_handler", "Temperature simulated: {}°C".format(value))
             return {"success": True, "message": "Temperature set to {}°C".format(value)}
         
         elif sensor == "co":
+            if auto_value:
+                timers.clear_user_lock("co_read")
+                log("cmd_handler", "CO back to auto")
+                return {"success": True, "message": "CO set to auto"}
             value = int(value_str)
             state.sensor_data["co"] = value
-            timers.mark_user_action("co_read")
+            timers.set_user_lock("co_read")
             log("cmd_handler", "CO simulated: {} ppm".format(value))
             return {"success": True, "message": "CO set to {} ppm".format(value)}
         
         elif sensor == "ultrasonic":
+            if auto_value:
+                timers.clear_user_lock("ultrasonic_read")
+                log("cmd_handler", "Ultrasonic back to auto")
+                return {"success": True, "message": "Ultrasonic set to auto"}
             value = float(value_str)
             state.sensor_data["ultrasonic_distance_cm"] = value
-            timers.mark_user_action("ultrasonic_read")
+            timers.set_user_lock("ultrasonic_read")
             log("cmd_handler", "Ultrasonic simulated: {} cm".format(value))
             return {"success": True, "message": "Distance set to {} cm".format(value)}
         
         elif sensor == "heart":
+            if auto_value:
+                timers.clear_user_lock("heart_rate_read")
+                log("cmd_handler", "Heart rate back to auto")
+                return {"success": True, "message": "Heart rate set to auto"}
             value = int(value_str)
             if state.sensor_data["heart_rate"] is None:
                 state.sensor_data["heart_rate"] = {}
             state.sensor_data["heart_rate"]["bpm"] = value
-            timers.mark_user_action("heart_rate_read")
+            timers.set_user_lock("heart_rate_read")
             log("cmd_handler", "Heart rate simulated: {} bpm".format(value))
             return {"success": True, "message": "Heart rate set to {} bpm".format(value)}
         
         elif sensor == "spo2":
+            if auto_value:
+                timers.clear_user_lock("heart_rate_read")
+                log("cmd_handler", "SpO2 back to auto")
+                return {"success": True, "message": "SpO2 set to auto"}
             value = int(value_str)
             if state.sensor_data["heart_rate"] is None:
                 state.sensor_data["heart_rate"] = {}
             state.sensor_data["heart_rate"]["spo2"] = value
-            timers.mark_user_action("heart_rate_read")
+            timers.set_user_lock("heart_rate_read")
             log("cmd_handler", "SpO2 simulated: {}%".format(value))
             return {"success": True, "message": "SpO2 set to {}%".format(value)}
         
@@ -161,7 +183,7 @@ def _handle_test_alarm(args):
     if action == "warning":
         # Trigger warning: CO just above warning threshold but below danger
         state.sensor_data["co"] = 60  # Above critical (50 PPM) by 10
-        timers.mark_user_action("co_read")
+        timers.set_user_lock("co_read")
         log("cmd_handler", "TEST: CO set to 60 ppm -> should trigger WARNING in ~5 seconds")
         return {
             "success": True,
@@ -171,7 +193,7 @@ def _handle_test_alarm(args):
     elif action == "danger":
         # Trigger danger: CO well above threshold
         state.sensor_data["co"] = 120  # Well above critical
-        timers.mark_user_action("co_read")
+        timers.set_user_lock("co_read")
         log("cmd_handler", "TEST: CO set to 120 ppm -> should trigger DANGER in ~30 seconds")
         return {
             "success": True,
@@ -184,9 +206,9 @@ def _handle_test_alarm(args):
         state.sensor_data["temperature"] = 23.5
         state.sensor_data["heart_rate"]["bpm"] = 75
         state.sensor_data["heart_rate"]["spo2"] = 98
-        timers.mark_user_action("co_read")
-        timers.mark_user_action("temp_read")
-        timers.mark_user_action("heart_rate_read")
+        timers.set_user_lock("co_read")
+        timers.set_user_lock("temp_read")
+        timers.set_user_lock("heart_rate_read")
         log("cmd_handler", "TEST: All sensors reset to safe values")
         return {
             "success": True,
@@ -214,20 +236,20 @@ def _handle_test_sensor(args):
             if action == "set" and len(args) >= 3:
                 value = int(args[2])
                 state.sensor_data["co"] = value
-                timers.mark_user_action("co_read")
+                timers.set_user_lock("co_read")
                 log("cmd_handler", "TEST: CO sensor set to {} ppm".format(value))
                 return {"success": True, "message": "CO set to {} ppm".format(value)}
             elif action == "min":
                 state.sensor_data["co"] = 0
-                timers.mark_user_action("co_read")
+                timers.set_user_lock("co_read")
                 return {"success": True, "message": "CO set to minimum (0 ppm)"}
             elif action == "max":
                 state.sensor_data["co"] = 200
-                timers.mark_user_action("co_read")
+                timers.set_user_lock("co_read")
                 return {"success": True, "message": "CO set to maximum (200 ppm)"}
             elif action == "normal":
                 state.sensor_data["co"] = 10
-                timers.mark_user_action("co_read")
+                timers.set_user_lock("co_read")
                 return {"success": True, "message": "CO set to normal (10 ppm)"}
             else:
                 return {"success": False, "message": "CO actions: set <ppm>, min, max, normal"}
@@ -236,16 +258,16 @@ def _handle_test_sensor(args):
             if action == "set" and len(args) >= 3:
                 value = float(args[2])
                 state.sensor_data["temperature"] = value
-                timers.mark_user_action("temp_read")
+                timers.set_user_lock("temp_read")
                 log("cmd_handler", "TEST: Temperature set to {}°C".format(value))
                 return {"success": True, "message": "Temperature set to {}°C".format(value)}
             elif action == "min":
                 state.sensor_data["temperature"] = 5  # Below safe min (10°C)
-                timers.mark_user_action("temp_read")
+                timers.set_user_lock("temp_read")
                 return {"success": True, "message": "Temperature set to minimum (5°C - UNSAFE)"}
             elif action == "max":
                 state.sensor_data["temperature"] = 40  # Above safe max (35°C)
-                timers.mark_user_action("temp_read")
+                timers.set_user_lock("temp_read")
                 return {"success": True, "message": "Temperature set to maximum (40°C - UNSAFE)"}
             elif action == "normal":
                 state.sensor_data["temperature"] = 23.5

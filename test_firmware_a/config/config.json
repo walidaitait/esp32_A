@@ -1,8 +1,7 @@
 {
-  "firmware_version": 1,
+  "firmware_version": 2,
   "simulate_sensors": false,
-  "ota_update_pending": true,
-  "ota_button_enabled": false,
+  "ota_update_pending": false,
   "sensors": {
     "temperature": {"enabled": true},
     "co": {"enabled": true},

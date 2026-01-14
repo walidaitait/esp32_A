@@ -86,6 +86,12 @@ def _handle_led(args):
     
     color = args[0]
     mode = args[1]
+
+    # Auto mode releases user lock so logic can drive LEDs again
+    if mode == "auto":
+        timers.clear_user_lock("led_update")
+        log("communication.cmd_handler", "LED {} back to auto".format(color))
+        return {"success": True, "message": "LED {} set to auto".format(color)}
     
     # Args are already validated and normalized by send_command.py
     # Update hardware (if initialized) and state
@@ -98,7 +104,7 @@ def _handle_led(args):
         state.actuator_state["leds"][color] = (mode == "on")
 
     # Mark user override window for LED logic (if any auto-logic uses this name)
-    timers.mark_user_action("led_update")
+    timers.set_user_lock("led_update")
     
     log("communication.cmd_handler", "LED {} set to {}".format(color, mode))
     return {"success": True, "message": "LED {} set to {}".format(color, mode)}
@@ -110,7 +116,14 @@ def _handle_servo(args):
         return {"success": False, "message": "Usage: servo <angle>"}
     
     # Args are already validated and normalized by send_command.py
-    angle = int(args[0])
+    value = args[0]
+
+    if value == "auto":
+        timers.clear_user_lock("servo_update")
+        log("communication.cmd_handler", "Servo back to auto")
+        return {"success": True, "message": "Servo set to auto"}
+
+    angle = int(value)
     
     # Apply immediately to hardware if available
     try:
@@ -122,7 +135,7 @@ def _handle_servo(args):
         state.actuator_state["servo"]["moving"] = True
 
     # Protect servo from auto overrides for 20s
-    timers.mark_user_action("servo_update")
+    timers.set_user_lock("servo_update")
     
     log("communication.cmd_handler", "Servo set to {} degrees".format(angle))
     return {"success": True, "message": "Servo set to {} degrees".format(angle)}
@@ -136,6 +149,11 @@ def _handle_lcd(args):
     # Args are already validated and normalized by send_command.py
     line = args[0]
     text = args[1]
+
+    if text == "auto":
+        timers.clear_user_lock("lcd_update")
+        log("communication.cmd_handler", "LCD back to auto ({})".format(line))
+        return {"success": True, "message": "LCD {} set to auto".format(line)}
     
     # Update state first
     state.actuator_state["lcd"][line] = text
@@ -150,7 +168,7 @@ def _handle_lcd(args):
         pass
 
     # Protect LCD from auto overrides for 20s
-    timers.mark_user_action("lcd_update")
+    timers.set_user_lock("lcd_update")
     
     log("communication.cmd_handler", "LCD {} set to: {}".format(line, text))
     return {"success": True, "message": "LCD {} set to: {}".format(line, text)}
@@ -163,6 +181,12 @@ def _handle_buzzer(args):
     
     # Args are already validated and normalized by send_command.py
     mode = args[0]
+
+    if mode == "auto":
+        timers.clear_user_lock("buzzer_update")
+        log("communication.cmd_handler", "Buzzer back to auto")
+        return {"success": True, "message": "Buzzer set to auto"}
+
     desired_on = (mode == "on")
     state.actuator_state["buzzer"]["active"] = desired_on
 
@@ -172,7 +196,7 @@ def _handle_buzzer(args):
     except Exception:
         pass
 
-    timers.mark_user_action("buzzer_update")
+    timers.set_user_lock("buzzer_update")
     
     log("communication.cmd_handler", "Buzzer set to {}".format(mode))
     return {"success": True, "message": "Buzzer set to {}".format(mode)}
@@ -194,7 +218,7 @@ def _handle_audio(args):
             audio_module.play_first()
         except Exception:
             pass
-        timers.mark_user_action("audio_update")
+            timers.set_user_lock("audio_update")
         log("communication.cmd_handler", "Audio play")
         return {"success": True, "message": "Audio playing"}
     
@@ -206,7 +230,7 @@ def _handle_audio(args):
             audio_module.stop()
         except Exception:
             pass
-        timers.mark_user_action("audio_update")
+            timers.set_user_lock("audio_update")
         log("communication.cmd_handler", "Audio pause")
         return {"success": True, "message": "Audio paused"}
     
@@ -218,19 +242,21 @@ def _handle_audio(args):
             audio_module.stop()
         except Exception:
             pass
-        timers.mark_user_action("audio_update")
+            timers.set_user_lock("audio_update")
         log("communication.cmd_handler", "Audio stop")
         return {"success": True, "message": "Audio stopped"}
     
     elif action == "volume":
         volume = int(args[1])
         state.actuator_state["audio"]["last_cmd"] = "volume:{}".format(volume)
+        timers.set_user_lock("audio_update")
         log("communication.cmd_handler", "Audio volume set to {}".format(volume))
         return {"success": True, "message": "Volume set to {}".format(volume)}
     
     elif action == "track":
         track = int(args[1])
         state.actuator_state["audio"]["last_cmd"] = "track:{}".format(track)
+        timers.set_user_lock("audio_update")
         log("communication.cmd_handler", "Audio track set to {}".format(track))
         return {"success": True, "message": "Track set to {}".format(track)}
     

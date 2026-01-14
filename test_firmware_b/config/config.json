@@ -1,8 +1,8 @@
 {
-  "firmware_version": 1,
+  "firmware_version": 2,
   "simulate_actuators": false,
-  "ota_update_pending": true,
-  "ota_button_enabled": true,
+  "ota_update_pending": false,
+  "button_enabled": true,
   "actuators": {
     "leds": {"enabled": true},
     "servo": {"enabled": true},
@@ -32,6 +32,10 @@
     "tx_pin": 27,
     "rx_pin": 26,
     "default_volume": 20
+  },
+  "button": {
+    "pin": 18,
+    "interval_ms": 50
   },
   "gate": {
     "close_delay_ms": 10000

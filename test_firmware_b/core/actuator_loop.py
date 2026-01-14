@@ -3,7 +3,7 @@
 Manages all actuator updates in non-blocking fashion using elapsed() timers.
 """
 
-from core.timers import elapsed
+from core.timers import elapsed, user_override_active
 from core import state
 from debug.debug import log
 from time import ticks_ms, ticks_diff
@@ -16,6 +16,7 @@ AUDIO_UPDATE_INTERVAL = 100    # Check audio playback status every 100ms
 HEARTBEAT_INTERVAL = 5000      # Log system status every 5 seconds
 ESPNOW_TIMEOUT = 10000         # ESP-NOW connection timeout (10 seconds)
 ALARM_UPDATE_INTERVAL = 200    # Update alarm indicators every 200ms
+EMERGENCY_UPDATE_INTERVAL = 50 # Update emergency logic every 50ms
 
 # Simulation mode flag
 _simulation_mode = False
@@ -31,6 +32,7 @@ servo = None
 lcd = None
 buzzer = None
 audio = None
+emergency = None
 
 
 def set_simulation_mode(enabled):
@@ -76,7 +78,7 @@ def initialize():
         log("core.actuator", "Skipping hardware initialization (simulation mode)")
         return True
     
-    global leds, servo, lcd, buzzer, audio
+    global leds, servo, lcd, buzzer, audio, emergency
     
     try:
         # Import actuator modules in hardware mode (only enabled actuators)
@@ -101,6 +103,10 @@ def initialize():
         if config.AUDIO_ENABLED:
             from actuators import audio as audio_module
             audio = audio_module
+        
+        # Always import emergency logic
+        from logic import emergency as emergency_module
+        emergency = emergency_module
         
         log("core.actuator", "Initializing enabled actuators...")
         
@@ -161,8 +167,62 @@ def update():
         # Real hardware mode - update actuators (only enabled ones)
         from config import config
         
+        # === EMERGENCY SOS LOGIC (highest priority) ===
+        # Check for emergency SOS activation/deactivation patterns
+        if emergency is not None and elapsed("emergency_update", EMERGENCY_UPDATE_INTERVAL):
+            sos_events = emergency.update()  # type: ignore
+            
+            # Handle single click based on current context
+            if sos_events["single_click"]:
+                sos_mode = state.actuator_state.get("sos_mode", False)
+                
+                if sos_mode:
+                    # Single click in SOS mode → close SOS call
+                    state.actuator_state["sos_mode"] = False
+                    log("core.actuator", "=== SOS CALL ENDED (single click) ===")
+                    
+                    # Clear SOS display
+                    if config.LCD_ENABLED and lcd is not None:
+                        lcd.display_custom("", "")  # type: ignore
+                else:
+                    # Single click outside SOS → mute alarm buzzer (if in warning/danger)
+                    alarm_level = state.received_sensor_state.get("alarm_level", "normal")
+                    if alarm_level in ("warning", "danger"):
+                        state.actuator_state["buzzer"]["alarm_muted"] = True
+                        log("core.actuator", "Alarm buzzer muted by single click")
+            
+            # Handle SOS activation (long press or 5 rapid clicks)
+            if sos_events["sos_activated"]:
+                state.actuator_state["sos_mode"] = True
+                log("core.actuator", "=== SOS CALL ACTIVATED ===")
+                
+                # Set SOS display
+                if config.LCD_ENABLED and lcd is not None:
+                    lcd.display_custom("SOS call", "Ringing...")  # type: ignore
+                
+                # Set red LED to solid (not blinking)
+                if config.LEDS_ENABLED and leds is not None:
+                    leds.set_led_state("red", "on")  # type: ignore
+            
+            # Handle SOS deactivation (from emergency module)
+            if sos_events["sos_deactivated"]:
+                state.actuator_state["sos_mode"] = False
+                log("core.actuator", "=== SOS CALL ENDED ===")
+                
+                # Clear SOS display (will be overwritten by normal logic)
+                if config.LCD_ENABLED and lcd is not None:
+                    lcd.display_custom("", "")  # type: ignore
+        
+        # If SOS is active, skip normal actuator updates (emergency takes priority)
+        if state.actuator_state.get("sos_mode"):
+            # Keep red LED solid in SOS mode
+            if config.LEDS_ENABLED and leds is not None:
+                if elapsed("led_update", LED_UPDATE_INTERVAL):
+                    leds.update_led_test()  # type: ignore (for blinking state machine)
+            return
+        
         # Check ESP-NOW connection status and update blue LED accordingly
-        if config.LEDS_ENABLED and leds is not None:
+        if config.LEDS_ENABLED and leds is not None and not user_override_active("led_update"):
             espnow_connected = _check_espnow_status()
             if espnow_connected:
                 # ESP-NOW connected: Blue LED blinking
@@ -173,37 +233,41 @@ def update():
         
         # Update LED blinking states
         if config.LEDS_ENABLED and leds is not None:
-            if elapsed("led_update", LED_UPDATE_INTERVAL):
+            if elapsed("led_update", LED_UPDATE_INTERVAL, True):
                 leds.update_led_test()  # type: ignore
         
         # Update servo position
         if config.SERVO_ENABLED and servo is not None:
-            if elapsed("servo_update", SERVO_UPDATE_INTERVAL):
+            if elapsed("servo_update", SERVO_UPDATE_INTERVAL, True):
                 servo.update_servo_test()  # type: ignore
                 servo.update_gate_automation()  # type: ignore
         
         # Update LCD display
         if config.LCD_ENABLED and lcd is not None:
-            if elapsed("lcd_update", LCD_UPDATE_INTERVAL):
+            if elapsed("lcd_update", LCD_UPDATE_INTERVAL, True):
                 lcd.update_lcd_test()  # type: ignore
         
         # Update audio playback status
         if config.AUDIO_ENABLED and audio is not None:
-            if elapsed("audio_update", AUDIO_UPDATE_INTERVAL):
+            if elapsed("audio_update", AUDIO_UPDATE_INTERVAL, True):
                 audio.update_audio_test()  # type: ignore
 
         # Alarm-driven actuators (LED red, buzzer, LCD alert)
         if elapsed("alarm_update", ALARM_UPDATE_INTERVAL):
             alarm_level = state.received_sensor_state.get("alarm_level", "normal")
             alarm_source = state.received_sensor_state.get("alarm_source")
-            if config.LEDS_ENABLED and leds is not None:
+
+            # Clear mute when alarm returns to normal
+            if alarm_level == "normal":
+                state.actuator_state["buzzer"]["alarm_muted"] = False
+            if config.LEDS_ENABLED and leds is not None and not user_override_active("led_update"):
                 leds.apply_alarm(alarm_level)  # type: ignore
-            if config.BUZZER_ENABLED and buzzer is not None:
+            if config.BUZZER_ENABLED and buzzer is not None and not user_override_active("buzzer_update"):
                 # Update buzzer sound playback (phase transitions, tone control)
                 buzzer.update()  # type: ignore
                 # Set which sound to play based on alarm level
                 buzzer.update_alarm_feedback(alarm_level)  # type: ignore
-            if config.LCD_ENABLED and lcd is not None:
+            if config.LCD_ENABLED and lcd is not None and not user_override_active("lcd_update"):
                 lcd.update_alarm_display(alarm_level, alarm_source)  # type: ignore
         
         # Periodic heartbeat for system status - DISABLED
