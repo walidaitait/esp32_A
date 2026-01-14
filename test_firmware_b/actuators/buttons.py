@@ -37,7 +37,7 @@ def init_buttons():
         
         # Initialize state based on actual pin reading
         # With PULL_UP: pin.value() == 1 when NOT pressed, 0 when pressed
-        _last_state = _button.value() == 0  # True if pressed (pin LOW)
+        _last_state = _button.value() == 1  # True if NOT pressed (pin HIGH)
         
         # Update global state
         state.button_state["button"] = _last_state
@@ -61,7 +61,7 @@ def read_buttons():
     
     try:
         # With PULL_UP: HIGH = not pressed, LOW = pressed
-        pressed = _button.value() == 0  # True if pressed (pin LOW)
+        pressed = _button.value() == 1  # True if NOT pressed (pin HIGH)
         
         if pressed != _last_state:
             _last_state = pressed

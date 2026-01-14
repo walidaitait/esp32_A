@@ -1,7 +1,8 @@
 {
-  "firmware_version": 2.23,
-  "simulate_sensors": false,
+  "firmware_version": 2.24,
   "ota_update_pending": false,
+  "simulate_sensors": false,
+  
   "sensors": {
     "temperature": {"enabled": true},
     "co": {"enabled": true},
@@ -14,6 +15,7 @@
     },
     "accelerometer": {"enabled": false}
   },
+  
   "pins": {
     "temp": 4,
     "co": 35,
@@ -27,6 +29,7 @@
     "heart_rate_scl": 22,
     "heart_rate_sda": 21
   },
+  
   "intervals_ms": {
     "temp": 1000,
     "co": 1000,
@@ -35,6 +38,7 @@
     "ultrasonic": 100,
     "logic": 200
   },
+  
   "co_config": {
     "baseline_ms": 2000,
     "min_guard_mv": 3,
@@ -42,6 +46,14 @@
     "ppm_clamp": 300,
     "offset_mv": 0
   },
+  
+  "alarm_flags": {
+    "co_enabled": true,
+    "temp_enabled": true,
+    "heart_enabled": true,
+    "ultrasonic_enabled": true
+  },
+  
   "thresholds": {
     "co_critical_ppm": 50.0,
     "temp_min_safe": 10.0,
@@ -50,12 +62,7 @@
     "bpm_high": 120,
     "spo2": 90
   },
-  "alarm_flags": {
-    "co_enabled": true,
-    "temp_enabled": true,
-    "heart_enabled": true,
-    "ultrasonic_enabled": true
-  },
+  
   "alarm_windows_ms": {
     "co_warning": 5000,
     "co_danger": 30000,

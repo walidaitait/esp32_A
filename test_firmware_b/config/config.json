@@ -1,8 +1,9 @@
 {
-  "firmware_version": 2.23,
-  "simulate_actuators": false,
+  "firmware_version": 2.24,
   "ota_update_pending": false,
+  "simulate_actuators": false,
   "button_enabled": true,
+  
   "actuators": {
     "leds": {"enabled": true},
     "servo": {"enabled": true},
@@ -10,33 +11,40 @@
     "buzzer": {"enabled": true},
     "audio": {"enabled": true}
   },
+  
   "leds": {
     "green": 16,
     "blue": 17,
     "red": 19
   },
+  
   "servo": {
     "pin": 23,
     "max_angle": 180
   },
+  
   "lcd": {
     "sda_pin": 21,
     "scl_pin": 22,
     "i2c_id": 0
   },
+  
   "buzzer": {
     "pin": 25
   },
+  
   "dfplayer": {
     "uart_id": 1,
     "tx_pin": 27,
     "rx_pin": 26,
     "default_volume": 20
   },
+  
   "button": {
     "pin": 18,
     "interval_ms": 50
   },
+  
   "gate": {
     "close_delay_ms": 10000
   }
