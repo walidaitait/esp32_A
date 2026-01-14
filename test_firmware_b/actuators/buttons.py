@@ -37,13 +37,14 @@ def init_buttons():
         
         # Initialize state based on actual pin reading
         # With PULL_UP: pin.value() == 1 when NOT pressed, 0 when pressed
+        # pressed = True means NOT pressed (consistency with ESP32-A)
         _last_state = _button.value() == 1  # True if NOT pressed (pin HIGH)
         
         # Update global state
         state.actuator_state["button"] = _last_state
         
-        log("actuator.buttons", "init_buttons: Button initialized, current state: {}".format(
-            "pressed" if _last_state else "released"))
+        log("actuator.buttons", "init_buttons: Button initialized, current state: {} (True=not pressed, False=pressed)".format(
+            _last_state))
         return True
     except Exception as e:
         log("actuator.buttons", "init_buttons: Initialization failed: {}".format(e))
@@ -53,6 +54,8 @@ def init_buttons():
 
 def read_buttons():
     """Read button state with debouncing."""
+    global _button, _last_state, _button_enabled
+    
     if not _button_enabled or _button is None:
         return
     
@@ -60,14 +63,15 @@ def read_buttons():
         return
     
     try:
-        # With PULL_UP: HIGH = not pressed, LOW = pressed
+        # With PULL_UP: HIGH (1) = not pressed, LOW (0) = pressed
+        # pressed = True means NOT pressed (consistency with ESP32-A)
         pressed = _button.value() == 1  # True if NOT pressed (pin HIGH)
         
         if pressed != _last_state:
             _last_state = pressed
             state.actuator_state["button"] = pressed
-            log("actuator.buttons", "read_buttons: Button {}".format(
-                "pressed" if pressed else "released"))
+            log("actuator.buttons", "read_buttons: Button {}" .
+                "released" if pressed else "pressed"))
         else:
             state.actuator_state["button"] = pressed
     except Exception as e:
