@@ -165,33 +165,15 @@ def _parse_actuator_state(msg_bytes):
             state.received_actuator_state["is_stale"] = False
             return
         
-        # Check for force_update command from B
-        if data.get("command") == "force_update":
-            log("communication.espnow", "ALERT: Board B forcing firmware update!")
-            state.system_control["ota_update_requested"] = True
-            return
-        
-        # Check version
+        # Check version (warning only, don't block communication)
         remote_version = data.get("version")
         if remote_version != config.FIRMWARE_VERSION:
             global _version_mismatch_logged
-            if remote_version is not None and remote_version > config.FIRMWARE_VERSION:
-                # Remote board has newer version - force update
-                if not _version_mismatch_logged:
-                    log("communication.espnow", "WARNING: Board B has newer firmware v{}, forcing update...".format(
-                        remote_version
-                    ))
-                    _version_mismatch_logged = True
-                state.system_control["ota_update_requested"] = True
-                return
-            else:
-                # Older or unknown version
-                if not _version_mismatch_logged:
-                    log("communication.espnow", "WARNING: Firmware version mismatch! Local=v{}, Remote=v{}".format(
-                        config.FIRMWARE_VERSION, remote_version
-                    ))
-                    _version_mismatch_logged = True
-                return
+            if not _version_mismatch_logged:
+                log("communication.espnow", "WARNING: Firmware version mismatch! Local=v{}, Remote=v{}".format(
+                    config.FIRMWARE_VERSION, remote_version
+                ))
+                _version_mismatch_logged = True
         else:
             _version_mismatch_logged = False
         
