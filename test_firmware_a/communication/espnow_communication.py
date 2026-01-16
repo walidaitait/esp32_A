@@ -376,19 +376,15 @@ def update():
             init_espnow_comm()
         return
     
-    try:
-        # Check for incoming messages (actuator status from B)
-        # Drain ALL pending messages to prevent buffer overflow
-        messages_processed = 0
-        max_messages_per_cycle = 10
-        last_valid_msg = None
-        
-        while messages_processed < max_messages_per_cycle:
-            try:
-                mac, msg = _esp_now.irecv(0)
-            except OSError:
-                # Buffer error or no data - stop reading
-                break
+    # Check for incoming messages (actuator status from B)
+    # Drain ALL pending messages to prevent buffer overflow
+    messages_processed = 0
+    max_messages_per_cycle = 10
+    last_valid_msg = None
+    
+    while messages_processed < max_messages_per_cycle:
+        try:
+            mac, msg = _esp_now.irecv(0)
             
             if mac is None or msg is None:
                 # No more messages available
@@ -402,15 +398,27 @@ def update():
             except Exception:
                 mac_str = str(mac)
             log("espnow_a", "RX from {} len={} preview={}".format(mac_str, len(msg), msg[:40]))
-        
-        # Process only the LAST received message (most recent data)
-        if last_valid_msg is not None:
-            if messages_processed > 1:
-                log("espnow_a", "Drained {} messages, using latest".format(messages_processed))
+            
+        except OSError:
+            # OSError is normal when buffer is empty - don't log as error
+            break
+        except Exception as e:
+            # Other exceptions are real errors
+            log("communication.espnow", "Receive error: {}".format(e))
+            break
+    
+    # Process only the LAST received message (most recent data)
+    if last_valid_msg is not None:
+        if messages_processed > 1:
+            log("espnow_a", "Drained {} messages, using latest".format(messages_processed))
+        try:
             # Parse JSON actuator data from B (returns msg_id or None)
             _parse_actuator_state(last_valid_msg)
-        
-        # Send pending events immediately (bypass timer)
+        except Exception as e:
+            log("communication.espnow", "Parse error: {}".format(e))
+    
+    # Send pending events immediately (bypass timer)
+    try:
         global _pending_events
         if _pending_events:
             event = _pending_events.pop(0)
@@ -423,12 +431,16 @@ def update():
             _message_count += 1
             sensor_data = _get_sensor_data_string(msg_type="data")
             send_message(sensor_data)
-        
-        # Note: A does NOT go into standby if B disconnects.
-        # Sensor reading and alarm logic continue normally.
-        
-        # Snapshot logging disabled
-        if _state_log_interval and elapsed("espnow_state_log", _state_log_interval):
-            _log_complete_state()
     except Exception as e:
-        log("espnow_a", "Update error: {}".format(e))
+        log("communication.espnow", "Send error: {}".format(e))
+    
+    # Note: A does NOT go into standby if B disconnects.
+    # Sensor reading and alarm logic continue normally.
+    
+    # Snapshot logging disabled
+    if _state_log_interval and elapsed("espnow_state_log", _state_log_interval):
+        try:
+            _log_complete_state()
+        except Exception as e:
+            log("communication.espnow", "Log state error: {}".format(e))
+
