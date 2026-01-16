@@ -21,6 +21,9 @@ STATUS_LOG_INTERVAL = 2500        # Log complete status every 2.5 seconds
 # Simulation mode flag
 _simulation_mode = False
 
+# Alarm state tracking (to detect critical state changes)
+_last_alarm_level = "normal"
+
 # Import sensor modules conditionally (only when not in simulation)
 # These will be imported lazily when needed
 temperature = None
@@ -207,6 +210,8 @@ def update():
             if elapsed("alarm_eval", ALARM_EVAL_INTERVAL):
                 try:
                     alarm_logic.evaluate_logic()
+                    # Check for critical alarm state changes
+                    _check_alarm_state_change()
                 except Exception as e:
                     log("core.sensor", "update(alarm_logic) error: {}".format(e))
         
@@ -216,6 +221,53 @@ def update():
             
     except Exception as e:
         log("core.sensor", "Update error: {}".format(e))
+
+
+def _check_alarm_state_change():
+    """Detect critical alarm state changes and send immediate event to Board B."""
+    global _last_alarm_level
+    from time import ticks_ms
+    
+    current_alarm_level = state.alarm_state.get("level", "normal")
+    alarm_source = state.alarm_state.get("source")
+    
+    # Detect transition to critical alarm (normal/warning -> critical)
+    if current_alarm_level == "critical" and _last_alarm_level != "critical":
+        log("core.sensor", "CRITICAL alarm state change detected")
+        # Send immediate event to Board B
+        try:
+            from communication import espnow_communication
+            espnow_communication.send_event_immediate(
+                event_type="alarm_critical",
+                custom_data={
+                    "source": alarm_source,
+                    "previous_level": _last_alarm_level,
+                    "timestamp": ticks_ms()
+                }
+            )
+            log("core.sensor", "Critical alarm event sent to Board B")
+        except Exception as e:
+            log("core.sensor", "Failed to send alarm event: {}".format(e))
+    
+    # Detect transition from critical to lower level (critical -> warning/normal)
+    elif _last_alarm_level == "critical" and current_alarm_level != "critical":
+        log("core.sensor", "Alarm de-escalation detected: critical -> {}".format(current_alarm_level))
+        # Optionally send de-escalation event
+        try:
+            from communication import espnow_communication
+            espnow_communication.send_event_immediate(
+                event_type="alarm_cleared",
+                custom_data={
+                    "new_level": current_alarm_level,
+                    "timestamp": ticks_ms()
+                }
+            )
+            log("core.sensor", "Alarm cleared event sent to Board B")
+        except Exception as e:
+            log("core.sensor", "Failed to send alarm cleared event: {}".format(e))
+    
+    # Update last state
+    _last_alarm_level = current_alarm_level
 
 
 def _log_status():

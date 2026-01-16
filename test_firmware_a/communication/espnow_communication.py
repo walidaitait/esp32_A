@@ -26,13 +26,17 @@ except ImportError:
 MAC_A = bytes.fromhex("5C013B875310")  # Self (A)
 MAC_B = bytes.fromhex("5C013B4C2C34")  # Remote (B)
 
-# Send interval and heartbeat
-_send_interval = 5000  # Send sensor data every 5 seconds
-HEARTBEAT_INTERVAL = 10000  # Send heartbeat to ensure connectivity every 10 seconds
+# Send interval and message tracking
+_send_interval = 2500  # Send sensor data every 2.5 seconds
 REINIT_INTERVAL = 5000      # Try to recover ESP-NOW every 5 seconds when down
 _state_log_interval = None  # Disabled snapshots
 _message_count = 0
 _version_mismatch_logged = False  # Prevent log spam
+
+# Message ID tracking (prevent loops)
+_next_msg_id = 1
+_last_received_msg_id = 0
+_pending_events = []  # Queue for immediate events
 
 _esp_now = None
 _initialized = False
@@ -40,12 +44,23 @@ _wifi = None
 _last_init_attempt = 0
 
 
-def _get_sensor_data_string():
-    """Format all sensor data into a JSON message."""
+def _get_sensor_data_string(msg_type="data", msg_id=None):
+    """Format all sensor data into a JSON message.
+    
+    Args:
+        msg_type: Type of message - 'data' (periodic), 'event' (immediate), 'ack' (confirmation)
+        msg_id: Message ID (auto-generated if None)
+    """
+    global _next_msg_id
+    if msg_id is None:
+        msg_id = _next_msg_id
+        _next_msg_id += 1
+    
     hr = state.sensor_data["heart_rate"]
     data = {
         "version": config.FIRMWARE_VERSION,
-        "type": "sensors",
+        "msg_type": msg_type,
+        "msg_id": msg_id,
         "timestamp": ticks_ms(),
         "sensors": {
             "temperature": state.sensor_data.get("temperature"),
@@ -145,6 +160,28 @@ def send_message(data):
         return False
 
 
+def send_event_immediate(event_type="alarm_triggered", custom_data=None):
+    """Send an immediate event to Board B, bypassing the normal timer.
+    
+    Used for urgent notifications like alarm triggers, critical sensor readings, etc.
+    
+    Args:
+        event_type: Type of event ('alarm_triggered', 'emergency', etc.)
+        custom_data: Optional dict with additional event data
+    
+    Returns:
+        True if queued/sent successfully
+    """
+    global _pending_events
+    event_msg = {
+        "event_type": event_type,
+        "custom_data": custom_data or {}
+    }
+    _pending_events.append(event_msg)
+    log("espnow_a", "Event queued: {}".format(event_type))
+    return True
+
+
 def _parse_actuator_state(msg_bytes):
     """Parse received actuator state from Board B (JSON format) and update state.
     
@@ -173,12 +210,25 @@ def _parse_actuator_state(msg_bytes):
         log("espnow_a", "RX Parse: msg_str={}".format(msg_str[:100]))
         data = json.loads(msg_str)
         
-        # Handle heartbeat separately (just update last_update)
-        if data.get("type") == "heartbeat":
-            log("espnow_a", "RX Heartbeat from B")
-            state.received_actuator_state["last_update"] = ticks_ms()
-            state.received_actuator_state["is_stale"] = False
-            return
+        # Extract message metadata
+        msg_id = data.get("msg_id", 0)
+        msg_type = data.get("msg_type", "data")
+        
+        # Track received message ID to prevent duplicates
+        global _last_received_msg_id
+        if msg_id <= _last_received_msg_id and msg_type != "ack":
+            log("espnow_a", "Duplicate msg_id={}, ignoring".format(msg_id))
+            return None  # Return msg_id None to signal duplicate
+        if msg_type != "ack":
+            _last_received_msg_id = msg_id
+        
+        log("espnow_a", "RX msg_id={} type={}".format(msg_id, msg_type))
+        
+        # If this is just an ACK, don't update state, just return msg_id
+        if msg_type == "ack":
+            reply_to = data.get("reply_to_id")
+            log("espnow_a", "ACK received for msg_id={}".format(reply_to))
+            return msg_id  # Return to signal ACK processed
         
         # Check version (warning only, don't block communication)
         remote_version = data.get("version")
@@ -213,17 +263,21 @@ def _parse_actuator_state(msg_bytes):
         state.received_actuator_state["last_update"] = ticks_ms()
         state.received_actuator_state["is_stale"] = False
         
-        log("communication.espnow", "Actuator data received (v{}) - LEDs=G:{},B:{},R:{} Servo={}°".format(
+        log("communication.espnow", "Actuator data received (v{}) msg_id={} type={} - LEDs=G:{},B:{},R:{} Servo={}°".format(
             remote_version,
+            msg_id,
+            msg_type,
             leds.get("green"),
             leds.get("blue"),
             leds.get("red"),
             servo.get("angle")
         ))
         log("espnow_a", "RX OK - Actuator state updated")
+        return msg_id  # Return msg_id to send ACK
     except Exception as e:
         log("communication.espnow", "Parse error: {}".format(e))
         log("espnow_a", "RX Parse FAILED: {}".format(e))
+        return None
 
 
 def _log_complete_state():
@@ -324,28 +378,50 @@ def update():
     
     try:
         # Check for incoming messages (actuator status from B)
-        try:
-            mac, msg = _esp_now.irecv(0)
-        except OSError as e:
-            # Buffer error or no data - this is normal, just skip
-            mac, msg = None, None
+        # Drain ALL pending messages to prevent buffer overflow
+        messages_processed = 0
+        max_messages_per_cycle = 10
+        last_valid_msg = None
         
-        if mac is not None and msg is not None:
+        while messages_processed < max_messages_per_cycle:
+            try:
+                mac, msg = _esp_now.irecv(0)
+            except OSError:
+                # Buffer error or no data - stop reading
+                break
+            
+            if mac is None or msg is None:
+                # No more messages available
+                break
+            
+            messages_processed += 1
+            last_valid_msg = msg
+            
             try:
                 mac_str = ":".join("{:02X}".format(b) for b in mac)
             except Exception:
                 mac_str = str(mac)
             log("espnow_a", "RX from {} len={} preview={}".format(mac_str, len(msg), msg[:40]))
-            try:
-                # Parse JSON actuator data from B (bytes)
-                _parse_actuator_state(msg)
-            except:
-                pass
         
-        # Send sensor data periodically (A continues even if B is disconnected)
-        if elapsed("espnow_send", _send_interval):
+        # Process only the LAST received message (most recent data)
+        if last_valid_msg is not None:
+            if messages_processed > 1:
+                log("espnow_a", "Drained {} messages, using latest".format(messages_processed))
+            # Parse JSON actuator data from B (returns msg_id or None)
+            _parse_actuator_state(last_valid_msg)
+        
+        # Send pending events immediately (bypass timer)
+        global _pending_events
+        if _pending_events:
+            event = _pending_events.pop(0)
+            log("espnow_a", "Sending event: {}".format(event.get("event_type")))
             _message_count += 1
-            sensor_data = _get_sensor_data_string()
+            sensor_data = _get_sensor_data_string(msg_type="event")
+            send_message(sensor_data)
+        # Send sensor data periodically (A is master, initiates communication)
+        elif elapsed("espnow_send", _send_interval):
+            _message_count += 1
+            sensor_data = _get_sensor_data_string(msg_type="data")
             send_message(sensor_data)
         
         # Note: A does NOT go into standby if B disconnects.

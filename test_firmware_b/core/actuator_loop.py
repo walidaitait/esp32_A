@@ -26,6 +26,9 @@ _simulation_mode = False
 _last_espnow_message = 0
 _espnow_connected = False
 
+# SOS state tracking (to detect state changes)
+_last_sos_state = False
+
 # Import actuator modules at module level (only when not in simulation)
 # These will be imported lazily when needed
 leds = None
@@ -283,12 +286,53 @@ def update():
             if config.LCD_ENABLED and lcd is not None and not user_override_active("lcd_update"):
                 lcd.update_alarm_display(alarm_level, alarm_source)  # type: ignore
         
+        # Check for SOS state change and send immediate event if activated
+        _check_sos_state_change()
+        
         # Periodic heartbeat for system status - DISABLED
         # if elapsed("actuator_heartbeat", HEARTBEAT_INTERVAL):
         #     _log_status()
             
     except Exception as e:
         log("core.actuator", "Update error: {}".format(e))
+
+
+def _check_sos_state_change():
+    """Detect SOS state changes and send immediate event to Board A."""
+    global _last_sos_state
+    
+    current_sos_state = state.actuator_state.get("sos_mode", False)
+    
+    # Detect rising edge: SOS just activated (False -> True)
+    if current_sos_state and not _last_sos_state:
+        log("core.actuator", "SOS state change detected: ACTIVATED")
+        # Send immediate event to Board A
+        try:
+            from communication import espnow_communication
+            espnow_communication.send_event_immediate(
+                event_type="sos_activated",
+                custom_data={"source": "board_b", "timestamp": ticks_ms()}
+            )
+            log("core.actuator", "SOS event sent to Board A")
+        except Exception as e:
+            log("core.actuator", "Failed to send SOS event: {}".format(e))
+    
+    # Detect falling edge: SOS just deactivated (True -> False)
+    elif not current_sos_state and _last_sos_state:
+        log("core.actuator", "SOS state change detected: DEACTIVATED")
+        # Optionally send deactivation event
+        try:
+            from communication import espnow_communication
+            espnow_communication.send_event_immediate(
+                event_type="sos_deactivated",
+                custom_data={"source": "board_b", "timestamp": ticks_ms()}
+            )
+            log("core.actuator", "SOS deactivation event sent to Board A")
+        except Exception as e:
+            log("core.actuator", "Failed to send SOS deactivation event: {}".format(e))
+    
+    # Update last state
+    _last_sos_state = current_sos_state
 
 
 def _log_status():

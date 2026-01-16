@@ -26,9 +26,8 @@ except ImportError:
 MAC_B = bytes.fromhex("5C013B4C2C34")  # Self (B)
 MAC_A = bytes.fromhex("5C013B875310")  # Remote (A)
 
-# Heartbeat and connection tracking
-HEARTBEAT_INTERVAL = 10000  # Send heartbeat every 10 seconds
-CONNECTION_TIMEOUT = 20000  # Consider A disconnected if no message for 20 seconds
+# Connection tracking and message IDs
+CONNECTION_TIMEOUT = 10000  # Consider A disconnected if no message for 10 seconds (4x send interval)
 REINIT_INTERVAL = 5000      # Try to recover ESP-NOW every 5 seconds when down
 _last_message_from_a = 0
 _a_is_connected = False
@@ -36,18 +35,35 @@ _version_mismatch_logged = False  # Prevent log spam
 _messages_received = 0
 _state_log_interval = None  # Disabled snapshots
 
+# Message ID tracking (prevent loops)
+_next_msg_id = 1
+_last_received_msg_id = 0
+_pending_events = []  # Queue for immediate events (e.g., SOS activation)
+
 _esp_now = None
 _initialized = False
 _wifi = None
 _last_init_attempt = 0
 
 
-def _get_actuator_status_string():
-    """Format all actuator states into a JSON message."""
+def _get_actuator_status_string(msg_type="data", msg_id=None, reply_to_id=None):
+    """Format all actuator states into a JSON message.
+    
+    Args:
+        msg_type: Type of message - 'data' (periodic), 'event' (immediate), 'ack' (confirmation)
+        msg_id: Message ID (auto-generated if None)
+        reply_to_id: ID of message this is replying to (for ACKs)
+    """
+    global _next_msg_id
+    if msg_id is None:
+        msg_id = _next_msg_id
+        _next_msg_id += 1
+    
     modes = state.actuator_state["led_modes"]
     data = {
         "version": config.FIRMWARE_VERSION,
-        "type": "actuators",
+        "msg_type": msg_type,
+        "msg_id": msg_id,
         "timestamp": ticks_ms(),
         "leds": {
             "green": modes.get("green", "off"),
@@ -65,6 +81,8 @@ def _get_actuator_status_string():
         "audio": "PLAY" if state.actuator_state["audio"].get("playing", False) else "STOP",
         "sos_active": state.actuator_state.get("sos_mode", False),
     }
+    if reply_to_id is not None:
+        data["reply_to_id"] = reply_to_id
     return json.dumps(data).encode("utf-8")
 
 
@@ -144,22 +162,46 @@ def send_message(data):
         return False
 
 
+def send_event_immediate(event_type="sos_activated", custom_data=None):
+    """Send an immediate event to Board A, bypassing the normal timer.
+    
+    Used for urgent notifications like SOS activation, emergency states, etc.
+    
+    Args:
+        event_type: Type of event ('sos_activated', 'emergency', etc.)
+        custom_data: Optional dict with additional event data
+    
+    Returns:
+        True if queued/sent successfully
+    """
+    global _pending_events
+    event_msg = {
+        "event_type": event_type,
+        "custom_data": custom_data or {}
+    }
+    _pending_events.append(event_msg)
+    log("espnow_b", "Event queued: {}".format(event_type))
+    return True
+
+
 def _parse_sensor_state(msg_bytes):
     """Parse received sensor state from Board A (JSON format) and update state.
     
     Expected JSON format:
     {
-        "version": 1,
-        "type": "sensors",
-        "timestamp": 12345678,
-        "sensors": {
-            "temperature": 23.5,
-            "co": 150,
-            "heart_rate": {"bpm": 75, "spo2": 98},
-            "ultrasonic_distance": 45,
-            "presence_detected": false
+        \"version\": 2.38,
+        \"msg_type\": \"data\" or \"event\" or \"ack\",
+        \"msg_id\": 123,
+        \"reply_to_id\": 122 (optional, for ACKs),
+        \"timestamp\": 12345678,
+        \"sensors\": {
+            \"temperature\": 23.5,
+            \"co\": 150,
+            \"heart_rate\": {\"bpm\": 75, \"spo2\": 98},
+            \"ultrasonic_distance\": 45,
+            \"presence_detected\": false
         },
-        "buttons": {"b1": false, "b2": true, "b3": false},
+        \"buttons\": {\"b1\": false, \"b2\": true, \"b3\": false},
         "alarm": {"level": "normal", "source": null}
     }
     """
@@ -167,6 +209,26 @@ def _parse_sensor_state(msg_bytes):
         msg_str = msg_bytes.decode("utf-8")
         log("espnow_b", "RX Parse: msg_str={}".format(msg_str[:100]))
         data = json.loads(msg_str)
+        
+        # Extract message metadata
+        msg_id = data.get("msg_id", 0)
+        msg_type = data.get("msg_type", "data")
+        
+        # Track received message ID to prevent duplicates
+        global _last_received_msg_id
+        if msg_id <= _last_received_msg_id and msg_type != "ack":
+            log("espnow_b", "Duplicate msg_id={}, ignoring".format(msg_id))
+            return None  # Return msg_id None to signal duplicate
+        if msg_type != "ack":
+            _last_received_msg_id = msg_id
+        
+        log("espnow_b", "RX msg_id={} type={}".format(msg_id, msg_type))
+        
+        # If this is just an ACK, don't update state, just return msg_id
+        if msg_type == "ack":
+            reply_to = data.get("reply_to_id")
+            log("espnow_b", "ACK received for msg_id={}".format(reply_to))
+            return msg_id  # Return to signal ACK processed
         
         # Check version (warning only, don't block communication)
         remote_version = data.get("version")
@@ -205,16 +267,20 @@ def _parse_sensor_state(msg_bytes):
         state.received_sensor_state["last_update"] = ticks_ms()
         state.received_sensor_state["is_stale"] = False
         
-        log("communication.espnow", "Sensor data received (v{}) - Temp={}, CO={}, Alarm={}".format(
+        log("communication.espnow", "Sensor data received (v{}) msg_id={} type={} - Temp={}, CO={}, Alarm={}".format(
             remote_version,
+            msg_id,
+            msg_type,
             sensors.get("temperature"),
             sensors.get("co"),
             alarm.get("level")
         ))
         log("espnow_b", "RX OK - Sensor state updated")
+        return msg_id  # Return msg_id to send ACK
     except Exception as e:
         log("communication.espnow", "Parse error: {}".format(e))
         log("espnow_b", "RX Parse FAILED: {}".format(e))
+        return None
 
 
 def _log_complete_state():
@@ -369,23 +435,44 @@ def update():
                     log("communication.espnow", "Board A reconnected")
                     _a_is_connected = True
         
-        # Check for sensor data from A
-        try:
-            mac, msg = _esp_now.irecv(0)
-        except OSError as e:
-            # Buffer error or no data - this is normal, just skip
-            mac, msg = None, None
+        # Drain ALL pending messages from buffer to prevent overflow
+        # Read up to 10 messages per update cycle
+        messages_processed = 0
+        max_messages_per_cycle = 10
+        last_valid_msg = None
         
-        if mac is not None and msg is not None:
+        while messages_processed < max_messages_per_cycle:
+            try:
+                mac, msg = _esp_now.irecv(0)
+            except OSError:
+                # Buffer error or no data - stop reading
+                break
+            
+            if mac is None or msg is None:
+                # No more messages available
+                break
+            
+            messages_processed += 1
+            last_valid_msg = msg
+            
             try:
                 mac_str = ":".join("{:02X}".format(b) for b in mac)
             except Exception:
                 mac_str = str(mac)
             log("espnow_b", "RX from {} len={} preview={}".format(mac_str, len(msg), msg[:40]))
-            try:
-                # Parse JSON sensor data from A
-                _parse_sensor_state(msg)
+        
+        # Process only the LAST received message (most recent data)
+        if last_valid_msg is not None:
+            if messages_processed > 1:
+                log("espnow_b", "Drained {} messages, using latest".format(messages_processed))
+            
+            # Parse JSON sensor data from A (returns msg_id or None)
+            received_msg_id = _parse_sensor_state(last_valid_msg)
+            
+            # Send ACK only if we successfully parsed a data or event message
+            if received_msg_id is not None and received_msg_id > 0:
                 _last_message_from_a = ticks_ms()
+                _messages_received += 1
                 if not _a_is_connected:
                     log("communication.espnow", "Board A connected")
                     _a_is_connected = True
@@ -396,21 +483,22 @@ def update():
                 except Exception:
                     pass
                 
-                # Send actuator status as response (bytes)
-                _messages_received += 1
-                actuator_status_bytes = _get_actuator_status_string()
-                send_message(actuator_status_bytes)
-            except:
-                pass
+                # Send ACK back to A (confirmation of receipt)
+                ack_msg = _get_actuator_status_string(msg_type="ack", reply_to_id=received_msg_id)
+                send_message(ack_msg)
+                log("espnow_b", "Sent ACK for msg_id={}".format(received_msg_id))
         
-        # Send periodic heartbeat to keep connection alive
-        if elapsed("espnow_heartbeat", HEARTBEAT_INTERVAL):
-            heartbeat = {
-                "version": config.FIRMWARE_VERSION,
-                "type": "heartbeat",
-                "timestamp": ticks_ms()
-            }
-            send_message(json.dumps(heartbeat).encode("utf-8"))
+        # Send pending events immediately (bypass timer)
+        global _pending_events
+        if _pending_events:
+            event = _pending_events.pop(0)
+            log("espnow_b", "Sending event: {}".format(event.get("event_type")))
+            event_msg = _get_actuator_status_string(msg_type="event")
+            send_message(event_msg)
+        
+        # Send periodic actuator status (every 2.5 seconds, same as A's send interval) 
+        # NOTE: This is now just periodic data, not a response
+        # Removed - B now only sends ACKs and events
         
         # Log complete state every 15 seconds
         if _state_log_interval and elapsed("espnow_state_log", _state_log_interval):
