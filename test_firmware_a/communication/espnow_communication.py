@@ -29,6 +29,7 @@ MAC_B = bytes.fromhex("5C013B4C2C34")  # Remote (B)
 # Send interval and heartbeat
 _send_interval = 5000  # Send sensor data every 5 seconds
 HEARTBEAT_INTERVAL = 10000  # Send heartbeat to ensure connectivity every 10 seconds
+REINIT_INTERVAL = 5000      # Try to recover ESP-NOW every 5 seconds when down
 _state_log_interval = None  # Disabled snapshots
 _message_count = 0
 _version_mismatch_logged = False  # Prevent log spam
@@ -36,6 +37,7 @@ _version_mismatch_logged = False  # Prevent log spam
 _esp_now = None
 _initialized = False
 _wifi = None
+_last_init_attempt = 0
 
 
 def _get_sensor_data_string():
@@ -73,7 +75,7 @@ def init_espnow_comm():
     
     Client seeks connection to Scheda B (server).
     """
-    global _esp_now, _initialized, _wifi
+    global _esp_now, _initialized, _wifi, _last_init_attempt
     try:
         # Get WiFi interface in station mode for ESP-NOW
         _wifi = network.WLAN(network.STA_IF)
@@ -87,6 +89,7 @@ def init_espnow_comm():
         _esp_now.add_peer(MAC_B)
         
         _initialized = True
+        _last_init_attempt = ticks_ms()
         
         # Get actual MAC address
         try:
@@ -105,6 +108,7 @@ def init_espnow_comm():
         log("communication.espnow", "Initialization failed: {}".format(e))
         _esp_now = None
         _initialized = False
+        _last_init_attempt = ticks_ms()
         return False
 
 
@@ -129,6 +133,9 @@ def send_message(data):
         return True
     except Exception as e:
         log("communication.espnow", "Send error: {}".format(e))
+        # Force a re-init on next update
+        _initialized = False
+        _esp_now = None
         return False
 
 
@@ -299,6 +306,10 @@ def update():
     global _message_count
     
     if not _initialized or _esp_now is None:
+        # Auto-recover ESP-NOW if it went down
+        if elapsed("espnow_reinit", REINIT_INTERVAL):
+            log("espnow_a", "ESP-NOW down, attempting re-init")
+            init_espnow_comm()
         return
     
     try:

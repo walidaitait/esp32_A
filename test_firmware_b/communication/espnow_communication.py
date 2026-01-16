@@ -29,6 +29,7 @@ MAC_A = bytes.fromhex("5C013B875310")  # Remote (A)
 # Heartbeat and connection tracking
 HEARTBEAT_INTERVAL = 10000  # Send heartbeat every 10 seconds
 CONNECTION_TIMEOUT = 20000  # Consider A disconnected if no message for 20 seconds
+REINIT_INTERVAL = 5000      # Try to recover ESP-NOW every 5 seconds when down
 _last_message_from_a = 0
 _a_is_connected = False
 _version_mismatch_logged = False  # Prevent log spam
@@ -38,6 +39,7 @@ _state_log_interval = None  # Disabled snapshots
 _esp_now = None
 _initialized = False
 _wifi = None
+_last_init_attempt = 0
 
 
 def _get_actuator_status_string():
@@ -71,7 +73,7 @@ def init_espnow_comm():
     
     Server waits for connections from Scheda A (client).
     """
-    global _esp_now, _initialized, _wifi
+    global _esp_now, _initialized, _wifi, _last_init_attempt
     try:
         # Get WiFi interface in station mode for ESP-NOW
         _wifi = network.WLAN(network.STA_IF)
@@ -85,6 +87,7 @@ def init_espnow_comm():
         _esp_now.add_peer(MAC_A)
         
         _initialized = True
+        _last_init_attempt = ticks_ms()
         
         # Get actual MAC address
         try:
@@ -104,6 +107,7 @@ def init_espnow_comm():
         log("communication.espnow", "Initialization failed: {}".format(e))
         _esp_now = None
         _initialized = False
+        _last_init_attempt = ticks_ms()
         return False
 
 
@@ -128,6 +132,9 @@ def send_message(data):
         return True
     except Exception as e:
         log("communication.espnow", "Send error: {}".format(e))
+        # Force a re-init on next update
+        _initialized = False
+        _esp_now = None
         return False
 
 
@@ -323,6 +330,10 @@ def update():
     global _messages_received, _last_message_from_a, _a_is_connected
     
     if not _initialized or _esp_now is None:
+        # Auto-recover ESP-NOW if it went down
+        if elapsed("espnow_reinit", REINIT_INTERVAL):
+            log("communication.espnow", "ESP-NOW down, attempting re-init")
+            init_espnow_comm()
         return
     
     try:
@@ -334,6 +345,12 @@ def update():
                 if _a_is_connected:
                     log("communication.espnow", "WARNING: Board A disconnected (no message for 20s)")
                     _a_is_connected = False
+                    # Inform actuator loop (updates LED state)
+                    try:
+                        from core import actuator_loop
+                        actuator_loop.set_espnow_connected(False)
+                    except Exception:
+                        pass
                     # In standby mode, reset sensor state to safe defaults
                     state.received_sensor_state["alarm_level"] = "normal"
                     state.received_sensor_state["alarm_source"] = None
@@ -353,6 +370,12 @@ def update():
                 if not _a_is_connected:
                     log("communication.espnow", "Board A connected")
                     _a_is_connected = True
+                # Inform actuator loop (updates LED state)
+                try:
+                    from core import actuator_loop
+                    actuator_loop.set_espnow_connected(True)
+                except Exception:
+                    pass
                 
                 # Send actuator status as response (bytes)
                 _messages_received += 1
