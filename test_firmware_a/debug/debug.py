@@ -57,6 +57,11 @@ def is_log_enabled(name):
     return _log_flags.get("*", True)
 
 
+def get_log_flags():
+    """Return current log flag map (copy) for diagnostics."""
+    return dict(_log_flags)
+
+
 def init_remote_logging(device_id):
     """Initialize remote UDP logging for centralized monitoring.
     

@@ -12,7 +12,7 @@ Supported commands:
 - status: Get system status
 """
 
-from debug.debug import log
+from debug.debug import log, set_log_enabled, set_all_logs, get_log_flags
 from core import state
 from core import timers
 
@@ -73,6 +73,10 @@ def handle_command(command, args):
         # Change simulation mode: mode <real|sim>
         elif command == "mode":
             return _handle_mode(args)
+
+        # Logging control: log <channel|all|status> <on|off>
+        elif command == "log":
+            return _handle_log(args)
         
         else:
             return {"success": False, "message": "Unknown command: {}".format(command)}
@@ -80,6 +84,46 @@ def handle_command(command, args):
     except Exception as e:
         log("cmd_handler", "Error handling command '{}': {}".format(command, e))
         return {"success": False, "message": "Error: {}".format(e)}
+
+
+def _handle_log(args):
+    """Handle log command: log <channel|all|status> <on|off>
+    Examples:
+      log espnow_a on
+      log communication.espnow off
+      log all off
+      log status
+    """
+    if not args:
+        return {"success": False, "message": "Usage: log <channel|all|status> <on|off>"}
+
+    target = args[0].lower()
+
+    # Status request
+    if target == "status":
+        return {"success": True, "message": "Log flags status", "log_flags": get_log_flags()}
+
+    if len(args) < 2:
+        return {"success": False, "message": "Usage: log <channel|all> <on|off>"}
+
+    state = args[1].lower()
+    if state in ("on", "true", "1"):
+        enabled = True
+    elif state in ("off", "false", "0"):
+        enabled = False
+    else:
+        return {"success": False, "message": "Second arg must be on/off"}
+
+    if target in ("all", "*"):
+        set_all_logs(enabled)
+        return {"success": True, "message": "All logs set to {}".format(enabled), "log_flags": get_log_flags()}
+
+    set_log_enabled(target, enabled)
+    return {
+        "success": True,
+        "message": "Log '{}' set to {}".format(target, enabled),
+        "log_flags": get_log_flags(),
+    }
 
 
 def _handle_threshold(args):

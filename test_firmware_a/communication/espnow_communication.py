@@ -121,6 +121,7 @@ def send_message(data):
     Returns:
         True if message was sent, False otherwise
     """
+    global _initialized, _esp_now
     if not _initialized or _esp_now is None:
         log("communication.espnow", "ESP-NOW not initialized")
         return False
@@ -129,7 +130,12 @@ def send_message(data):
         if isinstance(data, str):
             data = data.encode("utf-8")
         
+        # Debug: show outgoing payload size and preview
+        preview = data[:40]
+        log("espnow_a", "TX -> B len={} preview={}".format(len(data), preview))
+
         _esp_now.send(MAC_B, data)
+        log("espnow_a", "TX OK to B")
         return True
     except Exception as e:
         log("communication.espnow", "Send error: {}".format(e))
@@ -164,10 +170,12 @@ def _parse_actuator_state(msg_bytes):
     """
     try:
         msg_str = msg_bytes.decode("utf-8")
+        log("espnow_a", "RX Parse: msg_str={}".format(msg_str[:100]))
         data = json.loads(msg_str)
         
         # Handle heartbeat separately (just update last_update)
         if data.get("type") == "heartbeat":
+            log("espnow_a", "RX Heartbeat from B")
             state.received_actuator_state["last_update"] = ticks_ms()
             state.received_actuator_state["is_stale"] = False
             return
@@ -212,8 +220,10 @@ def _parse_actuator_state(msg_bytes):
             leds.get("red"),
             servo.get("angle")
         ))
+        log("espnow_a", "RX OK - Actuator state updated")
     except Exception as e:
         log("communication.espnow", "Parse error: {}".format(e))
+        log("espnow_a", "RX Parse FAILED: {}".format(e))
 
 
 def _log_complete_state():
@@ -316,6 +326,11 @@ def update():
         # Check for incoming messages (actuator status from B)
         mac, msg = _esp_now.irecv(0)
         if mac is not None and msg is not None:
+            try:
+                mac_str = ":".join("{:02X}".format(b) for b in mac)
+            except Exception:
+                mac_str = str(mac)
+            log("espnow_a", "RX from {} len={} preview={}".format(mac_str, len(msg), msg[:40]))
             try:
                 # Parse JSON actuator data from B (bytes)
                 _parse_actuator_state(msg)
