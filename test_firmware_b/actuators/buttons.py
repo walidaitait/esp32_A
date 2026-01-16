@@ -36,9 +36,9 @@ def init_buttons():
         log("actuator.buttons", "init_buttons: Raw pin value after stabilization: {}".format(_button.value()))
         
         # Initialize state based on actual pin reading
-        # With PULL_UP: pin.value() == 1 when NOT pressed, 0 when pressed
-        # For emergency.py: True = pressed, False = NOT pressed (inverted from ESP32-A)
-        _last_state = _button.value() == 1  # True if pressed (pin HIGH)
+        # Pull-up wiring: pin HIGH (1) = not pressed, pin LOW (0) = pressed
+        # Keep semantic: True => button physically pressed
+        _last_state = _button.value() == 1  # True only when pin is LOW (button pressed)
         
         # Update global state
         state.actuator_state["button"] = _last_state
@@ -63,9 +63,9 @@ def read_buttons():
         return
     
     try:
-        # With PULL_UP: HIGH (1) = not pressed, LOW (0) = pressed
-        # For emergency.py: True = pressed, False = NOT pressed (inverted from ESP32-A)
-        pressed = _button.value() == 1  # True if pressed (pin HIGH)
+        # Pull-up wiring: pin HIGH (1) = not pressed, pin LOW (0) = pressed
+        # Keep semantic: True => button physically pressed
+        pressed = _button.value() == 1  # True only when pin is LOW (button pressed)
         
         if pressed != _last_state:
             _last_state = pressed

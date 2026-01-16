@@ -22,6 +22,7 @@ _button_press_start = None          # When button was pressed (for long press de
 _click_count = 0                    # Count of clicks (press+release cycles)
 _last_click_time = None             # Timestamp of last click
 _last_button_state = False          # Previous button state for edge detection
+_sos_button_pressed = False         # Track if button was pressed during SOS (waiting for release)
 
 
 def update():
@@ -30,7 +31,7 @@ def update():
     Call this regularly from main loop to detect SOS patterns.
     Returns dict with detected events for actuator loop to handle.
     """
-    global _sos_active, _button_press_start, _click_count, _last_click_time, _last_button_state
+    global _sos_active, _button_press_start, _click_count, _last_click_time, _last_button_state, _sos_button_pressed
     
     current_button = state.actuator_state.get("button", False)
     now = ticks_ms()
@@ -42,16 +43,23 @@ def update():
     }
     
     # === SOS ACTIVE STATE ===
-    # If SOS is already active, only listen for single click to exit
+    # If SOS is already active, only listen for full click (press+release) to exit
     if _sos_active:
-        # Detect button press (rising edge: False → True) to exit SOS
+        # Detect button press (rising edge: False → True)
         # current_button = True means pressed, False means NOT pressed
         if current_button and not _last_button_state:
-            # Single click in SOS mode = close SOS call
-            _sos_active = False
-            result["sos_deactivated"] = True
-            result["single_click"] = True  # Signal it was a single click action
-            log("emergency", "SOS call ended by single click")
+            _sos_button_pressed = True
+            log("emergency", "SOS mode: Button pressed (waiting for release)")
+        
+        # Detect button release (falling edge: True → False)
+        elif not current_button and _last_button_state:
+            if _sos_button_pressed:
+                # Complete click detected (press + release) = close SOS call
+                _sos_active = False
+                _sos_button_pressed = False
+                result["sos_deactivated"] = True
+                result["single_click"] = True  # Signal it was a single click action
+                log("emergency", "SOS call ended by complete button click (press+release)")
         
         _last_button_state = current_button
         state.actuator_state["button"] = current_button  # Keep state updated

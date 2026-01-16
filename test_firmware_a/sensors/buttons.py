@@ -45,7 +45,7 @@ def init_buttons():
             log("sensor.buttons", "init_buttons: {} = {}".format(name, pin.value()))
         
         # Initialize state based on actual pin readings
-        # With PULL_UP: pin.value() == 1 when NOT pressed, 0 when pressed
+        # Wiring as used on board A: pin HIGH (1) = pressed, pin LOW (0) = not pressed
         _last_state = {name: pin.value() == 1 for name, pin in _buttons.items()}
         
         # Update global state to match actual button state (only for enabled buttons)
@@ -68,7 +68,7 @@ def read_buttons():
         return
     try:
         for name, pin in _buttons.items():
-            # With PULL_UP: HIGH = not pressed, LOW = pressed
+            # Wiring as used on board A: HIGH (1) = pressed, LOW (0) = not pressed
             pressed = pin.value() == 1
             if pressed != _last_state[name]:
                 _last_state[name] = pressed
