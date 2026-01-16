@@ -33,6 +33,9 @@ set_log_enabled("sensor.ultrasonic", True)
 set_log_enabled("alarm.logic", True)
 set_log_enabled("actuator.servo.gate", True)
 set_log_enabled("main", True)
+# Communication debug for ESP-NOW/UDP
+set_log_enabled("espnow_b", True)
+set_log_enabled("communication.espnow", True)
 
 # === SIMULATION MODE (loaded from config) ===
 SIMULATE_ACTUATORS = config.SIMULATE_ACTUATORS

@@ -120,6 +120,7 @@ def send_message(data):
     Returns:
         True if sent successfully, False otherwise
     """
+    global _initialized, _esp_now
     if not _initialized or _esp_now is None:
         log("communication.espnow", "ESP-NOW not initialized")
         return False
@@ -128,7 +129,12 @@ def send_message(data):
         if isinstance(data, str):
             data = data.encode("utf-8")
         
+        # Debug: show outgoing payload size and preview
+        preview = data[:40]
+        log("espnow_b", "TX -> A len={} preview={}".format(len(data), preview))
+        
         _esp_now.send(MAC_A, data)
+        log("espnow_b", "TX OK to A")
         return True
     except Exception as e:
         log("communication.espnow", "Send error: {}".format(e))
@@ -159,6 +165,7 @@ def _parse_sensor_state(msg_bytes):
     """
     try:
         msg_str = msg_bytes.decode("utf-8")
+        log("espnow_b", "RX Parse: msg_str={}".format(msg_str[:100]))
         data = json.loads(msg_str)
         
         # Check version (warning only, don't block communication)
@@ -204,8 +211,10 @@ def _parse_sensor_state(msg_bytes):
             sensors.get("co"),
             alarm.get("level")
         ))
+        log("espnow_b", "RX OK - Sensor state updated")
     except Exception as e:
         log("communication.espnow", "Parse error: {}".format(e))
+        log("espnow_b", "RX Parse FAILED: {}".format(e))
 
 
 def _log_complete_state():
@@ -363,6 +372,11 @@ def update():
         # Check for sensor data from A
         mac, msg = _esp_now.irecv(0)
         if mac is not None and msg is not None:
+            try:
+                mac_str = ":".join("{:02X}".format(b) for b in mac)
+            except Exception:
+                mac_str = str(mac)
+            log("espnow_b", "RX from {} len={} preview={}".format(mac_str, len(msg), msg[:40]))
             try:
                 # Parse JSON sensor data from A
                 _parse_sensor_state(msg)
