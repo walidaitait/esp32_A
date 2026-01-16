@@ -180,9 +180,3 @@ def evaluate_logic():
 
     # Overall alarm state
     _update_overall_alarm()
-    
-    # Update alarm type/source for actuators
-    if state.alarm_state["level"] != "normal":
-        state.alarm_state["type"] = state.alarm_state["source"]
-    else:
-        state.alarm_state["type"] = None

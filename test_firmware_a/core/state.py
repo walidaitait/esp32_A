@@ -29,7 +29,6 @@ system_state = {
 alarm_state = {
     "level": "normal",   # normal | warning | danger
     "source": None,        # co | temp | heart | None
-    "type": None,        # tipo di allarme (co, temp, heart)
 }
 
 # Gate control state (for presence-based automation)

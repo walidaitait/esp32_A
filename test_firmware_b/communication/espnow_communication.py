@@ -158,10 +158,10 @@ def _parse_sensor_state(msg_bytes):
         remote_version = data.get("version")
         if remote_version != config.FIRMWARE_VERSION:
             global _version_mismatch_logged
-            if remote_version is not None and remote_version < config.FIRMWARE_VERSION:
-                # Remote board has older version - force update
+            if remote_version is not None and remote_version > config.FIRMWARE_VERSION:
+                # Remote board has newer version - force update
                 if not _version_mismatch_logged:
-                    log("communication.espnow", "WARNING: Board A has old firmware v{}, forcing update...".format(
+                    log("communication.espnow", "WARNING: Board A has newer firmware v{}, forcing update...".format(
                         remote_version
                     ))
                     _version_mismatch_logged = True
@@ -169,7 +169,7 @@ def _parse_sensor_state(msg_bytes):
                 send_message(json.dumps({"command": "force_update"}).encode("utf-8"))
                 return
             else:
-                # Newer or unknown version
+                # Older or unknown version
                 if not _version_mismatch_logged:
                     log("communication.espnow", "WARNING: Firmware version mismatch! Local=v{}, Remote=v{}".format(
                         config.FIRMWARE_VERSION, remote_version
