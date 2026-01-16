@@ -97,6 +97,15 @@ def main():
             
             # === NORMAL OPERATION ===
             
+            # Check if actuator state from B is stale (no update for >15s)
+            if state.received_actuator_state["last_update"] is not None:
+                from time import ticks_ms, ticks_diff  # type: ignore
+                elapsed_since_update = ticks_diff(ticks_ms(), state.received_actuator_state["last_update"])
+                if elapsed_since_update > 15000:
+                    if not state.received_actuator_state["is_stale"]:
+                        log("main", "WARNING: Actuator data from B is stale (no update for 15s)")
+                        state.received_actuator_state["is_stale"] = True
+            
             # Update all sensors and evaluate alarm logic without blocking
             sensor_loop.update()
             

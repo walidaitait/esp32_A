@@ -12,46 +12,60 @@ MAC Addresses:
 
 import espnow  # type: ignore
 import network  # type: ignore
-from time import ticks_ms  # type: ignore
+from time import ticks_ms, ticks_diff  # type: ignore
 from debug.debug import log
 from core import state
 from core.timers import elapsed
 from config import config
+try:
+    import ujson as json  # type: ignore  # MicroPython
+except ImportError:
+    import json  # Fallback
 
 # MAC addresses
 MAC_A = bytes.fromhex("5C013B875310")  # Self (A)
 MAC_B = bytes.fromhex("5C013B4C2C34")  # Remote (B)
 
-_esp_now = None
-_initialized = False
-_wifi = None
+# Send interval and heartbeat
 _send_interval = 5000  # Send sensor data every 5 seconds
+HEARTBEAT_INTERVAL = 10000  # Send heartbeat to ensure connectivity every 10 seconds
 _state_log_interval = None  # Disabled snapshots
 _message_count = 0
 _version_mismatch_logged = False  # Prevent log spam
 
+_esp_now = None
+_initialized = False
+_wifi = None
+
 
 def _get_sensor_data_string():
-    """Format all sensor data into a compact string."""
+    """Format all sensor data into a JSON message."""
     hr = state.sensor_data["heart_rate"]
-    presence = state.sensor_data.get("ultrasonic_presence", False)
-    alarm_level = state.alarm_state.get("level", "normal")
-    alarm_source = state.alarm_state.get("source", "none") or "none"
-    data = "V:{} SENSORS: Temp={} CO={} HR={} SpO2={} Dist={} Presence={} Alarm={}:{} Btns={}|{}|{}".format(
-        config.FIRMWARE_VERSION,
-        state.sensor_data.get("temperature", "N/A"),
-        state.sensor_data.get("co", "N/A"),
-        hr.get("bpm", "N/A") if hr else "N/A",
-        hr.get("spo2", "N/A") if hr else "N/A",
-        state.sensor_data.get("ultrasonic_distance_cm", "N/A"),
-        presence,
-        alarm_level,
-        alarm_source,
-        state.button_state.get("b1", False),
-        state.button_state.get("b2", False),
-        state.button_state.get("b3", False)
-    )
-    return data
+    data = {
+        "version": config.FIRMWARE_VERSION,
+        "type": "sensors",
+        "timestamp": ticks_ms(),
+        "sensors": {
+            "temperature": state.sensor_data.get("temperature"),
+            "co": state.sensor_data.get("co"),
+            "ultrasonic_distance": state.sensor_data.get("ultrasonic_distance_cm"),
+            "presence_detected": state.sensor_data.get("ultrasonic_presence", False),
+            "heart_rate": {
+                "bpm": hr.get("bpm") if hr else None,
+                "spo2": hr.get("spo2") if hr else None,
+            }
+        },
+        "buttons": {
+            "b1": state.button_state.get("b1", False),
+            "b2": state.button_state.get("b2", False),
+            "b3": state.button_state.get("b3", False),
+        },
+        "alarm": {
+            "level": state.alarm_state.get("level", "normal"),
+            "source": state.alarm_state.get("source")
+        }
+    }
+    return json.dumps(data).encode("utf-8")
 
 
 def init_espnow_comm():
@@ -118,63 +132,97 @@ def send_message(data):
         return False
 
 
-def _parse_actuator_state(msg_str):
-    """Parse received actuator state from Board B and update state.
+def _parse_actuator_state(msg_bytes):
+    """Parse received actuator state from Board B (JSON format) and update state.
     
-    Expected format: "V:1 ACTUATORS: LEDs=G:on,B:blinking,R:off Servo=90° LCD1='...' LCD2='...' Buzz=OFF Audio=STOP"
+    Expected JSON format:
+    {
+        "version": 1,
+        "type": "actuators",
+        "timestamp": 12345678,
+        "leds": {"green": "on", "blue": "blinking", "red": "off"},
+        "servo": {"angle": 90},
+        "lcd": {"line1": "Test", "line2": "Message"},
+        "buzzer": "ON/OFF",
+        "audio": "PLAY/STOP",
+        "sos_active": false
+    }
+    
+    Or heartbeat message:
+    {
+        "version": 1,
+        "type": "heartbeat",
+        "timestamp": 12345678
+    }
     """
     try:
-        # Check version first
-        if "V:" in msg_str:
-            version_str = msg_str.split("V:")[1].split()[0].strip()
-            try:
-                remote_version = int(version_str)
-                if remote_version != config.FIRMWARE_VERSION:
-                    global _version_mismatch_logged
-                    if not _version_mismatch_logged:
-                        log("communication.espnow", "ERROR: Firmware version mismatch! Local=v{}, Remote=v{}".format(
-                            config.FIRMWARE_VERSION, remote_version
-                        ))
-                        _version_mismatch_logged = True
-                    return  # Ignore message due to version mismatch
-                else:
-                    _version_mismatch_logged = False  # Reset flag when versions match
-            except:
-                pass
+        msg_str = msg_bytes.decode("utf-8")
+        data = json.loads(msg_str)
         
-        # Simple parsing - extract key values
-        if "LEDs=G:" in msg_str:
-            parts = msg_str.split("LEDs=G:")[1].split(",B:")
-            state.received_actuator_state["leds"]["green"] = parts[0].strip()
-            
-            parts2 = parts[1].split(",R:")
-            state.received_actuator_state["leds"]["blue"] = parts2[0].strip()
-            state.received_actuator_state["leds"]["red"] = parts2[1].split()[0].strip()
+        # Handle heartbeat separately (just update last_update)
+        if data.get("type") == "heartbeat":
+            state.received_actuator_state["last_update"] = ticks_ms()
+            state.received_actuator_state["is_stale"] = False
+            return
         
-        if "Servo=" in msg_str:
-            servo_str = msg_str.split("Servo=")[1].split("°")[0].strip()
-            try:
-                state.received_actuator_state["servo_angle"] = int(servo_str) if servo_str != "N/A" else None
-            except:
-                state.received_actuator_state["servo_angle"] = None
+        # Check for force_update command from B
+        if data.get("command") == "force_update":
+            log("communication.espnow", "ALERT: Board B forcing firmware update!")
+            state.system_control["ota_update_requested"] = True
+            return
         
-        if "LCD1='" in msg_str:
-            lcd1_str = msg_str.split("LCD1='")[1].split("'")[0]
-            state.received_actuator_state["lcd_line1"] = lcd1_str
+        # Check version
+        remote_version = data.get("version")
+        if remote_version != config.FIRMWARE_VERSION:
+            global _version_mismatch_logged
+            if remote_version is not None and remote_version > config.FIRMWARE_VERSION:
+                # Remote board has newer version - force update
+                if not _version_mismatch_logged:
+                    log("communication.espnow", "WARNING: Board B has newer firmware v{}, forcing update...".format(
+                        remote_version
+                    ))
+                    _version_mismatch_logged = True
+                state.system_control["ota_update_requested"] = True
+                return
+            else:
+                # Older or unknown version
+                if not _version_mismatch_logged:
+                    log("communication.espnow", "WARNING: Firmware version mismatch! Local=v{}, Remote=v{}".format(
+                        config.FIRMWARE_VERSION, remote_version
+                    ))
+                    _version_mismatch_logged = True
+                return
+        else:
+            _version_mismatch_logged = False
         
-        if "LCD2='" in msg_str:
-            lcd2_str = msg_str.split("LCD2='")[1].split("'")[0]
-            state.received_actuator_state["lcd_line2"] = lcd2_str
+        # Parse LEDs
+        leds = data.get("leds", {})
+        state.received_actuator_state["leds"]["green"] = leds.get("green", "off")
+        state.received_actuator_state["leds"]["blue"] = leds.get("blue", "off")
+        state.received_actuator_state["leds"]["red"] = leds.get("red", "off")
         
-        if "Buzz=" in msg_str:
-            buzz_str = msg_str.split("Buzz=")[1].split()[0].strip()
-            state.received_actuator_state["buzzer"] = buzz_str
+        # Parse servo
+        servo = data.get("servo", {})
+        state.received_actuator_state["servo_angle"] = servo.get("angle")
         
-        if "Audio=" in msg_str:
-            audio_str = msg_str.split("Audio=")[1].strip()
-            state.received_actuator_state["audio"] = audio_str
+        # Parse LCD
+        lcd = data.get("lcd", {})
+        state.received_actuator_state["lcd_line1"] = lcd.get("line1", "")
+        state.received_actuator_state["lcd_line2"] = lcd.get("line2", "")
         
+        # Parse audio devices
+        state.received_actuator_state["buzzer"] = data.get("buzzer", "OFF")
+        state.received_actuator_state["audio"] = data.get("audio", "STOP")
         state.received_actuator_state["last_update"] = ticks_ms()
+        state.received_actuator_state["is_stale"] = False
+        
+        log("communication.espnow", "Actuator data received (v{}) - LEDs=G:{},B:{},R:{} Servo={}°".format(
+            remote_version,
+            leds.get("green"),
+            leds.get("blue"),
+            leds.get("red"),
+            servo.get("angle")
+        ))
     except Exception as e:
         log("communication.espnow", "Parse error: {}".format(e))
 
@@ -214,11 +262,57 @@ def _log_complete_state():
     log("espnow_a", "=" * 60)
 
 
+def _parse_actuator_state_v0_fallback(msg_str):
+    """Fallback parser for old string format (for backward compatibility).
+    
+    Old format: "V:1 ACTUATORS: LEDs=G:on,B:blinking,R:off Servo=90° LCD1='...' LCD2='...' Buzz=OFF Audio=STOP"
+    """
+    try:
+        if "LEDs=G:" in msg_str:
+            parts = msg_str.split("LEDs=G:")[1].split(",B:")
+            state.received_actuator_state["leds"]["green"] = parts[0].strip()
+            
+            parts2 = parts[1].split(",R:")
+            state.received_actuator_state["leds"]["blue"] = parts2[0].strip()
+            state.received_actuator_state["leds"]["red"] = parts2[1].split()[0].strip()
+        
+        if "Servo=" in msg_str:
+            servo_str = msg_str.split("Servo=")[1].split("°")[0].strip()
+            try:
+                state.received_actuator_state["servo_angle"] = int(servo_str) if servo_str != "N/A" else None
+            except:
+                state.received_actuator_state["servo_angle"] = None
+        
+        if "LCD1='" in msg_str:
+            lcd1_str = msg_str.split("LCD1='")[1].split("'")[0]
+            state.received_actuator_state["lcd_line1"] = lcd1_str
+        
+        if "LCD2='" in msg_str:
+            lcd2_str = msg_str.split("LCD2='")[1].split("'")[0]
+            state.received_actuator_state["lcd_line2"] = lcd2_str
+        
+        if "Buzz=" in msg_str:
+            buzz_str = msg_str.split("Buzz=")[1].split()[0].strip()
+            state.received_actuator_state["buzzer"] = buzz_str
+        
+        if "Audio=" in msg_str:
+            audio_str = msg_str.split("Audio=")[1].strip()
+            state.received_actuator_state["audio"] = audio_str
+        
+        state.received_actuator_state["last_update"] = ticks_ms()
+        state.received_actuator_state["is_stale"] = False
+        log("communication.espnow", "Parsed with v0 fallback format")
+    except Exception as e:
+        log("communication.espnow", "Fallback parse error: {}".format(e))
+
+
 def update():
     """Non-blocking update for ESP-NOW communication.
     
     Called periodically from main loop to send sensor data
     and receive actuator status from B.
+    
+    Note: A continues normally if B is disconnected (sensor reads continue).
     """
     global _message_count
     
@@ -230,18 +324,19 @@ def update():
         mac, msg = _esp_now.irecv(0)
         if mac is not None and msg is not None:
             try:
-                msg_str = msg.decode("utf-8")
-                # Log disabled - uncomment for debugging
-                # log("espnow_a", "[RX] {}".format(msg_str))
-                _parse_actuator_state(msg_str)
+                # Parse JSON actuator data from B (bytes)
+                _parse_actuator_state(msg)
             except:
                 pass
         
-        # Send sensor data periodically
+        # Send sensor data periodically (A continues even if B is disconnected)
         if elapsed("espnow_send", _send_interval):
             _message_count += 1
             sensor_data = _get_sensor_data_string()
             send_message(sensor_data)
+        
+        # Note: A does NOT go into standby if B disconnects.
+        # Sensor reading and alarm logic continue normally.
         
         # Snapshot logging disabled
         if _state_log_interval and elapsed("espnow_state_log", _state_log_interval):

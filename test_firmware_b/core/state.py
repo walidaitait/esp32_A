@@ -55,6 +55,7 @@ received_sensor_state = {
     "alarm_level": "normal",       # Alarm level (normal | warning | danger)
     "alarm_source": None,          # Alarm source (co | temp | heart)
     "last_update": None,
+    "is_stale": True,              # True if no update received within timeout
 }
 
 # System control flags (set by remote commands)

@@ -59,6 +59,10 @@ def handle_command(command, args):
         elif command == "status":
             return _handle_status(args)
         
+        # Show active user locks: locks
+        elif command == "locks":
+            return _handle_locks(args)
+        
         # Trigger OTA update: update
         elif command == "update":
             return _handle_update(args)
@@ -295,6 +299,24 @@ def _handle_status(args):
     }
     
     log("communication.cmd_handler", "Status query")
+    return response
+
+
+def _handle_locks(args):
+    """Handle locks command: Show active user locks"""
+    from core.timers import _user_actions
+    
+    if not _user_actions:
+        return {"success": True, "message": "No active locks"}
+    
+    locks_list = ", ".join(_user_actions.keys())
+    response = {
+        "success": True,
+        "message": "Active user locks: {}".format(locks_list),
+        "locks": list(_user_actions.keys())
+    }
+    
+    log("communication.cmd_handler", "Locks query: {}".format(locks_list))
     return response
 
 

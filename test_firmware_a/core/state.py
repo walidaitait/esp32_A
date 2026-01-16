@@ -55,6 +55,7 @@ received_actuator_state = {
     "buzzer": "unknown",
     "audio": "unknown",
     "last_update": None,
+    "is_stale": True,  # True if no update received within timeout
 }
 
 # System control flags (set by remote commands)

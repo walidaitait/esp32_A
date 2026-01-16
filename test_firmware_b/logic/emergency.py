@@ -54,6 +54,7 @@ def update():
             log("emergency", "SOS call ended by single click")
         
         _last_button_state = current_button
+        state.actuator_state["button"] = current_button  # Keep state updated
         return result
     
     # === SOS DETECTION STATE ===

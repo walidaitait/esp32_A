@@ -105,6 +105,15 @@ def main():
             
             # === NORMAL OPERATION ===
             
+            # Check if sensor state from A is stale (no update for >15s)
+            if state.received_sensor_state["last_update"] is not None:
+                from time import ticks_ms, ticks_diff  # type: ignore
+                elapsed_since_update = ticks_diff(ticks_ms(), state.received_sensor_state["last_update"])
+                if elapsed_since_update > 15000:
+                    if not state.received_sensor_state["is_stale"]:
+                        log("main", "WARNING: Sensor data from A is stale (no update for 15s)")
+                        state.received_sensor_state["is_stale"] = True
+            
             # Read button state (if enabled)
             if config.BUTTON_ENABLED:
                 from actuators import buttons
