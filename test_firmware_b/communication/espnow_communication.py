@@ -370,7 +370,12 @@ def update():
                     _a_is_connected = True
         
         # Check for sensor data from A
-        mac, msg = _esp_now.irecv(0)
+        try:
+            mac, msg = _esp_now.irecv(0)
+        except OSError as e:
+            # Buffer error or no data - this is normal, just skip
+            mac, msg = None, None
+        
         if mac is not None and msg is not None:
             try:
                 mac_str = ":".join("{:02X}".format(b) for b in mac)
