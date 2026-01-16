@@ -365,8 +365,10 @@ def _handle_state(args):
 def _handle_status(args):
     """Handle status command: Get system status"""
     from core import wifi
+    from config.config import FIRMWARE_VERSION
     
     status_info = {
+        "firmware_version": FIRMWARE_VERSION,
         "wifi": "connected" if wifi.is_connected() else "disconnected",
         "simulation_mode": state.simulation_mode,
         "alarm_level": state.alarm_state["level"],
