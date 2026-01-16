@@ -457,13 +457,8 @@ def update():
                 mac_str = str(mac)
             log("espnow_b", "RX from {} len={} preview={}".format(mac_str, len(msg), msg[:40]))
             
-        except OSError as e:
-            # OSError is normal when buffer is empty or has issues
-            # Don't log it as error, just stop reading
-            break
-        except Exception as e:
-            # Other exceptions are real errors
-            log("communication.espnow", "Receive error: {}".format(e))
+        except OSError:
+            # OSError is normal when buffer is empty - silent break
             break
     
     # Process only the LAST received message (most recent data)
