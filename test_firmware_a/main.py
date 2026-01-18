@@ -77,9 +77,6 @@ def main():
     log("main", "Phase 5: UDP command listener initialization")
     if not udp_commands.init():
         log("main", "WARNING - UDP command listener failed")
-    
-    # Send initial message to Scheda B
-    espnow_communication.send_message("Hello from Scheda A")
 
     log("main", "Initialization complete. Entering main loop.")
 

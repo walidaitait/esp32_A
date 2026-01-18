@@ -53,6 +53,7 @@ received_actuator_state = {
     "lcd_line2": "",
     "buzzer": "unknown",
     "audio": "unknown",
+    "sos_mode": False,
     "last_update": None,
     "is_stale": True,  # True if no update received within timeout
 }

@@ -77,76 +77,36 @@ python send_command.py A test_alarm reset
 
 ---
 
-## 🔬 Comandi di Test Sensori Individuali
+## � Comandi di Test Sensori Individuali
 
-### CO Sensor Tests
+Per testare singoli sensori, usa il comando `simulate` che imposta il valore direttamente:
 
-**Set CO a valore specifico**:
 ```bash
-python send_command.py A test_sensor co set 75
-```
+# CO Sensor
+python send_command.py A simulate co 75      # Set a valore specifico
+python send_command.py A simulate co 0       # Minimo
+python send_command.py A simulate co 200     # Massimo
+python send_command.py A simulate co 10      # Normale (safe)
+python send_command.py A simulate co auto    # Torna al sensore reale
 
-**CO a minimo (0 PPM - safe)**:
-```bash
-python send_command.py A test_sensor co min
-```
+# Temperature Sensor
+python send_command.py A simulate temperature 28.5   # Set a valore specifico
+python send_command.py A simulate temperature 5      # Minimo (unsafe)
+python send_command.py A simulate temperature 40     # Massimo (unsafe)
+python send_command.py A simulate temperature 23.5   # Normale (safe)
+python send_command.py A simulate temperature auto   # Torna al sensore reale
 
-**CO a massimo (200 PPM - danger)**:
-```bash
-python send_command.py A test_sensor co max
-```
+# Heart Rate
+python send_command.py A simulate heart 95   # Set BPM
+python send_command.py A simulate heart 40   # Basso (unsafe)
+python send_command.py A simulate heart 140  # Alto (unsafe)
+python send_command.py A simulate heart 75   # Normale (safe)
+python send_command.py A simulate heart auto # Torna al sensore reale
 
-**CO a valore normale (10 PPM - safe)**:
-```bash
-python send_command.py A test_sensor co normal
-```
-
----
-
-### Temperature Sensor Tests
-
-**Set temperatura a valore specifico**:
-```bash
-python send_command.py A test_sensor temperature set 28.5
-```
-
-**Temperatura minima (5°C - UNSAFE, sotto limite 10°C)**:
-```bash
-python send_command.py A test_sensor temperature min
-```
-
-**Temperatura massima (40°C - UNSAFE, sopra limite 35°C)**:
-```bash
-python send_command.py A test_sensor temperature max
-```
-
-**Temperatura normale (23.5°C - safe)**:
-```bash
-python send_command.py A test_sensor temperature normal
-```
-
----
-
-### Heart Rate Sensor Tests
-
-**Set BPM a valore specifico**:
-```bash
-python send_command.py A test_sensor heart set 95
-```
-
-**Heart rate basso (40 bpm - UNSAFE, sotto limite 50 bpm)**:
-```bash
-python send_command.py A test_sensor heart low
-```
-
-**Heart rate alto (140 bpm - UNSAFE, sopra limite 120 bpm)**:
-```bash
-python send_command.py A test_sensor heart high
-```
-
-**Heart rate normale (75 bpm - safe)**:
-```bash
-python send_command.py A test_sensor heart normal
+# SpO2
+python send_command.py A simulate spo2 95    # Set percentuale
+python send_command.py A simulate spo2 98    # Normale (safe)
+python send_command.py A simulate spo2 auto  # Torna al sensore reale
 ```
 
 ---
@@ -234,19 +194,19 @@ python send_command.py A test_alarm reset
 
 ```bash
 # Test CO sensor
-python send_command.py A test_sensor co set 60  # warning threshold
-python send_command.py A test_sensor co set 150  # danger level
-python send_command.py A test_sensor co normal
+python send_command.py A simulate co 60   # warning threshold
+python send_command.py A simulate co 150  # danger level
+python send_command.py A simulate co 10   # normal
 
 # Test Temperature
-python send_command.py A test_sensor temperature min  # 5°C - unsafe
-python send_command.py A test_sensor temperature max  # 40°C - unsafe
-python send_command.py A test_sensor temperature normal
+python send_command.py A simulate temperature 5   # 5°C - unsafe
+python send_command.py A simulate temperature 40  # 40°C - unsafe
+python send_command.py A simulate temperature 23.5  # normal
 
 # Test Heart Rate
-python send_command.py A test_sensor heart low   # 40 bpm - unsafe
-python send_command.py A test_sensor heart high  # 140 bpm - unsafe
-python send_command.py A test_sensor heart normal
+python send_command.py A simulate heart 40   # 40 bpm - unsafe
+python send_command.py A simulate heart 140  # 140 bpm - unsafe
+python send_command.py A simulate heart 75   # normal
 ```
 
 ---

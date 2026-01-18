@@ -57,29 +57,33 @@ def _get_sensor_data_string(msg_type="data", msg_id=None):
         _next_msg_id += 1
     
     hr = state.sensor_data["heart_rate"]
+    # Compact JSON format to stay under ESP-NOW 250-byte limit
+    # Key mapping: v=version, t=type, id=msg_id, ts=timestamp, s=sensors, 
+    #              T=temp, C=co, U=ultrasonic, P=presence, H=heart_rate, 
+    #              b=bpm, o=spo2, B=buttons, A=alarm, L=level, S=source
     data = {
-        "version": config.FIRMWARE_VERSION,
-        "msg_type": msg_type,
-        "msg_id": msg_id,
-        "timestamp": ticks_ms(),
-        "sensors": {
-            "temperature": state.sensor_data.get("temperature"),
-            "co": state.sensor_data.get("co"),
-            "ultrasonic_distance": state.sensor_data.get("ultrasonic_distance_cm"),
-            "presence_detected": state.sensor_data.get("ultrasonic_presence", False),
-            "heart_rate": {
-                "bpm": hr.get("bpm") if hr else None,
-                "spo2": hr.get("spo2") if hr else None,
+        "v": config.FIRMWARE_VERSION,
+        "t": msg_type,
+        "id": msg_id,
+        "ts": ticks_ms(),
+        "s": {
+            "T": state.sensor_data.get("temperature"),
+            "C": state.sensor_data.get("co"),
+            "U": state.sensor_data.get("ultrasonic_distance_cm"),
+            "P": state.sensor_data.get("ultrasonic_presence", False),
+            "H": {
+                "b": hr.get("bpm") if hr else None,
+                "o": hr.get("spo2") if hr else None,
             }
         },
-        "buttons": {
-            "b1": state.button_state.get("b1", False),
-            "b2": state.button_state.get("b2", False),
-            "b3": state.button_state.get("b3", False),
+        "B": {
+            "1": state.button_state.get("b1", False),
+            "2": state.button_state.get("b2", False),
+            "3": state.button_state.get("b3", False),
         },
-        "alarm": {
-            "level": state.alarm_state.get("level", "normal"),
-            "source": state.alarm_state.get("source")
+        "A": {
+            "L": state.alarm_state.get("level", "normal"),
+            "S": state.alarm_state.get("source")
         }
     }
     return json.dumps(data).encode("utf-8")
@@ -185,34 +189,34 @@ def send_event_immediate(event_type="alarm_triggered", custom_data=None):
 def _parse_actuator_state(msg_bytes):
     """Parse received actuator state from Board B (JSON format) and update state.
     
-    Expected JSON format:
-    {
-        "version": 1,
-        "type": "actuators",
-        "timestamp": 12345678,
-        "leds": {"green": "on", "blue": "blinking", "red": "off"},
-        "servo": {"angle": 90},
-        "lcd": {"line1": "Test", "line2": "Message"},
-        "buzzer": "ON/OFF",
-        "audio": "PLAY/STOP",
-        "sos_active": false
-    }
+    Supports both compact and full JSON formats:
+    
+    Compact format (v=version, t=type, id=msg_id, L=leds, etc.):
+    {"v":1,"t":"data","id":1,"ts":9622,"L":{"g":"on","b":"off","r":"off"},"S":{"a":90},"D":{"1":"Line 1","2":"Line 2"},"B":"OFF","A":"STOP","O":false}
+    
+    Full format (for backward compatibility):
+    {"version":1,"msg_type":"data","msg_id":1,"timestamp":12345,"leds":{"green":"on","blue":"off","red":"off"},"servo":{"angle":90},"lcd":{"line1":"Line 1","line2":"Line 2"},"buzzer":"OFF","audio":"STOP","sos_active":false}
     
     Or heartbeat message:
-    {
-        "version": 1,
-        "type": "heartbeat",
-        "timestamp": 12345678
-    }
+    {"v":1,"t":"heartbeat","ts":12345678} or {"version":1,"type":"heartbeat","timestamp":12345678}
     """
     try:
         msg_str = msg_bytes.decode("utf-8")
         log("espnow_a", "RX Parse: msg_str={}".format(msg_str[:100]))
         data = json.loads(msg_str)
         
+        # Detect format (compact uses 'v', full uses 'version')
+        is_compact = "v" in data
+        
         # Extract message metadata
-        msg_id = data.get("msg_id", 0)
-        msg_type = data.get("msg_type", "data")
+        if is_compact:
+            msg_id = data.get("id", 0)
+            msg_type = data.get("t", "data")
+            remote_version = data.get("v")
+        else:
+            msg_id = data.get("msg_id", 0)
+            msg_type = data.get("msg_type", "data")
+            remote_version = data.get("version")
         
         # Track received message ID to prevent duplicates
         global _last_received_msg_id
@@ -222,16 +226,15 @@ def _parse_actuator_state(msg_bytes):
         if msg_type != "ack":
             _last_received_msg_id = msg_id
         
-        log("espnow_a", "RX msg_id={} type={}".format(msg_id, msg_type))
+        log("espnow_a", "RX msg_id={} type={} fmt={}".format(msg_id, msg_type, "compact" if is_compact else "full"))
         
         # If this is just an ACK, don't update state, just return msg_id
         if msg_type == "ack":
-            reply_to = data.get("reply_to_id")
+            reply_to = data.get("r" if is_compact else "reply_to_id")
             log("espnow_a", "ACK received for msg_id={}".format(reply_to))
             return msg_id  # Return to signal ACK processed
         
         # Check version (warning only, don't block communication)
-        remote_version = data.get("version")
         if remote_version != config.FIRMWARE_VERSION:
             global _version_mismatch_logged
             if not _version_mismatch_logged:
@@ -242,35 +245,61 @@ def _parse_actuator_state(msg_bytes):
         else:
             _version_mismatch_logged = False
         
-        # Parse LEDs
-        leds = data.get("leds", {})
-        state.received_actuator_state["leds"]["green"] = leds.get("green", "off")
-        state.received_actuator_state["leds"]["blue"] = leds.get("blue", "off")
-        state.received_actuator_state["leds"]["red"] = leds.get("red", "off")
+        # Parse actuators (support both formats)
+        if is_compact:
+            leds = data.get("L", {})
+            state.received_actuator_state["leds"]["green"] = leds.get("g", "off")
+            state.received_actuator_state["leds"]["blue"] = leds.get("b", "off")
+            state.received_actuator_state["leds"]["red"] = leds.get("r", "off")
+            
+            # Parse servo (compact)
+            servo = data.get("S", {})
+            state.received_actuator_state["servo_angle"] = servo.get("a")
+            
+            # Parse LCD (compact)
+            lcd = data.get("D", {})
+            state.received_actuator_state["lcd_line1"] = lcd.get("1", "")
+            state.received_actuator_state["lcd_line2"] = lcd.get("2", "")
+            
+            # Parse audio devices (compact)
+            state.received_actuator_state["buzzer"] = data.get("B", "OFF")
+            state.received_actuator_state["audio"] = data.get("A", "STOP")
+            # Parse SOS mode (compact)
+            state.received_actuator_state["sos_mode"] = bool(data.get("O", False))
+        else:
+            # Full format (backward compatibility)
+            leds = data.get("leds", {})
+            state.received_actuator_state["leds"]["green"] = leds.get("green", "off")
+            state.received_actuator_state["leds"]["blue"] = leds.get("blue", "off")
+            state.received_actuator_state["leds"]["red"] = leds.get("red", "off")
+            
+            # Parse servo
+            servo = data.get("servo", {})
+            state.received_actuator_state["servo_angle"] = servo.get("angle")
+            
+            # Parse LCD
+            lcd = data.get("lcd", {})
+            state.received_actuator_state["lcd_line1"] = lcd.get("line1", "")
+            state.received_actuator_state["lcd_line2"] = lcd.get("line2", "")
+            
+            # Parse audio devices
+            state.received_actuator_state["buzzer"] = data.get("buzzer", "OFF")
+            state.received_actuator_state["audio"] = data.get("audio", "STOP")
+            # Parse SOS mode (full format)
+            state.received_actuator_state["sos_mode"] = bool(data.get("sos_active", False))
         
-        # Parse servo
-        servo = data.get("servo", {})
-        state.received_actuator_state["servo_angle"] = servo.get("angle")
-        
-        # Parse LCD
-        lcd = data.get("lcd", {})
-        state.received_actuator_state["lcd_line1"] = lcd.get("line1", "")
-        state.received_actuator_state["lcd_line2"] = lcd.get("line2", "")
-        
-        # Parse audio devices
-        state.received_actuator_state["buzzer"] = data.get("buzzer", "OFF")
-        state.received_actuator_state["audio"] = data.get("audio", "STOP")
         state.received_actuator_state["last_update"] = ticks_ms()
         state.received_actuator_state["is_stale"] = False
         
-        log("communication.espnow", "Actuator data received (v{}) msg_id={} type={} - LEDs=G:{},B:{},R:{} Servo={}°".format(
+        log("communication.espnow", "Actuator data received (v{}) msg_id={} type={} - LEDs=G:{},B:{},R:{} Servo={}° SOS={}".format(
             remote_version,
             msg_id,
             msg_type,
-            leds.get("green"),
-            leds.get("blue"),
-            leds.get("red"),
-            servo.get("angle")
+            state.received_actuator_state["leds"]["green"],
+            state.received_actuator_state["leds"]["blue"],
+            state.received_actuator_state["leds"]["red"],
+            state.received_actuator_state["servo_angle"],
+            state.received_actuator_state.get("sos_mode")
         ))
         log("espnow_a", "RX OK - Actuator state updated")
         return msg_id  # Return msg_id to send ACK
@@ -312,6 +341,7 @@ def _log_complete_state():
     log("espnow_a", "  Servo: {}°".format(recv["servo_angle"] if recv["servo_angle"] is not None else "N/A"))
     log("espnow_a", "  LCD: '{}' / '{}'".format(recv["lcd_line1"], recv["lcd_line2"]))
     log("espnow_a", "  Buzzer: {}, Audio: {}".format(recv["buzzer"], recv["audio"]))
+    log("espnow_a", "  SOS Mode: {}".format(recv.get("sos_mode", False)))
     log("espnow_a", "=" * 60)
 
 
