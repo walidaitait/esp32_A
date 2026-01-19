@@ -187,6 +187,16 @@ def update():
         # Delay emergency detection for first 2 seconds after boot to avoid false triggers
         if emergency is not None and elapsed("emergency_update", EMERGENCY_UPDATE_INTERVAL) and elapsed("boot_delay", EMERGENCY_INIT_DELAY, False):
             sos_events = emergency.update()  # type: ignore
+
+            # Immediate mute on first click; unmute if further clicks arrive (SOS sequence)
+            if sos_events.get("temp_muted"):
+                state.actuator_state["buzzer"]["alarm_muted"] = True
+                if config.BUZZER_ENABLED and buzzer is not None and not user_override_active("buzzer_update"):
+                    buzzer.stop_sound()  # type: ignore
+                log("core.actuator", "BUZZER TEMP MUTE (first click)")
+            if sos_events.get("unmute"):
+                state.actuator_state["buzzer"]["alarm_muted"] = False
+                log("core.actuator", "BUZZER UNMUTE (continuing click sequence)")
             
             # Handle single click based on current context
             if sos_events["single_click"]:

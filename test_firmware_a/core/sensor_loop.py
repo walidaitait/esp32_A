@@ -24,6 +24,9 @@ _simulation_mode = False
 # Alarm state tracking (to detect critical state changes)
 _last_alarm_level = "normal"
 
+# SOS state tracking from Board B (to detect SOS activation)
+_last_sos_state_from_b = False
+
 # Import sensor modules conditionally (only when not in simulation)
 # These will be imported lazily when needed
 temperature = None
@@ -212,6 +215,8 @@ def update():
                     alarm_logic.evaluate_logic()
                     # Check for critical alarm state changes
                     _check_alarm_state_change()
+                    # Check for SOS activation from Board B
+                    _check_sos_from_b()
                 except Exception as e:
                     log("core.sensor", "update(alarm_logic) error: {}".format(e))
         
@@ -268,6 +273,52 @@ def _check_alarm_state_change():
     
     # Update last state
     _last_alarm_level = current_alarm_level
+
+
+def _check_sos_from_b():
+    """Check for SOS activation from Board B and handle it.
+    
+    This function detects when Board B activates SOS mode (button press)
+    and executes the appropriate response on Board A (control center).
+    
+    TODO: Implement SOS response logic when requirements are defined.
+    Possible actions:
+    - Send notification/alert to external system
+    - Trigger emergency protocol
+    - Log SOS event with timestamp
+    - Activate additional sensors or actuators
+    - Send confirmation back to B
+    """
+    global _last_sos_state_from_b
+    from time import ticks_ms
+    
+    # Get current SOS state from Board B (received via ESP-NOW)
+    current_sos_from_b = state.received_actuator_state.get("sos_mode", False)
+    
+    # Detect rising edge: SOS just activated on B (False -> True)
+    if current_sos_from_b and not _last_sos_state_from_b:
+        log("core.sensor", ">>> SOS ACTIVATED from Board B <<<")
+        
+        # TODO: Call future SOS handling logic here
+        # Example placeholder:
+        # handle_sos_emergency_protocol()
+        # send_sos_notification_to_external_system()
+        # activate_emergency_sensors()
+        
+        log("core.sensor", "SOS handling placeholder - implement response logic here")
+    
+    # Detect falling edge: SOS deactivated on B (True -> False)
+    elif not current_sos_from_b and _last_sos_state_from_b:
+        log("core.sensor", ">>> SOS DEACTIVATED from Board B <<<")
+        
+        # TODO: Call future SOS deactivation logic here
+        # Example placeholder:
+        # deactivate_sos_emergency_protocol()
+        
+        log("core.sensor", "SOS deactivation - implement cleanup logic here")
+    
+    # Update last state
+    _last_sos_state_from_b = current_sos_from_b
 
 
 def _log_status():

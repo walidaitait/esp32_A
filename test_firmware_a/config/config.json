@@ -78,5 +78,22 @@
     "ultrasonic_danger": 10000,
     "ultrasonic_recovery": 5000,
     "gate_close_delay_ms": 10000
+  },
+
+  "nodered": {
+    "enabled": false,
+    "client_id": "esp32a",
+    "broker": "io.adafruit.com",
+    "port": 1883,
+    "use_tls": false,
+    "keepalive": 60,
+    "qos": 0,
+    "state_interval_ms": 20000,
+    "feeds": {
+      "state": "esp-a-to-nodered",
+      "event": "esp-a-to-nodered",
+      "command": "nodered-to-esp-a",
+      "ack": "esp-a-to-nodered-ack"
+    }
   }
 }

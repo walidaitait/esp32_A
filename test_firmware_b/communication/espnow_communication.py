@@ -40,6 +40,10 @@ _next_msg_id = 1
 _last_received_msg_id = 0
 _pending_events = []  # Queue for immediate events (e.g., SOS activation)
 
+# Event retry tracking (max 1 retry for critical events like SOS)
+EVENT_RETRY_TIMEOUT = 3000  # Retry after 3 seconds if no ACK
+_pending_event_acks = {}  # {msg_id: {"msg": data, "sent_at": timestamp, "retry_count": 0}}
+
 _esp_now = None
 _initialized = False
 _wifi = None
@@ -166,6 +170,34 @@ def send_message(data):
         return False
 
 
+def _check_event_retry():
+    """Check pending events and retry if no ACK received within timeout (max 1 retry)."""
+    global _pending_event_acks
+    
+    now = ticks_ms()
+    to_remove = []
+    
+    for msg_id, event_info in _pending_event_acks.items():
+        elapsed_time = ticks_diff(now, event_info["sent_at"])
+        
+        # If timeout and retry not exhausted, retry once
+        if elapsed_time > EVENT_RETRY_TIMEOUT:
+            if event_info["retry_count"] < 1:
+                # Retry once
+                log("espnow_b", "Event msg_id={} timeout, retrying (attempt 2/2)".format(msg_id))
+                send_message(event_info["msg"])
+                event_info["sent_at"] = now
+                event_info["retry_count"] += 1
+            else:
+                # Max retry reached, give up
+                log("espnow_b", "Event msg_id={} failed after 1 retry, giving up".format(msg_id))
+                to_remove.append(msg_id)
+    
+    # Clean up failed events
+    for msg_id in to_remove:
+        del _pending_event_acks[msg_id]
+
+
 def send_event_immediate(event_type="sos_activated", custom_data=None):
     """Send an immediate event to Board A, bypassing the normal timer.
     
@@ -231,6 +263,13 @@ def _parse_sensor_state(msg_bytes):
         if msg_type == "ack":
             reply_to = data.get("r" if is_compact else "reply_to_id")
             log("espnow_b", "ACK received for msg_id={}".format(reply_to))
+            
+            # Remove from pending events if it was an event waiting for ACK
+            global _pending_event_acks
+            if reply_to in _pending_event_acks:
+                del _pending_event_acks[reply_to]
+                log("espnow_b", "Event msg_id={} confirmed, removed from pending".format(reply_to))
+            
             return msg_id  # Return to signal ACK processed
         
         # Check version (warning only, don't block communication)
@@ -518,13 +557,27 @@ def update():
         except Exception as e:
             log("communication.espnow", "Parse/ACK error: {}".format(e))
     
+    # Check for events that need retry (no ACK received within timeout)
+    _check_event_retry()
+    
     # Send pending events immediately (bypass timer)
     try:
-        global _pending_events
+        global _pending_events, _pending_event_acks
         if _pending_events:
             event = _pending_events.pop(0)
             log("espnow_b", "Sending event: {}".format(event.get("event_type")))
-            event_msg = _get_actuator_status_string(msg_type="event")
+            
+            # Get message ID for tracking
+            msg_id = _next_msg_id
+            event_msg = _get_actuator_status_string(msg_type="event", msg_id=msg_id)
+            
+            # Track this event for ACK confirmation (max 1 retry)
+            _pending_event_acks[msg_id] = {
+                "msg": event_msg,
+                "sent_at": ticks_ms(),
+                "retry_count": 0
+            }
+            
             send_message(event_msg)
     except Exception as e:
         log("communication.espnow", "Event send error: {}".format(e))

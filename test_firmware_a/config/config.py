@@ -162,3 +162,28 @@ ULTRASONIC_DANGER_TIME_MS = windows.get('ultrasonic_danger', 10000)
 ULTRASONIC_RECOVERY_TIME_MS = windows.get('ultrasonic_recovery', 5000)
 GATE_CLOSE_DELAY_MS = windows.get('gate_close_delay_ms', 10000)
 
+
+# ===============================
+# NODERED / MQTT BRIDGE (BOARD A)
+# ===============================
+
+_nodered = _config.get('nodered', {})
+NODERED_ENABLED = _nodered.get('enabled', False)
+NODERED_CLIENT_ID = _nodered.get('client_id', "esp32a")
+NODERED_BROKER = _nodered.get('broker', "io.adafruit.com")
+NODERED_PORT = _nodered.get('port', 1883)
+NODERED_USERNAME = _nodered.get('username', "")  # Adafruit IO username or broker user
+NODERED_KEY = _nodered.get('key', "")           # Adafruit IO key or broker password
+NODERED_USE_TLS = _nodered.get('use_tls', False)
+NODERED_KEEPALIVE = _nodered.get('keepalive', 60)
+NODERED_QOS = _nodered.get('qos', 0)
+NODERED_STATE_INTERVAL_MS = _nodered.get('state_interval_ms', 3000)
+
+# Feed names (not full topics). For Adafruit IO, topic = "<username>/feeds/<feed>".
+NODERED_FEEDS = _nodered.get('feeds', {
+    "state": "",     # outgoing state/telemetry
+    "event": "",     # outgoing events (optional)
+    "command": "",   # incoming commands from Node-RED/app
+    "ack": "",       # optional ack/response feed
+})
+

@@ -38,18 +38,23 @@ _next_msg_id = 1
 _last_received_msg_id = 0
 _pending_events = []  # Queue for immediate events
 
+# Event retry tracking (max 1 retry for critical events)
+EVENT_RETRY_TIMEOUT = 3000  # Retry after 3 seconds if no ACK
+_pending_event_acks = {}  # {msg_id: {"msg": data, "sent_at": timestamp, "retry_count": 0}}
+
 _esp_now = None
 _initialized = False
 _wifi = None
 _last_init_attempt = 0
 
 
-def _get_sensor_data_string(msg_type="data", msg_id=None):
+def _get_sensor_data_string(msg_type="data", msg_id=None, reply_to_id=None):
     """Format all sensor data into a JSON message.
     
     Args:
         msg_type: Type of message - 'data' (periodic), 'event' (immediate), 'ack' (confirmation)
         msg_id: Message ID (auto-generated if None)
+        reply_to_id: ID of message this is replying to (for ACKs)
     """
     global _next_msg_id
     if msg_id is None:
@@ -86,6 +91,8 @@ def _get_sensor_data_string(msg_type="data", msg_id=None):
             "S": state.alarm_state.get("source")
         }
     }
+    if reply_to_id is not None:
+        data["r"] = reply_to_id
     return json.dumps(data).encode("utf-8")
 
 
@@ -164,6 +171,34 @@ def send_message(data):
         return False
 
 
+def _check_event_retry():
+    """Check pending events and retry if no ACK received within timeout (max 1 retry)."""
+    global _pending_event_acks
+    
+    now = ticks_ms()
+    to_remove = []
+    
+    for msg_id, event_info in _pending_event_acks.items():
+        elapsed_time = ticks_diff(now, event_info["sent_at"])
+        
+        # If timeout and retry not exhausted, retry once
+        if elapsed_time > EVENT_RETRY_TIMEOUT:
+            if event_info["retry_count"] < 1:
+                # Retry once
+                log("espnow_a", "Event msg_id={} timeout, retrying (attempt 2/2)".format(msg_id))
+                send_message(event_info["msg"])
+                event_info["sent_at"] = now
+                event_info["retry_count"] += 1
+            else:
+                # Max retry reached, give up
+                log("espnow_a", "Event msg_id={} failed after 1 retry, giving up".format(msg_id))
+                to_remove.append(msg_id)
+    
+    # Clean up failed events
+    for msg_id in to_remove:
+        del _pending_event_acks[msg_id]
+
+
 def send_event_immediate(event_type="alarm_triggered", custom_data=None):
     """Send an immediate event to Board B, bypassing the normal timer.
     
@@ -232,6 +267,13 @@ def _parse_actuator_state(msg_bytes):
         if msg_type == "ack":
             reply_to = data.get("r" if is_compact else "reply_to_id")
             log("espnow_a", "ACK received for msg_id={}".format(reply_to))
+            
+            # Remove from pending events if it was an event waiting for ACK
+            global _pending_event_acks
+            if reply_to in _pending_event_acks:
+                del _pending_event_acks[reply_to]
+                log("espnow_a", "Event msg_id={} confirmed, removed from pending".format(reply_to))
+            
             return msg_id  # Return to signal ACK processed
         
         # Check version (warning only, don't block communication)
@@ -439,24 +481,44 @@ def update():
             log("espnow_a", "Drained {} messages, using latest".format(messages_processed))
         try:
             # Parse JSON actuator data from B (returns msg_id or None)
-            _parse_actuator_state(last_valid_msg)
+            received_msg_id = _parse_actuator_state(last_valid_msg)
+            
+            # Send ACK if we successfully parsed a data or event message (not duplicate, not error)
+            if received_msg_id is not None and received_msg_id > 0:
+                ack_msg = _get_sensor_data_string(msg_type="ack", reply_to_id=received_msg_id)
+                send_message(ack_msg)
+                log("espnow_a", "Sent ACK for msg_id={}".format(received_msg_id))
         except Exception as e:
             log("communication.espnow", "Parse error: {}".format(e))
     
+    # Check for events that need retry (no ACK received within timeout)
+    _check_event_retry()
+    
     # Send pending events immediately (bypass timer)
     try:
-        global _pending_events
+        global _pending_events, _pending_event_acks
         if _pending_events:
             event = _pending_events.pop(0)
             log("espnow_a", "Sending event: {}".format(event.get("event_type")))
             _message_count += 1
-            sensor_data = _get_sensor_data_string(msg_type="event")
+            
+            # Get message ID for tracking
+            msg_id = _next_msg_id
+            sensor_data = _get_sensor_data_string(msg_type="event", msg_id=msg_id)
+            
+            # Track this event for ACK confirmation (max 1 retry)
+            _pending_event_acks[msg_id] = {
+                "msg": sensor_data,
+                "sent_at": ticks_ms(),
+                "retry_count": 0
+            }
+            
             send_message(sensor_data)
         # Send sensor data periodically (A is master, initiates communication)
         elif elapsed("espnow_send", _send_interval):
             _message_count += 1
             sensor_data = _get_sensor_data_string(msg_type="data")
-            send_message(sensor_data)
+            send_message(sensor_data)  # Periodic data doesn't need retry
     except Exception as e:
         log("communication.espnow", "Send error: {}".format(e))
     

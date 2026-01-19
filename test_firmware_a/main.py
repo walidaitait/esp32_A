@@ -21,6 +21,7 @@ from core import wifi
 from core import sensor_loop
 from core import state
 from communication import espnow_communication
+from communication import nodered_client
 from communication import udp_commands
 from config import config
 
@@ -51,6 +52,10 @@ def main():
     # Initialize remote UDP logging
     log("main", "Phase 2: Remote logging initialization")
     init_remote_logging('A')
+
+    # Initialize Node-RED/Adafruit bridge (optional, non-blocking if disabled)
+    log("main", "Phase 2b: Node-RED/Adafruit bridge initialization")
+    nodered_client.init()
     
     # Initialize all sensors (or simulation mode)
     log("main", "Phase 3: Sensor initialization")
@@ -111,6 +116,9 @@ def main():
             
             # Update ESP-NOW communication
             espnow_communication.update()
+
+            # Update Node-RED/Adafruit MQTT bridge
+            nodered_client.update()
             
             # Check for incoming UDP commands
             udp_commands.update()

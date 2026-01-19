@@ -23,6 +23,7 @@ _click_count = 0                    # Count of clicks (press+release cycles)
 _last_click_time = None             # Timestamp of last click
 _last_button_state = False          # Previous button state for edge detection
 _sos_button_pressed = False         # Track if button was pressed during SOS (waiting for release)
+_temp_muted = False                 # Temporary mute flag (set on first click, cleared if more clicks arrive)
 
 
 def update():
@@ -31,7 +32,7 @@ def update():
     Call this regularly from main loop to detect SOS patterns.
     Returns dict with detected events for actuator loop to handle.
     """
-    global _sos_active, _button_press_start, _click_count, _last_click_time, _last_button_state, _sos_button_pressed
+    global _sos_active, _button_press_start, _click_count, _last_click_time, _last_button_state, _sos_button_pressed, _temp_muted
     
     current_button = state.actuator_state.get("button", False)
     now = ticks_ms()
@@ -40,6 +41,8 @@ def update():
         "sos_activated": False,      # True if SOS just activated
         "sos_deactivated": False,    # True if SOS just deactivated
         "single_click": False,       # True if single click detected (context-dependent action)
+        "temp_muted": False,         # True if temporary muting requested (immediate)
+        "unmute": False,             # True if muting should be cleared (more clicks arriving)
     }
     
     # === SOS ACTIVE STATE ===
@@ -84,11 +87,23 @@ def update():
                 _click_count = 1
                 _last_click_time = now
                 log("emergency", "Click count reset: 1")
+                
+                # IMMEDIATE MUTING on first click (don't wait for window to expire)
+                global _temp_muted
+                _temp_muted = True
+                result["temp_muted"] = True
+                log("emergency", "First click detected - TEMP MUTE buzzer immediately")
             else:
                 # Within click window, increment count
                 _click_count += 1
                 _last_click_time = now
                 log("emergency", "Click count: {}".format(_click_count))
+                
+                # If this is the 2nd+ click, UNMUTE (user is trying for SOS)
+                if _click_count >= 2 and _temp_muted:
+                    _temp_muted = False
+                    result["unmute"] = True
+                    log("emergency", "Additional click detected - UNMUTE buzzer (SOS sequence)")
                 
                 # Check if rapid click threshold reached (5 clicks)
                 if _click_count >= RAPID_CLICK_COUNT:
@@ -96,11 +111,14 @@ def update():
                     result["sos_activated"] = True
                     _click_count = 0
                     _last_click_time = None
+                    _temp_muted = False  # Clear temp mute on SOS activation
                     log("emergency", "SOS ACTIVATED (5 rapid clicks)")
             
             _button_press_start = None
     
     # Check for long press (while button is still held)
+    # NOTE: small timing jitter on ticks_ms can cause borderline presses to land just under/over
+    # the 5s threshold. No mitigation added here (Problem 10 note).
     # current_button = True means button is pressed (pin LOW)
     elif current_button and _button_press_start is not None:
         press_duration = ticks_diff(now, _button_press_start)
@@ -120,12 +138,15 @@ def update():
             # Single click detected (not rapid sequence)
             result["single_click"] = True
             log("emergency", "Single click detected (context-dependent action)")
+            _temp_muted = False  # Clear temp flag after finalizing single-click action
         
         # Reset click counter (window expired)
         if _click_count > 0 and _click_count < RAPID_CLICK_COUNT:
             log("emergency", "Click window expired, count was {} (not enough for SOS)".format(_click_count))
         _click_count = 0
         _last_click_time = None
+        if _temp_muted and _click_count == 0:
+            _temp_muted = False
     
     _last_button_state = current_button
     return result
