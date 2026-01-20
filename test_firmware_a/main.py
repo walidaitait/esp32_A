@@ -33,6 +33,8 @@ set_log_enabled("main", True)
 # Communication debug for ESP-NOW/UDP
 set_log_enabled("espnow_a", True)
 set_log_enabled("communication.espnow", True)
+# Node-RED debug
+set_log_enabled("nodered", True)
 
 # === SIMULATION MODE (loaded from config) ===
 SIMULATE_SENSORS = config.SIMULATE_SENSORS

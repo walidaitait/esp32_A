@@ -81,7 +81,7 @@
   },
 
   "nodered": {
-    "enabled": false,
+    "enabled": true,
     "client_id": "esp32a",
     "broker": "io.adafruit.com",
     "port": 1883,
