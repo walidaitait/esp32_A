@@ -64,6 +64,22 @@ def _get_actuator_status_string(msg_type="data", msg_id=None, reply_to_id=None):
         _next_msg_id += 1
     
     modes = state.actuator_state["led_modes"]
+    
+    # Sanitize LCD strings to prevent JSON corruption
+    # Remove problematic characters and ensure max 16 chars
+    def sanitize_lcd_text(text, max_len=16):
+        """Clean LCD text for safe JSON serialization."""
+        if not text:
+            return ""
+        # Convert to string if needed
+        text = str(text)
+        # Limit length
+        text = text[:max_len]
+        # Remove potentially problematic characters for JSON
+        # Keep only printable ASCII and common symbols
+        text = "".join(c for c in text if ord(c) >= 32 and ord(c) < 127 or c in '\n\t')
+        return text
+    
     # Compact JSON format to stay under ESP-NOW 250-byte limit
     # Key mapping: v=version, t=type, id=msg_id, ts=timestamp, r=reply_to_id,
     #              L=leds, g=green, b=blue, r=red, S=servo, a=angle,
@@ -82,8 +98,8 @@ def _get_actuator_status_string(msg_type="data", msg_id=None, reply_to_id=None):
             "a": state.actuator_state["servo"].get("angle"),
         },
         "D": {
-            "1": state.actuator_state["lcd"].get("line1", "")[:16],
-            "2": state.actuator_state["lcd"].get("line2", "")[:16],
+            "1": sanitize_lcd_text(state.actuator_state["lcd"].get("line1", "")),
+            "2": sanitize_lcd_text(state.actuator_state["lcd"].get("line2", "")),
         },
         "B": "ON" if state.actuator_state["buzzer"].get("active", False) else "OFF",
         "A": "PLAY" if state.actuator_state["audio"].get("playing", False) else "STOP",
@@ -91,7 +107,27 @@ def _get_actuator_status_string(msg_type="data", msg_id=None, reply_to_id=None):
     }
     if reply_to_id is not None:
         data["r"] = reply_to_id
-    return json.dumps(data).encode("utf-8")
+    
+    # Serialize to JSON and encode
+    try:
+        json_str = json.dumps(data)
+        msg_bytes = json_str.encode("utf-8")
+        
+        # Validate JSON is correct and parseable
+        # Try to parse it back to verify integrity
+        try:
+            json.loads(json_str)  # Verify JSON is valid
+        except Exception as e:
+            log("communication.espnow", "WARNING: Generated JSON is invalid: {}".format(e))
+            log("communication.espnow", "JSON: {}".format(json_str[:100]))
+        
+        return msg_bytes
+    except Exception as e:
+        log("communication.espnow", "ERROR serializing to JSON: {}".format(e))
+        # Fallback: send minimal valid JSON
+        fallback = json.dumps({"v": 1, "t": msg_type, "id": msg_id, "ts": ticks_ms()}).encode("utf-8")
+        log("communication.espnow", "Using fallback message")
+        return fallback
 
 
 def init_espnow_comm():

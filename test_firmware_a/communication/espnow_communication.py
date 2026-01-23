@@ -275,9 +275,38 @@ def _parse_actuator_state(msg_bytes):
     {"v":1,"t":"heartbeat","ts":12345678} or {"version":1,"type":"heartbeat","timestamp":12345678}
     """
     try:
-        msg_str = msg_bytes.decode("utf-8")
+        # Decode bytes to string
+        try:
+            msg_str = msg_bytes.decode("utf-8")
+        except UnicodeDecodeError as e:
+            log("espnow_a", "RX Decode error (not valid UTF-8): {}".format(e))
+            log("espnow_a", "Raw bytes preview: {}".format(msg_bytes[:80]))
+            return None
+        
         log("espnow_a", "RX Parse: msg_str={}".format(msg_str[:100]))
-        data = json.loads(msg_str)
+        
+        # Try to parse JSON
+        try:
+            data = json.loads(msg_str)
+        except ValueError as e:  # json.JSONDecodeError inherits from ValueError
+            log("espnow_a", "RX JSON parse error: {} - Full message length: {}".format(e, len(msg_str)))
+            log("espnow_a", "Full message: {}".format(msg_str))
+            # Try fallback parser for old format
+            _parse_actuator_state_v0_fallback(msg_str)
+            return None
+        
+        # Detect format (compact uses 'v', full uses 'version')
+        is_compact = "v" in data
+        
+        # Extract message metadata
+        if is_compact:
+            msg_id = data.get("id", 0)
+            msg_type = data.get("t", "data")
+            remote_version = data.get("v")
+        else:
+            msg_id = data.get("msg_id", 0)
+            msg_type = data.get("msg_type", "data")
+            remote_version = data.get("version")
         
         # Detect format (compact uses 'v', full uses 'version')
         is_compact = "v" in data
