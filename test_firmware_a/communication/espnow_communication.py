@@ -103,6 +103,14 @@ def init_espnow_comm():
     """
     global _esp_now, _initialized, _wifi, _last_init_attempt
     try:
+        # Clean up any existing ESP-NOW instance first
+        if _esp_now is not None:
+            try:
+                _esp_now.active(False)
+            except:
+                pass  # Ignore errors during cleanup
+            _esp_now = None
+        
         # Get WiFi interface in station mode for ESP-NOW
         _wifi = network.WLAN(network.STA_IF)
         _wifi.active(True)
@@ -131,11 +139,20 @@ def init_espnow_comm():
         ))
         return True
     except Exception as e:
-        log("communication.espnow", "Initialization failed: {}".format(e))
-        _esp_now = None
-        _initialized = False
-        _last_init_attempt = ticks_ms()
-        return False
+        # Check if error is because ESP-NOW already exists
+        error_str = str(e)
+        if "ESP_ERR_ESPNOW_EXIST" in error_str or "-12395" in error_str:
+            # ESP-NOW already active, consider it initialized
+            log("communication.espnow", "ESP-NOW already active, reusing instance")
+            _initialized = True
+            _last_init_attempt = ticks_ms()
+            return True
+        else:
+            log("communication.espnow", "Initialization failed: {}".format(e))
+            _esp_now = None
+            _initialized = False
+            _last_init_attempt = ticks_ms()
+            return False
 
 
 def send_message(data):
