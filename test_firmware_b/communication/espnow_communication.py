@@ -123,10 +123,9 @@ def _get_actuator_status_string(msg_type="data", msg_id=None, reply_to_id=None):
     # Validate JSON is correct and parseable
     try:
         json.loads(json_str)  # Verify JSON is valid
-    except Exception as e:
-            log("communication.espnow", "WARNING: Generated JSON is invalid: {}".format(e))
-            log("communication.espnow", "JSON: {}".format(json_str[:100]))
-        
+    except ValueError as e:
+        log("communication.espnow", "WARNING: Generated JSON is invalid: {}".format(e))
+        log("communication.espnow", "JSON: {}".format(json_str[:100]))
         return msg_bytes
     except Exception as e:
         log("communication.espnow", "ERROR serializing to JSON: {}".format(e))
