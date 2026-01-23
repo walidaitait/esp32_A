@@ -26,12 +26,14 @@ _MAX_DUTY = 1023
 
 
 def _angle_to_duty(angle):
-    # Map 0-180° to 10-bit duty
+    # Map 0-180° to 10-bit duty (0-1023)
     angle = max(0, min(180, angle))
     pulse_us = _MIN_US + ((_MAX_US - _MIN_US) * angle) // 180
-    duty = (_MAX_DUTY * pulse_us) // _PERIOD_US
-    log("actuator.servo", "_angle_to_duty angle={} -> pulse_us={} -> duty={}".format(angle, pulse_us, duty))
-    return duty
+    duty_10bit = (_MAX_DUTY * pulse_us) // _PERIOD_US
+    # Convert to 16-bit for duty_u16()
+    duty_16bit = duty_10bit * 64
+    log("actuator.servo", "_angle_to_duty angle={} -> pulse_us={} -> duty_10bit={} -> duty_u16={}".format(angle, pulse_us, duty_10bit, duty_16bit))
+    return duty_16bit
 
 
 def _set_angle_immediate(angle):
@@ -44,8 +46,8 @@ def _set_angle_immediate(angle):
     _angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
     try:
         duty_val = _angle_to_duty(_angle)
-        _pwm.duty(duty_val)
-        log("actuator.servo", "_set_angle_immediate duty({})={}".format(_angle, duty_val))
+        _pwm.duty_u16(duty_val)
+        log("actuator.servo", "_set_angle_immediate duty_u16({})={}".format(_angle, duty_val))
         state.actuator_state["servo"]["angle"] = _angle
     except Exception as e:
         log("actuator.servo", "Set angle error: {}".format(e))
