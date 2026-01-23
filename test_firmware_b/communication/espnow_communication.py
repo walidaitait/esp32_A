@@ -256,6 +256,61 @@ def send_event_immediate(event_type="sos_activated", custom_data=None):
     return True
 
 
+def _parse_command(msg_bytes):
+    """Parse and execute command received via ESP-NOW.
+    
+    Command format (from Board A forwarding app/Node-RED commands):
+    {"target": "B", "command": "servo", "args": [90], "_source": "app", "_session_id": "..."}
+    
+    Returns:
+        True if this was a command (parsed and executed)
+        False if not a command (should try parsing as sensor data)
+        None if parsing failed (don't try further parsing)
+    """
+    try:
+        msg_str = msg_bytes.decode("utf-8")
+        data = json.loads(msg_str)
+        
+        # Check if this is a command (has target, command, args keys)
+        if "target" in data and "command" in data:
+            target = data.get("target", "").upper()
+            
+            # Ignore if not for us
+            if target != "B":
+                log("espnow_b", "Command not for us (target={})".format(target))
+                return None  # Parsing succeeded but not for us, don't try sensor parsing
+            
+            command = data.get("command", "")
+            args = data.get("args", [])
+            source = data.get("_source", "unknown")
+            session_id = data.get("_session_id", "")
+            
+            log("communication.espnow", "CMD RX from A: cmd={} args={} source={} session={}".format(
+                command, args, source, session_id
+            ))
+            
+            # Execute command using command_handler
+            try:
+                from communication import command_handler
+                response = command_handler.handle_command(command, args)
+                
+                if response.get("success"):
+                    log("communication.espnow", "CMD OK: {}".format(response.get("message")))
+                else:
+                    log("communication.espnow", "CMD ERROR: {}".format(response.get("message")))
+            except Exception as e:
+                log("communication.espnow", "CMD execution error: {}".format(e))
+            
+            return True  # This was a command
+        
+        return False  # Not a command, could be sensor data
+        
+    except Exception as e:
+        # JSON parsing failed or decode error - log and return None to prevent further attempts
+        log("communication.espnow", "Parse error: {}".format(e))
+        return None  # Signal that parsing failed completely
+
+
 def _parse_sensor_state(msg_bytes):
     """Parse received sensor state from Board A (JSON format) and update state.
     
@@ -269,8 +324,39 @@ def _parse_sensor_state(msg_bytes):
     """
     try:
         msg_str = msg_bytes.decode("utf-8")
-        log("espnow_b", "RX Parse: msg_str={}".format(msg_str[:100]))
-        data = json.loads(msg_str)
+        log("espnow_b", "RX Parse: msg_str length={} first_100={}".format(len(msg_str), msg_str[:100]))
+        
+        # Detect if message might be two JSON objects concatenated (common bug)
+        brace_count = msg_str.count('{')
+        if brace_count > 1:
+            log("espnow_b", "WARNING: Multiple JSON objects detected in single message ({}x '{')".format(brace_count))
+            log("espnow_b", "Message might be corrupted or contain multiple concatenated messages")
+            # Try to extract the first valid JSON object
+            try:
+                # Find the first complete JSON object
+                bracket_count = 0
+                for i, char in enumerate(msg_str):
+                    if char == '{':
+                        bracket_count += 1
+                    elif char == '}':
+                        bracket_count -= 1
+                        if bracket_count == 0:
+                            # Found first complete object
+                            first_json = msg_str[:i+1]
+                            log("espnow_b", "Extracted first JSON object: {}".format(first_json[:80]))
+                            msg_str = first_json
+                            break
+            except Exception as e:
+                log("espnow_b", "Failed to extract first JSON object: {}".format(e))
+        
+        # Try to parse JSON
+        try:
+            data = json.loads(msg_str)
+        except ValueError as e:
+            # JSON parsing failed - show full message for debugging
+            log("espnow_b", "RX Parse FAILED: {}".format(e))
+            log("espnow_b", "Full message: {}".format(msg_str[:200]))
+            return None
         
         # Detect format (compact uses 'v', full uses 'version')
         is_compact = "v" in data
@@ -557,7 +643,12 @@ def update():
                 mac_str = ":".join("{:02X}".format(b) for b in mac)
             except Exception:
                 mac_str = str(mac)
-            log("espnow_b", "RX from {} len={} preview={}".format(mac_str, len(msg), msg[:40]))
+            
+            # Convert to bytes if it's a bytearray
+            if isinstance(msg, bytearray):
+                msg = bytes(msg)
+            
+            log("espnow_b", "RX from {} len={} preview={}".format(mac_str, len(msg), msg[:60]))
             
         except OSError:
             # OSError is normal when buffer is empty - silent break
@@ -569,13 +660,13 @@ def update():
             log("espnow_b", "Drained {} messages, using latest".format(messages_processed))
         
         try:
-            # Parse JSON sensor data from A (returns msg_id or None)
-            received_msg_id = _parse_sensor_state(last_valid_msg)
+            # First, try to parse as a command (from app via A)
+            # Returns: True (command), False (not command), None (parsing failed)
+            cmd_result = _parse_command(last_valid_msg)
             
-            # Send ACK only if we successfully parsed a data or event message
-            if received_msg_id is not None and received_msg_id > 0:
+            # If it was a command, update connection status
+            if cmd_result is True:
                 _last_message_from_a = ticks_ms()
-                _messages_received += 1
                 if not _a_is_connected:
                     log("communication.espnow", "Board A connected")
                     _a_is_connected = True
@@ -585,13 +676,35 @@ def update():
                     actuator_loop.set_espnow_connected(True)
                 except Exception:
                     pass
+            
+            # If not a command (False), try parsing as sensor data
+            elif cmd_result is False:
+                # Parse JSON sensor data from A (returns msg_id or None)
+                received_msg_id = _parse_sensor_state(last_valid_msg)
                 
-                # Send ACK back to A (confirmation of receipt)
-                ack_msg = _get_actuator_status_string(msg_type="ack", reply_to_id=received_msg_id)
-                send_message(ack_msg)
-                log("espnow_b", "Sent ACK for msg_id={}".format(received_msg_id))
+                # Send ACK only if we successfully parsed a data or event message
+                if received_msg_id is not None and received_msg_id > 0:
+                    _last_message_from_a = ticks_ms()
+                    _messages_received += 1
+                    if not _a_is_connected:
+                        log("communication.espnow", "Board A connected")
+                        _a_is_connected = True
+                    # Inform actuator loop (updates LED state)
+                    try:
+                        from core import actuator_loop
+                        actuator_loop.set_espnow_connected(True)
+                    except Exception:
+                        pass
+                    
+                    # Send ACK back to A (confirmation of receipt)
+                    ack_msg = _get_actuator_status_string(msg_type="ack", reply_to_id=received_msg_id)
+                    send_message(ack_msg)
+                    log("espnow_b", "Sent ACK for msg_id={}".format(received_msg_id))
+            
+            # If cmd_result is None, parsing completely failed, error already logged
+                    
         except Exception as e:
-            log("communication.espnow", "Parse/ACK error: {}".format(e))
+            log("communication.espnow", "Message processing error: {}".format(e))
     
     # Check for events that need retry (no ACK received within timeout)
     _check_event_retry()

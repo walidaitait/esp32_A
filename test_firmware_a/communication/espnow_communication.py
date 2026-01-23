@@ -173,8 +173,22 @@ def send_message(data):
         if isinstance(data, str):
             data = data.encode("utf-8")
         
+        # Validate JSON before sending (decode and re-parse to verify)
+        try:
+            msg_str = data.decode("utf-8")
+            json.loads(msg_str)  # Verify JSON is valid
+        except Exception as e:
+            log("communication.espnow", "ERROR: Generated message is invalid JSON: {}".format(e))
+            log("communication.espnow", "Message preview: {}".format(msg_str[:100] if 'msg_str' in locals() else data[:100]))
+            return False
+        
+        # Check size (ESP-NOW max is 250 bytes)
+        if len(data) > 250:
+            log("communication.espnow", "ERROR: Message too large ({} bytes, max 250)".format(len(data)))
+            return False
+        
         # Debug: show outgoing payload size and preview
-        preview = data[:40]
+        preview = data[:60]
         log("espnow_a", "TX -> B len={} preview={}".format(len(data), preview))
 
         _esp_now.send(MAC_B, data)
