@@ -133,6 +133,8 @@ def _get_actuator_status_string(msg_type="data", msg_id=None, reply_to_id=None):
         fallback = json.dumps({"v": 1, "t": msg_type, "id": msg_id, "ts": ticks_ms()}).encode("utf-8")
         log("communication.espnow", "Using fallback message")
         return fallback
+    
+    return msg_bytes
 
 
 def init_espnow_comm():
@@ -142,6 +144,14 @@ def init_espnow_comm():
     """
     global _esp_now, _initialized, _wifi, _last_init_attempt
     try:
+        # Clean up any existing ESP-NOW instance first
+        if _esp_now is not None:
+            try:
+                _esp_now.active(False)
+            except:
+                pass  # Ignore errors during cleanup
+            _esp_now = None
+        
         # Get WiFi interface in station mode for ESP-NOW
         _wifi = network.WLAN(network.STA_IF)
         _wifi.active(True)
@@ -328,6 +338,9 @@ def _parse_sensor_state(msg_bytes):
     {"version":1,"msg_type":"data","msg_id":1,"timestamp":12345,"sensors":{"temperature":25,"co":150,...},"buttons":{"b1":false,...},"alarm":{"level":"normal",...}}
     """
     try:
+        # Strip trailing null bytes that ESP-NOW may add
+        msg_bytes = msg_bytes.rstrip(b'\x00')
+        
         msg_str = msg_bytes.decode("utf-8")
         
         # Try to parse JSON
@@ -335,6 +348,9 @@ def _parse_sensor_state(msg_bytes):
             data = json.loads(msg_str)
         except ValueError as e:
             log("communication.espnow", "Parse error: " + str(e))
+            log("communication.espnow", "Message length: " + str(len(msg_str)))
+            log("communication.espnow", "First 100 chars: " + msg_str[:100])
+            log("communication.espnow", "Last 50 chars: " + msg_str[-50:])
             return None
         
         # Detect format (compact uses 'v', full uses 'version')

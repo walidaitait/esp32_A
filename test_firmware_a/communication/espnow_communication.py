@@ -116,6 +116,13 @@ def _get_sensor_data_string(msg_type="data", msg_id=None, reply_to_id=None):
     json_str = "".join(parts)
     msg_bytes = json_str.encode("utf-8")
     
+    # Verify JSON is valid before sending
+    try:
+        json.loads(json_str)
+    except Exception as e:
+        log("communication.espnow", "ERROR: Invalid JSON generated: " + str(e))
+        log("communication.espnow", "JSON string: " + json_str[:150])
+    
     return msg_bytes
 
 
@@ -319,6 +326,9 @@ def _parse_actuator_state(msg_bytes):
     {"v":1,"t":"heartbeat","ts":12345678} or {"version":1,"type":"heartbeat","timestamp":12345678}
     """
     try:
+        # Strip trailing null bytes that ESP-NOW may add
+        msg_bytes = msg_bytes.rstrip(b'\x00')
+        
         # Decode bytes to string
         try:
             msg_str = msg_bytes.decode("utf-8")
