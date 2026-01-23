@@ -221,6 +221,45 @@ def send_event_immediate(event_type="alarm_triggered", custom_data=None):
     return True
 
 
+def send_command(command_dict):
+    """Send a command to Board B via ESP-NOW.
+    
+    Converts a command dict to JSON and sends immediately.
+    
+    Args:
+        command_dict: Dict with keys:
+            - target: "B" (destination board)
+            - command: "servo", "led", etc.
+            - args: [arg1, arg2, ...] (command arguments)
+            - _source: source of command (e.g., "app")
+            - _session_id: session ID for tracking
+    
+    Returns:
+        True if sent successfully, False otherwise
+    """
+    try:
+        if not command_dict or command_dict.get("target") != "B":
+            log("espnow_a", "send_command: Invalid target")
+            return False
+        
+        # Format command as JSON
+        msg = json.dumps(command_dict).encode("utf-8")
+        
+        # Send immediately
+        if send_message(msg):
+            log("espnow_a", "Command sent: {} {}".format(
+                command_dict.get("command"), command_dict.get("args", [])
+            ))
+            return True
+        else:
+            log("espnow_a", "Command send failed")
+            return False
+    
+    except Exception as e:
+        log("communication.espnow", "send_command error: {}".format(e))
+        return False
+
+
 def _parse_actuator_state(msg_bytes):
     """Parse received actuator state from Board B (JSON format) and update state.
     
