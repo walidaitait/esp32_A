@@ -137,11 +137,11 @@ def _handle_servo(args):
     # Apply immediately to hardware if available
     try:
         from actuators import servo as servo_module
-        servo_module.set_servo_angle(angle)
+        servo_module.set_servo_angle_immediate(angle)
     except Exception:
         # Fallback to state-only
         state.actuator_state["servo"]["angle"] = angle
-        state.actuator_state["servo"]["moving"] = True
+        state.actuator_state["servo"]["moving"] = False
 
     # Protect servo from auto overrides for 20s
     timers.set_user_lock("servo_update")

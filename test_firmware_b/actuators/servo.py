@@ -72,6 +72,22 @@ def set_servo_angle(angle):
     state.actuator_state["servo"]["moving"] = True
 
 
+def set_servo_angle_immediate(angle):
+    """Set servo angle instantly (no smoothing)."""
+    global _target_angle, _moving
+
+    if _pwm is None:
+        log("actuator.servo", "set_servo_angle_immediate ignored (PWM not initialized)")
+        return
+
+    angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
+    _target_angle = angle
+    _moving = False
+    state.actuator_state["servo"]["moving"] = False
+    _set_angle_immediate(angle)
+    log("actuator.servo", "set_servo_angle_immediate angle={}".format(angle))
+
+
 def _update_servo_smooth():
     """Update servo angle smoothly (call periodically)."""
     global _angle, _moving, _target_angle, _last_update
@@ -127,6 +143,8 @@ def init_servo():
         # Start always at 0°
         _angle = 0
         _target_angle = 0
+        state.actuator_state["servo"]["angle"] = 0
+        state.actuator_state["servo"]["moving"] = False
 
         # Mark initialized before first duty set so guard does not block
         _initialized = True

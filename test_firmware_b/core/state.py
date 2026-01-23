@@ -17,7 +17,7 @@ actuator_state = {
         "red": "off",
     },
     "servo": {
-        "angle": None,
+        "angle": 0,
         "moving": False,
     },
     "lcd": {
