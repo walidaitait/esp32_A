@@ -30,6 +30,7 @@ def _angle_to_duty(angle):
     angle = max(0, min(180, angle))
     pulse_us = _MIN_US + ((_MAX_US - _MIN_US) * angle) // 180
     duty = (_MAX_DUTY * pulse_us) // _PERIOD_US
+    log("actuator.servo", "_angle_to_duty angle={} -> pulse_us={} -> duty={}".format(angle, pulse_us, duty))
     return duty
 
 
@@ -113,8 +114,10 @@ def init_servo():
     global _pwm, _angle, _target_angle, _initialized
     try:
         servo_pin = config.SERVO_PIN
+        log("actuator.servo", "init_servo: SERVO_PIN={}".format(servo_pin))
         pin = Pin(servo_pin, Pin.OUT)
         _pwm = PWM(pin, freq=_PWM_FREQ)
+        log("actuator.servo", "init_servo: PWM created freq={}Hz".format(_PWM_FREQ))
 
         # Start always at 0°
         _angle = 0

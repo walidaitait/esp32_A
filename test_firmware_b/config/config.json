@@ -1,5 +1,5 @@
 {
-  "firmware_version": 3.2,
+  "firmware_version": 3.3,
   "ota_update_pending": false,
   "simulate_actuators": false,
   "button_enabled": true,
