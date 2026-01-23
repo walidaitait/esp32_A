@@ -116,16 +116,6 @@ def _get_sensor_data_string(msg_type="data", msg_id=None, reply_to_id=None):
     json_str = "".join(parts)
     msg_bytes = json_str.encode("utf-8")
     
-    # Validate JSON before sending
-    try:
-        json.loads(json_str)  # Verify JSON is valid
-    except ValueError as e:
-        log("communication.espnow", "WARNING: Generated JSON is INVALID: {}".format(e))
-        log("communication.espnow", "Full JSON: {}".format(json_str))
-        # Still return it so we can see what went wrong
-    except Exception as e:
-        log("communication.espnow", "ERROR validating JSON: {}".format(e))
-    
     return msg_bytes
 
 
@@ -206,24 +196,13 @@ def send_message(data):
         if isinstance(data, str):
             data = data.encode("utf-8")
         
-        # Validate JSON before sending (decode and re-parse to verify)
-        try:
-            msg_str = data.decode("utf-8")
-            json.loads(msg_str)  # Verify JSON is valid
-        except Exception as e:
-            log("communication.espnow", "ERROR: Generated message is invalid JSON: {}".format(e))
-            log("communication.espnow", "Message preview: {}".format(msg_str[:100] if 'msg_str' in locals() else data[:100]))
-            return False
-        
         # Check size (ESP-NOW max is 250 bytes)
         if len(data) > 250:
             log("communication.espnow", "ERROR: Message too large ({} bytes, max 250)".format(len(data)))
             return False
         
-        # Debug: show outgoing payload size and preview (first AND last chars)
-        preview_start = data[:60]
-        preview_end = data[-30:] if len(data) > 60 else b""
-        log("espnow_a", "TX -> B len={} start={} end={}".format(len(data), preview_start, preview_end))
+        # Debug: show outgoing payload size
+        log("espnow_a", "TX -> B len={}".format(len(data)))
 
         _esp_now.send(MAC_B, data)
         log("espnow_a", "TX OK to B")
@@ -348,14 +327,13 @@ def _parse_actuator_state(msg_bytes):
             log("espnow_a", "Raw bytes preview: {}".format(msg_bytes[:80]))
             return None
         
-        log("espnow_a", "RX Parse: msg_str length={} first_80={}".format(len(msg_str), msg_str[:80]))
+        log("espnow_a", "RX Parse: msg_str length={} bytes".format(len(msg_str)))
         
         # Try to parse JSON
         try:
             data = json.loads(msg_str)
         except ValueError as e:  # json.JSONDecodeError inherits from ValueError
-            log("espnow_a", "RX JSON parse error: {} - Full message length: {}".format(e, len(msg_str)))
-            log("espnow_a", "Full message: {}".format(msg_str[:200]))
+            log("espnow_a", "RX JSON parse error: " + str(e))
             # Try fallback parser for old format
             _parse_actuator_state_v0_fallback(msg_str)
             return None

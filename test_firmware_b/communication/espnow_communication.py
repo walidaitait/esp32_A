@@ -273,9 +273,6 @@ def _parse_command(msg_bytes):
         None if parsing failed (don't try further parsing)
     """
     try:
-        # Strip any null byte padding that ESP-NOW might include
-        msg_bytes = msg_bytes.rstrip(b'\x00')
-        
         msg_str = msg_bytes.decode("utf-8")
         data = json.loads(msg_str)
         
@@ -331,60 +328,13 @@ def _parse_sensor_state(msg_bytes):
     {"version":1,"msg_type":"data","msg_id":1,"timestamp":12345,"sensors":{"temperature":25,"co":150,...},"buttons":{"b1":false,...},"alarm":{"level":"normal",...}}
     """
     try:
-        # Strip any null byte padding that ESP-NOW might include
-        msg_bytes = msg_bytes.rstrip(b'\x00')
-        
         msg_str = msg_bytes.decode("utf-8")
-        log("espnow_b", "RX Parse: msg_str length={} first_100={}".format(len(msg_str), msg_str[:100]))
-        
-        # Pre-validation: check message integrity
-        if not msg_str.strip():
-            log("espnow_b", "ERROR: Empty message received")
-            return None
-        if not msg_str.startswith('{'):
-            log("espnow_b", "ERROR: Message doesn't start with '{{' - corrupted!")
-            log("espnow_b", "First 50 chars: {}".format(msg_str[:50]))
-            return None
-        if not msg_str.endswith('}'):
-            log("espnow_b", "ERROR: Message doesn't end with '}}' - likely truncated!")
-            log("espnow_b", "Last 50 chars: {}".format(msg_str[-50:]))
-            return None
-        
-        # Detect if message might be two JSON objects concatenated (common bug)
-        brace_count = msg_str.count('{')
-        if brace_count > 1:
-            log("espnow_b", "WARNING: Multiple JSON objects detected in single message ({}x '{')".format(brace_count))
-            log("espnow_b", "Message might be corrupted or contain multiple concatenated messages")
-            # Try to extract the first valid JSON object
-            try:
-                # Find the first complete JSON object
-                bracket_count = 0
-                for i, char in enumerate(msg_str):
-                    if char == '{':
-                        bracket_count += 1
-                    elif char == '}':
-                        bracket_count -= 1
-                        if bracket_count == 0:
-                            # Found first complete object
-                            first_json = msg_str[:i+1]
-                            log("espnow_b", "Extracted first JSON object: {}".format(first_json[:80]))
-                            msg_str = first_json
-                            break
-            except Exception as e:
-                log("espnow_b", "Failed to extract first JSON object: {}".format(e))
         
         # Try to parse JSON
         try:
             data = json.loads(msg_str)
         except ValueError as e:
-            # JSON parsing failed - show COMPLETE message for debugging (no truncation)
-            log("espnow_b", "RX Parse FAILED: {}".format(e))
-            log("espnow_b", "Message length: {} bytes".format(len(msg_str)))
-            log("espnow_b", "FULL message: {}".format(msg_str))
-            # Check for common issues
-            if not msg_str.endswith('}'):
-                log("espnow_b", "ERROR: Message doesn't end with '}}' - likely truncated!")
-                log("espnow_b", "Last 20 chars: {}".format(msg_str[-20:]))
+            log("communication.espnow", "Parse error: " + str(e))
             return None
         
         # Detect format (compact uses 'v', full uses 'version')
@@ -677,18 +627,7 @@ def update():
             if isinstance(msg, bytearray):
                 msg = bytes(msg)
             
-            # ESP-NOW returns 250-byte buffer but only first N bytes are valid data
-            # Remove null byte padding (common issue with ESP-NOW fixed-size buffers)
-            original_len = len(msg)
-            msg = msg.rstrip(b'\x00')  # Strip trailing null bytes
-            
-            if len(msg) != original_len:
-                log("espnow_b", "Stripped {} null bytes from ESP-NOW buffer".format(original_len - len(msg)))
-            
-            # Debug: show received payload with first AND last chars
-            preview_start = msg[:60]
-            preview_end = msg[-30:] if len(msg) > 60 else b""
-            log("espnow_b", "RX from {} len={} (after strip) start={} end={}".format(mac_str, len(msg), preview_start, preview_end))
+            log("espnow_b", "RX from {} len={}".format(mac_str, len(msg)))
             
         except OSError:
             # OSError is normal when buffer is empty - silent break
