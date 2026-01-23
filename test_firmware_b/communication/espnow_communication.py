@@ -653,6 +653,10 @@ def update():
             if _a_is_connected:
                 log("communication.espnow", "WARNING: Board A disconnected (no message for 10s)")
                 _a_is_connected = False
+                # Reset msg_id counter for re-sync when A reconnects
+                global _last_received_msg_id
+                _last_received_msg_id = 0
+                log("communication.espnow", "Reset message ID counter for re-sync")
                 # Inform actuator loop (updates LED state)
                 try:
                     from core import actuator_loop

@@ -42,6 +42,11 @@ _pending_events = []  # Queue for immediate events
 EVENT_RETRY_TIMEOUT = 3000  # Retry after 3 seconds if no ACK
 _pending_event_acks = {}  # {msg_id: {"msg": data, "sent_at": timestamp, "retry_count": 0}}
 
+# Connection tracking (heartbeat/ACK timeout detection)
+CONNECTION_TIMEOUT = 15000  # Consider B disconnected if no ACK for 15 seconds
+_last_ack_from_b = 0  # Timestamp of last ACK received from B
+_b_is_connected = False  # Connection state tracking
+
 _esp_now = None
 _initialized = False
 _wifi = None
@@ -425,6 +430,10 @@ def _parse_actuator_state(msg_bytes):
             reply_to = data.get("r" if is_compact else "reply_to_id")
             log("espnow_a", "ACK received for msg_id={}".format(reply_to))
             
+            # Update connection heartbeat
+            global _last_ack_from_b
+            _last_ack_from_b = ticks_ms()
+            
             # Remove from pending events if it was an event waiting for ACK
             global _pending_event_acks
             if reply_to in _pending_event_acks:
@@ -596,7 +605,7 @@ def update():
     
     Note: A continues normally if B is disconnected (sensor reads continue).
     """
-    global _message_count
+    global _message_count, _last_ack_from_b, _b_is_connected, _last_received_msg_id
     
     if not _initialized or _esp_now is None:
         # Auto-recover ESP-NOW if it went down
@@ -604,6 +613,22 @@ def update():
             log("espnow_a", "ESP-NOW down, attempting re-init")
             init_espnow_comm()
         return
+    
+    # Check if B is still connected (heartbeat timeout check)
+    now = ticks_ms()
+    if _last_ack_from_b > 0:
+        elapsed_since = ticks_diff(now, _last_ack_from_b)
+        if elapsed_since > CONNECTION_TIMEOUT:
+            if _b_is_connected:
+                log("communication.espnow", "WARNING: Board B disconnected (no ACK for 15s)")
+                _b_is_connected = False
+                # Reset msg_id counter for re-sync when B reconnects
+                _last_received_msg_id = 0
+                log("communication.espnow", "Reset message ID counter for re-sync")
+        else:
+            if not _b_is_connected:
+                log("communication.espnow", "Board B reconnected")
+                _b_is_connected = True
     
     # Check for incoming messages (actuator status from B)
     # Drain ALL pending messages to prevent buffer overflow
