@@ -273,6 +273,9 @@ def _parse_command(msg_bytes):
         None if parsing failed (don't try further parsing)
     """
     try:
+        # Strip any null byte padding that ESP-NOW might include
+        msg_bytes = msg_bytes.rstrip(b'\x00')
+        
         msg_str = msg_bytes.decode("utf-8")
         data = json.loads(msg_str)
         
@@ -328,6 +331,9 @@ def _parse_sensor_state(msg_bytes):
     {"version":1,"msg_type":"data","msg_id":1,"timestamp":12345,"sensors":{"temperature":25,"co":150,...},"buttons":{"b1":false,...},"alarm":{"level":"normal",...}}
     """
     try:
+        # Strip any null byte padding that ESP-NOW might include
+        msg_bytes = msg_bytes.rstrip(b'\x00')
+        
         msg_str = msg_bytes.decode("utf-8")
         log("espnow_b", "RX Parse: msg_str length={} first_100={}".format(len(msg_str), msg_str[:100]))
         
@@ -671,10 +677,18 @@ def update():
             if isinstance(msg, bytearray):
                 msg = bytes(msg)
             
+            # ESP-NOW returns 250-byte buffer but only first N bytes are valid data
+            # Remove null byte padding (common issue with ESP-NOW fixed-size buffers)
+            original_len = len(msg)
+            msg = msg.rstrip(b'\x00')  # Strip trailing null bytes
+            
+            if len(msg) != original_len:
+                log("espnow_b", "Stripped {} null bytes from ESP-NOW buffer".format(original_len - len(msg)))
+            
             # Debug: show received payload with first AND last chars
             preview_start = msg[:60]
             preview_end = msg[-30:] if len(msg) > 60 else b""
-            log("espnow_b", "RX from {} len={} start={} end={}".format(mac_str, len(msg), preview_start, preview_end))
+            log("espnow_b", "RX from {} len={} (after strip) start={} end={}".format(mac_str, len(msg), preview_start, preview_end))
             
         except OSError:
             # OSError is normal when buffer is empty - silent break
