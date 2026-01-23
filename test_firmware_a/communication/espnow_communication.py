@@ -114,7 +114,19 @@ def _get_sensor_data_string(msg_type="data", msg_id=None, reply_to_id=None):
     
     parts.append("}")
     json_str = "".join(parts)
-    return json_str.encode("utf-8")
+    msg_bytes = json_str.encode("utf-8")
+    
+    # Validate JSON before sending
+    try:
+        json.loads(json_str)  # Verify JSON is valid
+    except ValueError as e:
+        log("communication.espnow", "WARNING: Generated JSON is INVALID: {}".format(e))
+        log("communication.espnow", "Full JSON: {}".format(json_str))
+        # Still return it so we can see what went wrong
+    except Exception as e:
+        log("communication.espnow", "ERROR validating JSON: {}".format(e))
+    
+    return msg_bytes
 
 
 def init_espnow_comm():
@@ -208,9 +220,10 @@ def send_message(data):
             log("communication.espnow", "ERROR: Message too large ({} bytes, max 250)".format(len(data)))
             return False
         
-        # Debug: show outgoing payload size and preview
-        preview = data[:60]
-        log("espnow_a", "TX -> B len={} preview={}".format(len(data), preview))
+        # Debug: show outgoing payload size and preview (first AND last chars)
+        preview_start = data[:60]
+        preview_end = data[-30:] if len(data) > 60 else b""
+        log("espnow_a", "TX -> B len={} start={} end={}".format(len(data), preview_start, preview_end))
 
         _esp_now.send(MAC_B, data)
         log("espnow_a", "TX OK to B")
