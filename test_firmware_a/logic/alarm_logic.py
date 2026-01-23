@@ -95,6 +95,15 @@ def _update_overall_alarm():
                 prev_level, prev_source, level, source
             ),
         )
+        
+        # If alarm level changed to warning or danger, request immediate publish (handled in nodered_client.update)
+        if level in ("warning", "danger"):
+            try:
+                from communication import nodered_client
+                nodered_client.request_publish_now()
+                log("alarm_logic", "Requested urgent alarm state publish to Node-RED")
+            except Exception as e:
+                log("alarm_logic", "Failed to request urgent state publish: {}".format(e))
 
 
 def evaluate_logic():

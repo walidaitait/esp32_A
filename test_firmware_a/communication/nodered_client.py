@@ -32,6 +32,7 @@ _connected = False
 _last_connect_attempt = 0
 _RECONNECT_INTERVAL_MS = 5000
 _command_queue = []
+_publish_requested = False  # set True to force an immediate state publish on next update()
 
 STATE_INTERVAL_MS = getattr(config, "NODERED_STATE_INTERVAL_MS", 3000)
 
@@ -231,6 +232,12 @@ def publish_state_now():
     return publish_state_snapshot()
 
 
+def request_publish_now():
+    """Request an immediate publish to be performed in update() (non-blocking)."""
+    global _publish_requested
+    _publish_requested = True
+
+
 def publish_event(event_payload):
     """Publish an event dictionary to the event feed (if configured)."""
     return _publish("event", event_payload)
@@ -357,6 +364,7 @@ def process_commands():
 def update():
     """Non-blocking update: reconnect if needed, handle messages, process commands, auto-publish."""
     global _connected, _client
+    global _publish_requested
 
     if not _enabled:
         return
@@ -380,6 +388,11 @@ def update():
 
     # Process any queued commands from app (converted to internal operations)
     process_commands()
+
+    # Fast-path publish requested by alarm logic
+    if _publish_requested:
+        _publish_requested = False
+        publish_state_snapshot()
 
     # Periodic state publish
     if elapsed("nodered_state_pub", STATE_INTERVAL_MS):

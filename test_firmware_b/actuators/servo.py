@@ -37,12 +37,14 @@ def _set_angle_immediate(angle):
     """Set servo angle directly (internal use)."""
     global _angle
     if _pwm is None:
+        log("actuator.servo", "_set_angle_immediate ignored (PWM not initialized)")
         return
     
     _angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
     try:
         _pwm.duty(_angle_to_duty(_angle))
         state.actuator_state["servo"]["angle"] = _angle
+        log("actuator.servo", "_set_angle_immediate -> {}".format(_angle))
     except Exception as e:
         log("actuator.servo", "Set angle error: {}".format(e))
 
@@ -52,10 +54,12 @@ def set_servo_angle(angle):
     global _target_angle, _moving, _last_update
     
     if _pwm is None:
+        log("actuator.servo", "set_servo_angle ignored (PWM not initialized)")
         return
     
     # Limit to allowed range
     angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
+    log("actuator.servo", "set_servo_angle target={}".format(angle))
     _target_angle = angle
     _moving = True
     _last_update = ticks_ms()
@@ -70,6 +74,7 @@ def _update_servo_smooth():
     
     if _pwm is None or not _moving:
         return
+    log("actuator.servo", "_update_servo_smooth angle={} target={} moving={}".format(_angle, _target_angle, _moving))
     
     now = ticks_ms()
     elapsed = ticks_diff(now, _last_update)
