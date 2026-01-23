@@ -43,9 +43,10 @@ def _set_angle_immediate(angle):
     
     _angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
     try:
-        _pwm.duty(_angle_to_duty(_angle))
+        duty_val = _angle_to_duty(_angle)
+        _pwm.duty(duty_val)
+        log("actuator.servo", "_set_angle_immediate duty({})={}".format(_angle, duty_val))
         state.actuator_state["servo"]["angle"] = _angle
-        log("actuator.servo", "_set_angle_immediate -> {}".format(_angle))
     except Exception as e:
         log("actuator.servo", "Set angle error: {}".format(e))
 
@@ -112,12 +113,14 @@ def _update_servo_smooth():
 
 def init_servo():
     global _pwm, _angle, _target_angle, _initialized
+    log("actuator.servo", "init_servo() called")
     try:
         servo_pin = config.SERVO_PIN
         log("actuator.servo", "init_servo: SERVO_PIN={}".format(servo_pin))
         pin = Pin(servo_pin, Pin.OUT)
+        log("actuator.servo", "init_servo: Pin object created")
         _pwm = PWM(pin, freq=_PWM_FREQ)
-        log("actuator.servo", "init_servo: PWM created freq={}Hz".format(_PWM_FREQ))
+        log("actuator.servo", "init_servo: PWM created freq={}Hz, PWM object={}".format(_PWM_FREQ, _pwm))
 
         # Start always at 0°
         _angle = 0
@@ -125,6 +128,7 @@ def init_servo():
 
         # Mark initialized before first duty set so guard does not block
         _initialized = True
+        log("actuator.servo", "init_servo: about to call _set_angle_immediate(0)")
         _set_angle_immediate(_angle)
         state.actuator_state["servo"]["moving"] = False
 
@@ -132,6 +136,8 @@ def init_servo():
         return True
     except Exception as e:
         log("actuator.servo", "Initialization failed: {}".format(e))
+        import traceback
+        log("actuator.servo", "Traceback: {}".format(traceback.format_exc()))
         _pwm = None
         _initialized = False
         return False
