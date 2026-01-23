@@ -208,8 +208,14 @@ def send_message(data):
             log("communication.espnow", "ERROR: Message too large ({} bytes, max 250)".format(len(data)))
             return False
         
-        # Debug: show outgoing payload size
-        log("espnow_a", "TX -> B len={}".format(len(data)))
+        # Debug: show outgoing payload size and msg_id
+        try:
+            msg_dict = json.loads(data.decode("utf-8"))
+            msg_id = msg_dict.get("id", "?")
+            msg_type = msg_dict.get("t", msg_dict.get("msg_type", "?"))
+            log("espnow_a", "TX -> B id={} type={} len={}".format(msg_id, msg_type, len(data)))
+        except:
+            log("espnow_a", "TX -> B len={}".format(len(data)))
 
         _esp_now.send(MAC_B, data)
         log("espnow_a", "TX OK to B")
@@ -311,6 +317,45 @@ def send_command(command_dict):
         return False
 
 
+def _validate_message(msg_bytes):
+    """Validate message structure before JSON parsing.
+    
+    Returns:
+        True if message looks valid, False otherwise
+    """
+    # Check type
+    if not isinstance(msg_bytes, (bytes, bytearray)):
+        log("espnow_a", "Invalid message type: {}".format(type(msg_bytes)))
+        return False
+    
+    # Check not empty
+    if len(msg_bytes) == 0:
+        log("espnow_a", "Empty message received")
+        return False
+    
+    # Strip null bytes first
+    msg_bytes = bytes(msg_bytes).rstrip(b'\x00')
+    
+    # Check if it starts with '{' (JSON)
+    if msg_bytes[0:1] != b'{':
+        log("espnow_a", "Message doesn't start with '{{': preview={}".format(msg_bytes[:20]))
+        return False
+    
+    # Check if it ends with '}'
+    if msg_bytes[-1:] != b'}':
+        log("espnow_a", "Message doesn't end with '}}': preview={}".format(msg_bytes[-20:]))
+        return False
+    
+    # Basic UTF-8 validation
+    try:
+        msg_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        log("espnow_a", "Message is not valid UTF-8")
+        return False
+    
+    return True
+
+
 def _parse_actuator_state(msg_bytes):
     """Parse received actuator state from Board B (JSON format) and update state.
     
@@ -326,6 +371,10 @@ def _parse_actuator_state(msg_bytes):
     {"v":1,"t":"heartbeat","ts":12345678} or {"version":1,"type":"heartbeat","timestamp":12345678}
     """
     try:
+        # Validate message structure first
+        if not _validate_message(msg_bytes):
+            return None
+        
         # Strip trailing null bytes that ESP-NOW may add
         msg_bytes = msg_bytes.rstrip(b'\x00')
         
@@ -371,7 +420,7 @@ def _parse_actuator_state(msg_bytes):
         
         log("espnow_a", "RX msg_id={} type={} fmt={}".format(msg_id, msg_type, "compact" if is_compact else "full"))
         
-        # If this is just an ACK, don't update state, just return msg_id
+        # If this is just an ACK, don't update state and DON'T send another ACK back
         if msg_type == "ack":
             reply_to = data.get("r" if is_compact else "reply_to_id")
             log("espnow_a", "ACK received for msg_id={}".format(reply_to))
@@ -382,7 +431,7 @@ def _parse_actuator_state(msg_bytes):
                 del _pending_event_acks[reply_to]
                 log("espnow_a", "Event msg_id={} confirmed, removed from pending".format(reply_to))
             
-            return msg_id  # Return to signal ACK processed
+            return -1  # Special code: ACK received, don't respond with another ACK
         
         # Check version (warning only, don't block communication)
         if remote_version != config.FIRMWARE_VERSION:
@@ -560,7 +609,7 @@ def update():
     # Drain ALL pending messages to prevent buffer overflow
     messages_processed = 0
     max_messages_per_cycle = 10
-    last_valid_msg = None
+    valid_messages = []  # Store all valid messages
     
     while messages_processed < max_messages_per_cycle:
         try:
@@ -571,7 +620,6 @@ def update():
                 break
             
             messages_processed += 1
-            last_valid_msg = msg
             
             try:
                 mac_str = ":".join("{:02X}".format(b) for b in mac)
@@ -579,19 +627,30 @@ def update():
                 mac_str = str(mac)
             log("espnow_a", "RX from {} len={} preview={}".format(mac_str, len(msg), msg[:40]))
             
+            # Validate message before storing
+            if _validate_message(msg):
+                valid_messages.append(msg)
+            else:
+                log("espnow_a", "Message validation failed, skipping")
+            
         except OSError:
             # OSError is normal when buffer is empty - silent break
             break
     
-    # Process only the LAST received message (most recent data)
-    if last_valid_msg is not None:
+    # Process the FIRST valid message (most likely to be complete)
+    if valid_messages:
         if messages_processed > 1:
-            log("espnow_a", "Drained {} messages, using latest".format(messages_processed))
+            log("espnow_a", "Drained {} messages ({} valid), using first valid".format(
+                messages_processed, len(valid_messages)))
+        
+        # Use first valid message
+        msg_to_process = valid_messages[0]
         try:
-            # Parse JSON actuator data from B (returns msg_id or None)
-            received_msg_id = _parse_actuator_state(last_valid_msg)
+            # Parse JSON actuator data from B (returns msg_id, -1 for ACK, or None for error)
+            received_msg_id = _parse_actuator_state(msg_to_process)
             
-            # Send ACK if we successfully parsed a data or event message (not duplicate, not error)
+            # Send ACK if we successfully parsed a data or event message
+            # Don't send ACK for ACKs (received_msg_id == -1)
             if received_msg_id is not None and received_msg_id > 0:
                 ack_msg = _get_sensor_data_string(msg_type="ack", reply_to_id=received_msg_id)
                 send_message(ack_msg)
