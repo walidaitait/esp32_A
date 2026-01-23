@@ -55,6 +55,9 @@ def _get_sensor_data_string(msg_type="data", msg_id=None, reply_to_id=None):
         msg_type: Type of message - 'data' (periodic), 'event' (immediate), 'ack' (confirmation)
         msg_id: Message ID (auto-generated if None)
         reply_to_id: ID of message this is replying to (for ACKs)
+    
+    Returns:
+        JSON bytes with guaranteed field order and minimal size
     """
     global _next_msg_id
     if msg_id is None:
@@ -62,38 +65,56 @@ def _get_sensor_data_string(msg_type="data", msg_id=None, reply_to_id=None):
         _next_msg_id += 1
     
     hr = state.sensor_data["heart_rate"]
-    # Compact JSON format to stay under ESP-NOW 250-byte limit
-    # Key mapping: v=version, t=type, id=msg_id, ts=timestamp, s=sensors, 
-    #              T=temp, C=co, U=ultrasonic, P=presence, H=heart_rate, 
-    #              b=bpm, o=spo2, B=buttons, A=alarm, L=level, S=source
-    data = {
-        "v": config.FIRMWARE_VERSION,
-        "t": msg_type,
-        "id": msg_id,
-        "ts": ticks_ms(),
-        "s": {
-            "T": state.sensor_data.get("temperature"),
-            "C": state.sensor_data.get("co"),
-            "U": state.sensor_data.get("ultrasonic_distance_cm"),
-            "P": state.sensor_data.get("ultrasonic_presence", False),
-            "H": {
-                "b": hr.get("bpm") if hr else None,
-                "o": hr.get("spo2") if hr else None,
-            }
-        },
-        "B": {
-            "1": state.button_state.get("b1", False),
-            "2": state.button_state.get("b2", False),
-            "3": state.button_state.get("b3", False),
-        },
-        "A": {
-            "L": state.alarm_state.get("level", "normal"),
-            "S": state.alarm_state.get("source")
-        }
-    }
+    
+    # Get sensor values
+    temp = state.sensor_data.get("temperature")
+    co = state.sensor_data.get("co")
+    dist = state.sensor_data.get("ultrasonic_distance_cm")
+    presence = state.sensor_data.get("ultrasonic_presence", False)
+    bpm = hr.get("bpm") if hr else None
+    spo2 = hr.get("spo2") if hr else None
+    b1 = state.button_state.get("b1", False)
+    b2 = state.button_state.get("b2", False)
+    b3 = state.button_state.get("b3", False)
+    alarm_level = state.alarm_state.get("level", "normal")
+    alarm_source = state.alarm_state.get("source")
+    
+    # Manual JSON construction to guarantee field order and minimal size
+    # This ensures compatibility with MicroPython ujson which doesn't preserve dict order
+    # Using list + join() for efficiency (string concatenation in loop is very slow in MicroPython)
+    
+    parts = [
+        "{\"v\":", str(config.FIRMWARE_VERSION), ",",
+        "\"t\":\"", msg_type, "\",",
+        "\"id\":", str(msg_id), ",",
+        "\"ts\":", str(ticks_ms()), ",",
+        "\"s\":{",
+        "\"T\":", ("null" if temp is None else str(temp)), ",",
+        "\"C\":", ("null" if co is None else str(co)), ",",
+        "\"U\":", ("null" if dist is None else str(dist)), ",",
+        "\"P\":", ("true" if presence else "false"), ",",
+        "\"H\":{",
+        "\"b\":", ("null" if bpm is None else str(bpm)), ",",
+        "\"o\":", ("null" if spo2 is None else str(spo2)),
+        "}},",
+        "\"B\":{",
+        "\"1\":", ("true" if b1 else "false"), ",",
+        "\"2\":", ("true" if b2 else "false"), ",",
+        "\"3\":", ("true" if b3 else "false"),
+        "},",
+        "\"A\":{",
+        "\"L\":\"", str(alarm_level), "\",",
+        "\"S\":", ("null" if alarm_source is None else "\"" + str(alarm_source) + "\""),
+        "}",
+    ]
+    
     if reply_to_id is not None:
-        data["r"] = reply_to_id
-    return json.dumps(data).encode("utf-8")
+        parts.append(",\"r\":")
+        parts.append(str(reply_to_id))
+    
+    parts.append("}")
+    json_str = "".join(parts)
+    return json_str.encode("utf-8")
 
 
 def init_espnow_comm():
@@ -314,30 +335,17 @@ def _parse_actuator_state(msg_bytes):
             log("espnow_a", "Raw bytes preview: {}".format(msg_bytes[:80]))
             return None
         
-        log("espnow_a", "RX Parse: msg_str={}".format(msg_str[:100]))
+        log("espnow_a", "RX Parse: msg_str length={} first_80={}".format(len(msg_str), msg_str[:80]))
         
         # Try to parse JSON
         try:
             data = json.loads(msg_str)
         except ValueError as e:  # json.JSONDecodeError inherits from ValueError
             log("espnow_a", "RX JSON parse error: {} - Full message length: {}".format(e, len(msg_str)))
-            log("espnow_a", "Full message: {}".format(msg_str))
+            log("espnow_a", "Full message: {}".format(msg_str[:200]))
             # Try fallback parser for old format
             _parse_actuator_state_v0_fallback(msg_str)
             return None
-        
-        # Detect format (compact uses 'v', full uses 'version')
-        is_compact = "v" in data
-        
-        # Extract message metadata
-        if is_compact:
-            msg_id = data.get("id", 0)
-            msg_type = data.get("t", "data")
-            remote_version = data.get("v")
-        else:
-            msg_id = data.get("msg_id", 0)
-            msg_type = data.get("msg_type", "data")
-            remote_version = data.get("version")
         
         # Detect format (compact uses 'v', full uses 'version')
         is_compact = "v" in data

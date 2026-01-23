@@ -66,58 +66,64 @@ def _get_actuator_status_string(msg_type="data", msg_id=None, reply_to_id=None):
     modes = state.actuator_state["led_modes"]
     
     # Sanitize LCD strings to prevent JSON corruption
-    # Remove problematic characters and ensure max 16 chars
     def sanitize_lcd_text(text, max_len=16):
         """Clean LCD text for safe JSON serialization."""
         if not text:
             return ""
-        # Convert to string if needed
         text = str(text)
-        # Limit length
         text = text[:max_len]
         # Remove potentially problematic characters for JSON
-        # Keep only printable ASCII and common symbols
         text = "".join(c for c in text if ord(c) >= 32 and ord(c) < 127 or c in '\n\t')
         return text
     
-    # Compact JSON format to stay under ESP-NOW 250-byte limit
-    # Key mapping: v=version, t=type, id=msg_id, ts=timestamp, r=reply_to_id,
-    #              L=leds, g=green, b=blue, r=red, S=servo, a=angle,
-    #              D=lcd, 1=line1, 2=line2, B=buzzer, A=audio, O=sos_active
-    data = {
-        "v": config.FIRMWARE_VERSION,
-        "t": msg_type,
-        "id": msg_id,
-        "ts": ticks_ms(),
-        "L": {
-            "g": modes.get("green", "off"),
-            "b": modes.get("blue", "off"),
-            "r": modes.get("red", "off"),
-        },
-        "S": {
-            "a": state.actuator_state["servo"].get("angle"),
-        },
-        "D": {
-            "1": sanitize_lcd_text(state.actuator_state["lcd"].get("line1", "")),
-            "2": sanitize_lcd_text(state.actuator_state["lcd"].get("line2", "")),
-        },
-        "B": "ON" if state.actuator_state["buzzer"].get("active", False) else "OFF",
-        "A": "PLAY" if state.actuator_state["audio"].get("playing", False) else "STOP",
-        "O": state.actuator_state.get("sos_mode", False),
-    }
-    if reply_to_id is not None:
-        data["r"] = reply_to_id
+    # Get actuator values
+    led_green = modes.get("green", "off")
+    led_blue = modes.get("blue", "off")
+    led_red = modes.get("red", "off")
+    servo_angle = state.actuator_state["servo"].get("angle")
+    lcd_line1 = sanitize_lcd_text(state.actuator_state["lcd"].get("line1", ""))
+    lcd_line2 = sanitize_lcd_text(state.actuator_state["lcd"].get("line2", ""))
+    buzzer_active = state.actuator_state["buzzer"].get("active", False)
+    audio_playing = state.actuator_state["audio"].get("playing", False)
+    sos_mode = state.actuator_state.get("sos_mode", False)
     
-    # Serialize to JSON and encode
+    # Manual JSON construction to guarantee field order (MicroPython ujson compatibility)
+    # Using list + join() for efficiency (string concatenation in loop is very slow in MicroPython)
+    
+    parts = [
+        "{\"v\":", str(config.FIRMWARE_VERSION), ",",
+        "\"t\":\"", msg_type, "\",",
+        "\"id\":", str(msg_id), ",",
+        "\"ts\":", str(ticks_ms()), ",",
+        "\"L\":{",
+        "\"g\":\"", led_green, "\",",
+        "\"b\":\"", led_blue, "\",",
+        "\"r\":\"", led_red, "\"",
+        "},",
+        "\"S\":{",
+        "\"a\":", ("null" if servo_angle is None else str(servo_angle)),
+        "},",
+        "\"D\":{",
+        "\"1\":\"", lcd_line1, "\",",
+        "\"2\":\"", lcd_line2, "\"",
+        "},",
+        "\"B\":\"", ("ON" if buzzer_active else "OFF"), "\",",
+        "\"A\":\"", ("PLAY" if audio_playing else "STOP"), "\",",
+        "\"O\":", ("true" if sos_mode else "false"),
+    ]
+    
+    if reply_to_id is not None:
+        parts.append(",\"r\":")
+        parts.append(str(reply_to_id))
+    
+    parts.append("}")
+    json_str = "".join(parts)
+    msg_bytes = json_str.encode("utf-8")
+    
+    # Validate JSON is correct and parseable
     try:
-        json_str = json.dumps(data)
-        msg_bytes = json_str.encode("utf-8")
-        
-        # Validate JSON is correct and parseable
-        # Try to parse it back to verify integrity
-        try:
-            json.loads(json_str)  # Verify JSON is valid
-        except Exception as e:
+        json.loads(json_str)  # Verify JSON is valid
+    except Exception as e:
             log("communication.espnow", "WARNING: Generated JSON is invalid: {}".format(e))
             log("communication.espnow", "JSON: {}".format(json_str[:100]))
         
@@ -371,6 +377,8 @@ def _parse_sensor_state(msg_bytes):
             msg_type = data.get("msg_type", "data")
             remote_version = data.get("version")
         
+        log("espnow_b", "RX OK: msg_id={} type={} fmt={}".format(msg_id, msg_type, "compact" if is_compact else "full"))
+        
         # Track received message ID to prevent duplicates
         global _last_received_msg_id
         if msg_id <= _last_received_msg_id and msg_type != "ack":
@@ -378,8 +386,6 @@ def _parse_sensor_state(msg_bytes):
             return None  # Return msg_id None to signal duplicate
         if msg_type != "ack":
             _last_received_msg_id = msg_id
-        
-        log("espnow_b", "RX msg_id={} type={} fmt={}".format(msg_id, msg_type, "compact" if is_compact else "full"))
         
         # If this is just an ACK, don't update state, just return msg_id
         if msg_type == "ack":
