@@ -37,15 +37,15 @@ from communication import nodered_client
 from communication import udp_commands
 from config import config
 
-# === DISABLE UNNECESSARY LOGS FOR TESTING ===
-set_all_logs(False)
-# Main module debug
+# === ENABLE TARGETED DEBUG LOGS (reduced noise) ===
+set_all_logs(False)  # disable global spam
+# Keep only what we need for TX/RX + MQTT/UDP + WiFi bring-up
 set_log_enabled("main", True)
-# Communication debug for ESP-NOW/UDP
-#set_log_enabled("espnow_a", True)
-#set_log_enabled("communication.espnow", True)
-# Node-RED debug
+set_log_enabled("espnow_a", True)
+set_log_enabled("communication.espnow", True)
+set_log_enabled("communication.udp_cmd", True)
 set_log_enabled("nodered", True)
+set_log_enabled("wifi", True)
 
 # === SIMULATION MODE (loaded from config) ===
 SIMULATE_SENSORS = config.SIMULATE_SENSORS

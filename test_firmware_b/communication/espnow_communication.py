@@ -242,20 +242,18 @@ def send_message(data):
         if isinstance(data, str):
             data = data.encode("utf-8")
         
-        # Debug: show outgoing payload size and preview
-        preview = data[:40]
-        
-        # Extract msg_id from JSON for better debugging
+        # Log after successful send with full context
+        msg_id = "?"
+        msg_type = "?"
         try:
             msg_dict = json.loads(data.decode("utf-8"))
             msg_id = msg_dict.get("id", "?")
             msg_type = msg_dict.get("t", msg_dict.get("msg_type", "?"))
-            log("espnow_b", "TX -> A id={} type={} len={}".format(msg_id, msg_type, len(data)))
-        except:
-            log("espnow_b", "TX -> A len={} preview={}".format(len(data), preview))
+        except Exception:
+            pass  # Best-effort parsing only for logging
         
         _esp_now.send(MAC_A, data)
-        log("espnow_b", "TX OK to A")
+        log("espnow_b", "TX OK -> A id={} type={} len={}".format(msg_id, msg_type, len(data)))
         return True
     except Exception as e:
         log("communication.espnow", "Send error: {}".format(e))

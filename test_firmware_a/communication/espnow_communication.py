@@ -276,17 +276,18 @@ def send_message(data):
             log("communication.espnow", "ERROR: Message too large ({} bytes, max 250)".format(len(data)))
             return False
         
-        # Debug: show outgoing payload size and msg_id
+        # Log after successful send with full context
+        msg_id = "?"
+        msg_type = "?"
         try:
             msg_dict = json.loads(data.decode("utf-8"))
             msg_id = msg_dict.get("id", "?")
             msg_type = msg_dict.get("t", msg_dict.get("msg_type", "?"))
-            log("espnow_a", "TX -> B id={} type={} len={}".format(msg_id, msg_type, len(data)))
-        except:
-            log("espnow_a", "TX -> B len={}".format(len(data)))
+        except Exception:
+            pass  # Best-effort parsing only for logging
 
         _esp_now.send(MAC_B, data)
-        log("espnow_a", "TX OK to B")
+        log("espnow_a", "TX OK -> B id={} type={} len={}".format(msg_id, msg_type, len(data)))
         
         # Update stats
         global _stats_tx_total
