@@ -117,7 +117,7 @@ def _ensure_dirs(filepath):
 # ================== OTA CORE ==================
 
 def _download_file(filename):
-    url = BASE_URL + filename
+    url = BASE_URL + filename + "?t=" + str(int(time()))
     log("ota", "Downloading " + filename)
 
     try:
@@ -155,7 +155,7 @@ def _download_file(filename):
 def _get_file_list():
     try:
         gc.collect()  # free heap before TLS handshake
-        r = urequests.get(BASE_URL + "filelist.json")
+        r = urequests.get(BASE_URL + "filelist.json" + "?t=" + str(int(time())))
         files = r.json()  # MUST be a list
         r.close()
 
@@ -205,7 +205,7 @@ def _check_remote_version(local_version):
     import json
     try:
         gc.collect()
-        url = BASE_URL + "config/config.json"
+        url = BASE_URL + "config/config.json" + "?t=" + str(int(time()))
         log("ota", "  - Downloading config from: " + url)
         
         r = urequests.get(url)
