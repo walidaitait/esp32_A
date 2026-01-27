@@ -189,7 +189,8 @@ def _build_state_payload():
             "co_ppm": <integer | null>,
             "heart_rate_bpm": <integer | null>,
             "spo2_percent": <integer | null>,
-            "ultrasonic_distance_cm": <number | null>
+            "ultrasonic_distance_cm": <number | null>,
+            "ultrasonic_presence": <boolean>
         },
         "alarm": {
             "level": "normal" | "warning" | "danger",
@@ -215,6 +216,7 @@ def _build_state_payload():
             "heart_rate_bpm": heart_rate_bpm,
             "spo2_percent": spo2_percent,
             "ultrasonic_distance_cm": state.sensor_data.get("ultrasonic_distance_cm"),
+            "ultrasonic_presence": state.sensor_data.get("ultrasonic_presence", False),
         },
         "alarm": {
             "level": state.alarm_state.get("level", "normal"),
