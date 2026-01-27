@@ -33,7 +33,7 @@ Thresholds (configurable in config.json):
 
 Ultrasonic presence is tracked but does NOT trigger alarms.
 It sets presence_detected flag used by Board B for gate automation.
-\"\"\"
+"""
 from time import ticks_ms, ticks_diff  # type: ignore
 
 from config import config

@@ -38,8 +38,6 @@ from config import config
 
 # === DISABLE UNNECESSARY LOGS FOR TESTING ===
 set_all_logs(False)
-set_log_enabled("actuator.servo", True)
-set_log_enabled("actuator.servo.gate", True)
 set_log_enabled("main", True)
 
 # === SIMULATION MODE (loaded from config) ===
