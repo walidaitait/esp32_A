@@ -73,8 +73,8 @@ def init_audio():
         _uart = UART(
             dfplayer_uart_id,
             baudrate=9600,
-            tx=Pin(dfplayer_tx_pin),
-            rx=Pin(dfplayer_rx_pin),
+            tx=dfplayer_tx_pin,
+            rx=dfplayer_rx_pin,
         )
         _set_volume(dfplayer_default_volume)
         log(

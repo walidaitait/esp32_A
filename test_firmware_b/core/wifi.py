@@ -31,6 +31,13 @@ def init_wifi():
     
     _wlan = network.WLAN(network.STA_IF)
     
+    # Ensure WiFi is in a clean state
+    try:
+        _wlan.disconnect()
+        sleep(0.1)
+    except:
+        pass
+    
     if _wlan.isconnected():
         log("core.wifi", "Already connected: {}".format(_wlan.ifconfig()[0]))
         _initialized = True
@@ -38,6 +45,7 @@ def init_wifi():
     
     log("core.wifi", "Connecting to {}...".format(WIFI_SSID))
     _wlan.active(True)
+    sleep(0.5)  # Small delay to ensure WiFi hardware is ready
     _wlan.connect(WIFI_SSID, WIFI_PASSWORD)
     
     # Blocking wait during init only

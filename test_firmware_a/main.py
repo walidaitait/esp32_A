@@ -46,6 +46,7 @@ set_log_enabled("communication.espnow", True)
 set_log_enabled("communication.udp_cmd", True)
 set_log_enabled("nodered", True)
 set_log_enabled("wifi", True)
+set_log_enabled("core.sensor", True)
 
 # === SIMULATION MODE (loaded from config) ===
 SIMULATE_SENSORS = config.SIMULATE_SENSORS

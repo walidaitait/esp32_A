@@ -1,5 +1,5 @@
 {
-  "firmware_version": 4.61,
+  "firmware_version": 4.62,
   "ota_update_pending": false,
   "simulate_actuators": false,
   "button_enabled": true,
@@ -9,7 +9,7 @@
     "servo": {"enabled": true},
     "lcd": {"enabled": true},
     "buzzer": {"enabled": true},
-    "audio": {"enabled": true}
+    "audio": {"enabled": false}
   },
   
   "leds": {

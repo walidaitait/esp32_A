@@ -198,20 +198,9 @@ def init_espnow_comm():
         _wifi = network.WLAN(network.STA_IF)
         _wifi.active(True)
         
-        # FIX: Set fixed WiFi channel to avoid interference and channel hopping
-        # Channel 1 is usually less congested (avoid 6 and 11 used by many routers)
-        try:
-            _wifi.config(channel=1)
-            log("espnow_a", "WiFi channel fixed to 1")
-        except:
-            log("espnow_a", "Could not set WiFi channel (not critical)")
-        
-        # FIX: Increase TX power to maximum for better reliability
-        try:
-            _wifi.config(txpower=20)  # 20 dBm = max power (78-80 in some versions)
-            log("espnow_a", "TX power set to maximum")
-        except:
-            pass  # Some ESP32 versions don't support this
+        # Note: Do NOT set WiFi channel after WiFi STA is connected
+        # ESP-NOW will use the channel of the connected network
+        # Attempting to set channel while STA is active causes "WiFi Internal State Error"
         
         # Initialize ESP-NOW
         _esp_now = espnow.ESPNow()
