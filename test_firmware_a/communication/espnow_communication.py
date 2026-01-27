@@ -70,6 +70,13 @@ _state_log_interval = None  # Disabled snapshots
 _message_count = 0
 _version_mismatch_logged = False  # Prevent log spam
 
+# Communication quality tracking
+_stats_tx_total = 0      # Total messages sent
+_stats_rx_total = 0      # Total valid messages received
+_stats_rx_corrupted = 0  # Messages failed validation or JSON parse
+_stats_last_log = 0      # Last time stats were logged
+STATS_LOG_INTERVAL = 60000  # Log stats every 60 seconds
+
 # Message ID tracking (prevent loops)
 _next_msg_id = 1
 _last_received_msg_id = 0
@@ -158,6 +165,10 @@ def _get_sensor_data_string(msg_type="data", msg_id=None, reply_to_id=None):
     json_str = "".join(parts)
     msg_bytes = json_str.encode("utf-8")
     
+    # Check ESP-NOW size limit (250 bytes max)
+    if len(msg_bytes) > 250:
+        log("communication.espnow", "WARNING: Message too large ({} bytes, max 250). May be truncated!".format(len(msg_bytes)))
+    
     # Verify JSON is valid before sending
     try:
         json.loads(json_str)
@@ -186,6 +197,21 @@ def init_espnow_comm():
         # Get WiFi interface in station mode for ESP-NOW
         _wifi = network.WLAN(network.STA_IF)
         _wifi.active(True)
+        
+        # FIX: Set fixed WiFi channel to avoid interference and channel hopping
+        # Channel 1 is usually less congested (avoid 6 and 11 used by many routers)
+        try:
+            _wifi.config(channel=1)
+            log("espnow_a", "WiFi channel fixed to 1")
+        except:
+            log("espnow_a", "Could not set WiFi channel (not critical)")
+        
+        # FIX: Increase TX power to maximum for better reliability
+        try:
+            _wifi.config(txpower=20)  # 20 dBm = max power (78-80 in some versions)
+            log("espnow_a", "TX power set to maximum")
+        except:
+            pass  # Some ESP32 versions don't support this
         
         # Initialize ESP-NOW
         _esp_now = espnow.ESPNow()
@@ -261,6 +287,11 @@ def send_message(data):
 
         _esp_now.send(MAC_B, data)
         log("espnow_a", "TX OK to B")
+        
+        # Update stats
+        global _stats_tx_total
+        _stats_tx_total += 1
+        
         return True
     except Exception as e:
         log("communication.espnow", "Send error: {}".format(e))
@@ -434,7 +465,13 @@ def _parse_actuator_state(msg_bytes):
         try:
             data = json.loads(msg_str)
         except ValueError as e:  # json.JSONDecodeError inherits from ValueError
-            log("espnow_a", "RX JSON parse error: " + str(e))
+            log("espnow_a", "RX JSON parse error: {} | JSON preview: {}".format(str(e), msg_str[:100]))
+            # Check if JSON is truncated (missing closing brace)
+            if not msg_str.rstrip().endswith('}'):
+                log("espnow_a", "JSON appears truncated (no closing brace), len={}".format(len(msg_str)))
+            # Update stats: JSON parse failed
+            global _stats_rx_corrupted
+            _stats_rx_corrupted += 1
             # Try fallback parser for old format
             _parse_actuator_state_v0_fallback(msg_str)
             return None
@@ -692,8 +729,14 @@ def update():
             # Validate message before storing
             if _validate_message(msg):
                 valid_messages.append(msg)
+                # Update stats: valid message received
+                global _stats_rx_total
+                _stats_rx_total += 1
             else:
                 log("espnow_a", "Message validation failed, skipping")
+                # Update stats: corrupted message
+                global _stats_rx_corrupted
+                _stats_rx_corrupted += 1
             
         except OSError:
             # OSError is normal when buffer is empty - silent break
@@ -753,6 +796,17 @@ def update():
     
     # Note: A does NOT go into standby if B disconnects.
     # Sensor reading and alarm logic continue normally.
+    
+    # Log communication quality stats periodically
+    global _stats_last_log, _stats_tx_total, _stats_rx_total, _stats_rx_corrupted
+    if elapsed("espnow_stats_log", STATS_LOG_INTERVAL):
+        total_rx = _stats_rx_total + _stats_rx_corrupted
+        if total_rx > 0:
+            success_rate = (_stats_rx_total / total_rx) * 100
+            log("espnow_a", "Stats: TX={} RX={} Corrupted={} Success={:.1f}%".format(
+                _stats_tx_total, _stats_rx_total, _stats_rx_corrupted, success_rate))
+        else:
+            log("espnow_a", "Stats: TX={} RX=0 (no messages received)".format(_stats_tx_total))
     
     # Snapshot logging disabled
     if _state_log_interval and elapsed("espnow_state_log", _state_log_interval):

@@ -137,6 +137,10 @@ def _get_actuator_status_string(msg_type="data", msg_id=None, reply_to_id=None):
     json_str = "".join(parts)
     msg_bytes = json_str.encode("utf-8")
     
+    # Check ESP-NOW size limit (250 bytes max)
+    if len(msg_bytes) > 250:
+        log("communication.espnow", "WARNING: Message too large ({} bytes, max 250). May be truncated!".format(len(msg_bytes)))
+    
     # Validate JSON is correct and parseable
     try:
         json.loads(json_str)  # Verify JSON is valid
@@ -147,7 +151,7 @@ def _get_actuator_status_string(msg_type="data", msg_id=None, reply_to_id=None):
     except Exception as e:
         log("communication.espnow", "ERROR serializing to JSON: {}".format(e))
         # Fallback: send minimal valid JSON
-        fallback = json.dumps({"v": 1, "t": msg_type, "id": msg_id, "ts": ticks_ms()}).encode("utf-8")
+        fallback = json.dumps({"v": config.FIRMWARE_VERSION, "t": msg_type, "id": msg_id, "ts": ticks_ms()}).encode("utf-8")
         log("communication.espnow", "Using fallback message")
         return fallback
     
@@ -172,6 +176,21 @@ def init_espnow_comm():
         # Get WiFi interface in station mode for ESP-NOW
         _wifi = network.WLAN(network.STA_IF)
         _wifi.active(True)
+        
+        # FIX: Set fixed WiFi channel to avoid interference and channel hopping
+        # MUST match Board A's channel (1)
+        try:
+            _wifi.config(channel=1)
+            log("communication.espnow", "WiFi channel fixed to 1")
+        except:
+            log("communication.espnow", "Could not set WiFi channel (not critical)")
+        
+        # FIX: Increase TX power to maximum for better reliability
+        try:
+            _wifi.config(txpower=20)  # 20 dBm = max power
+            log("communication.espnow", "TX power set to maximum")
+        except:
+            pass  # Some ESP32 versions don't support this
         
         # Initialize ESP-NOW
         _esp_now = espnow.ESPNow()

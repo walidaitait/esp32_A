@@ -42,8 +42,8 @@ set_all_logs(False)
 # Main module debug
 set_log_enabled("main", True)
 # Communication debug for ESP-NOW/UDP
-set_log_enabled("espnow_a", True)
-set_log_enabled("communication.espnow", True)
+#set_log_enabled("espnow_a", True)
+#set_log_enabled("communication.espnow", True)
 # Node-RED debug
 set_log_enabled("nodered", True)
 
