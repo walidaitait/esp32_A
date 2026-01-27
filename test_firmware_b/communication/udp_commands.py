@@ -32,6 +32,8 @@ from communication import command_handler
 UDP_COMMAND_PORT = 37022  # Port to listen for commands
 _socket = None
 _initialized = False
+_messages_received = 0  # Track total messages received
+_update_cycles = 0      # Track update() calls for diagnostics
 
 
 def init():
@@ -46,6 +48,7 @@ def init():
         
         _initialized = True
         log("communication.udp_cmd", "UDP command listener started on port {}".format(UDP_COMMAND_PORT))
+        log("communication.udp_cmd", "Ready to receive commands from UDP clients")
         return True
     
     except Exception as e:
@@ -62,12 +65,18 @@ def update():
     if not _initialized or not _socket:
         return
     
+    global _update_cycles, _messages_received
+    _update_cycles += 1
+    
     try:
         # Try to receive data (non-blocking)
         data, addr = _socket.recvfrom(1024)
         
         if not data:
             return
+        
+        # Successfully received data
+        _messages_received += 1
         
         # Decode and parse JSON
         try:
@@ -82,7 +91,7 @@ def update():
             # Check if this command is for us (target B)
             target = cmd_data.get("target", "").upper()
             if target != "B":
-                # Not for us, ignore
+                # Not for us, ignore silently
                 return
             
             command = cmd_data.get("command", "")
@@ -92,7 +101,7 @@ def update():
                 log("communication.udp_cmd", "No command in message")
                 return
             
-            log("communication.udp_cmd", "Received: {} {}".format(command, args))
+            log("communication.udp_cmd", "RX: {} {} from {}".format(command, args, addr[0]))
             
             # Handle command
             response = command_handler.handle_command(command, args)
@@ -113,8 +122,9 @@ def update():
     
     except OSError as e:
         # No data available (EAGAIN/EWOULDBLOCK) - this is normal for non-blocking
-        if e.args[0] not in (11, 10035):  # EAGAIN (Unix) or WSAEWOULDBLOCK (Windows)
-            log("communication.udp_cmd", "Socket error: {}".format(e))
+        # Codes: 11 (Unix EAGAIN), 10035 (Windows WSAEWOULDBLOCK), 107 (Unix ENOTCONN)
+        if e.args[0] not in (11, 10035, 107):
+            log("communication.udp_cmd", "Socket error {}: {}".format(e.args[0] if e.args else "?", e))
 
 
 def _send_response(addr, response):
@@ -136,3 +146,17 @@ def _send_response(addr, response):
 def is_initialized():
     """Check if UDP command listener is initialized."""
     return _initialized
+
+
+def get_stats():
+    """Get UDP communication statistics for diagnostics.
+    
+    Returns:
+        dict with communication stats
+    """
+    return {
+        "initialized": _initialized,
+        "messages_received": _messages_received,
+        "update_cycles": _update_cycles,
+        "port": UDP_COMMAND_PORT
+    }
