@@ -1,3 +1,20 @@
+"""Simple circular buffer implementation for sensor data.
+
+Imported by: sensors.libs.max30102
+Imports: ucollections.deque (MicroPython)
+
+Provides a fixed-size circular buffer using MicroPython's deque.
+Used by MAX30102 library for efficient FIFO-like data storage.
+
+Features:
+- Fixed maximum size
+- Automatic overflow handling (oldest data dropped)
+- O(1) append and pop operations
+- Memory-efficient for embedded systems
+
+This is a utility class for the MAX30102 sensor library.
+"""
+
 from ucollections import deque  # type: ignore
 
 

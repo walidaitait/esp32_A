@@ -1,7 +1,26 @@
-"""Ultrasonic distance sensor module (HC-SR04).
+"""HC-SR04 ultrasonic distance sensor driver module.
 
-Measures distance using simple blocking reads with light smoothing.
+Imported by: core.sensor_loop
+Imports: machine.Pin, machine.time_pulse_us, time, core.state, debug.debug, config.config
+
+Measures distance using ultrasonic echo timing with light smoothing.
+
+Key features:
+- Trigger-echo protocol: Send 10µs pulse, measure echo duration
+- Distance calculation: distance = (echo_time * speed_of_sound) / 2
+- Smoothing: Exponential moving average (70% old, 30% new) to reduce jitter
+- Range: 2cm to 400cm (HC-SR04 specifications)
+- Read interval: 100ms (non-blocking via timer check)
+- Timeout: 30ms max wait for echo (prevents infinite hang)
+
+Note: time_pulse_us() is a MicroPython built-in that briefly blocks
+(max 30ms) but is unavoidable for this sensor. The function returns
+immediately if the interval hasn't elapsed yet.
+
+The presence detection logic (presence < 50cm) is handled by
+logic.alarm_logic module, not here.
 """
+
 from machine import Pin, time_pulse_us  # type: ignore
 from time import ticks_ms, ticks_diff, sleep_us  # type: ignore
 

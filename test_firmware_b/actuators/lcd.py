@@ -1,3 +1,20 @@
+"""LCD 1602A display driver with I2C backpack for ESP32-B.
+
+Imported by: core.actuator_loop
+Imports: machine (Pin, I2C), time, core.state, core.timers, debug.debug
+
+Controls 16x2 character LCD display via I2C PCF8574 backpack.
+Displays system status, alarm levels, and sensor readings.
+
+Default idle text:
+- Line 1: "System Ready"
+- Line 2: "Standby..."
+
+In alarm states, displays relevant sensor data and alarm level.
+
+Hardware: LCD 1602A + I2C backpack @ address 0x27, SDA=GPIO21, SCL=GPIO22
+Protocol: I2C 4-bit mode with EN/RS control via PCF8574 expander
+"""
 from machine import Pin, I2C  # type: ignore
 from time import sleep_ms, sleep_us, ticks_ms, ticks_diff  # type: ignore
 from core import state, timers
@@ -14,6 +31,7 @@ _displaying_custom = False  # Track if custom content is being displayed
 _clear_pending = False  # Track if clear command is waiting for hardware
 _clear_start = 0  # Timestamp when clear was issued
 
+_backlight_enabled = True  # Backlight state
 _backlight = 0x08  # BK=1
 _EN = 0x04
 _RS = 0x01
@@ -22,7 +40,8 @@ _RS = 0x01
 def _i2c_write(byte):
     if _i2c is None:
         return
-    _i2c.writeto(_addr, bytes([byte | _backlight]))
+    backlight_bit = _backlight if _backlight_enabled else 0x00
+    _i2c.writeto(_addr, bytes([byte | backlight_bit]))
 
 
 def _pulse(byte):
@@ -71,6 +90,21 @@ def _init_lcd_hw():
 def _set_cursor(line, col):
     addr = 0x80 + (0x40 * line) + col
     _cmd(addr)
+
+
+def set_backlight(enabled):
+    """Turn LCD backlight on or off.
+    
+    Args:
+        enabled: True to turn on, False to turn off
+    """
+    global _backlight_enabled
+    if not _initialized:
+        return
+    _backlight_enabled = enabled
+    # Send a dummy write to update backlight immediately
+    _i2c_write(0x00)
+    log("actuator.lcd", "Backlight {}".format("ON" if enabled else "OFF"))
 
 
 def clear():

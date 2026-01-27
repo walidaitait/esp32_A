@@ -1,7 +1,10 @@
-"""Command handler for ESP32-A (Sensors).
+"""Transport-agnostic command handler for ESP32-A (Sensor Board).
 
-Interprets and executes commands from any source (UDP, MQTT, HTTP, etc.).
-Commands are transport-agnostic - this module only cares about command logic.
+Imported by: communication.udp_commands, communication.nodered_client
+Imports: debug.debug, core.state, core.timers
+
+Interprets and executes commands from any source (UDP, MQTT, Node-RED, HTTP).
+Commands are transport-agnostic - this module only handles command logic.
 
 Supported commands:
 - simulate <sensor> <value>: Force simulated sensor value
@@ -10,6 +13,12 @@ Supported commands:
 - alarm <action>: Alarm control (trigger/clear/test)
 - state: Get current sensor state
 - status: Get system status
+- log <channel> on/off: Control logging dynamically
+- mode real/sim: Switch simulation mode
+- update: Trigger OTA update
+- reboot: Restart ESP32
+
+All commands return: {\"success\": bool, \"message\": str, ...extra_data}
 """
 
 from debug.debug import log, set_log_enabled, set_all_logs, get_log_flags

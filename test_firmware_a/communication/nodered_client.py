@@ -1,12 +1,17 @@
-"""Node-RED / Adafruit MQTT bridge for Board A.
+"""MQTT bridge to Node-RED and mobile app via Adafruit IO.
 
-Board A acts as the sole northbound bridge: it publishes local/B state to
-Node-RED (via the configured MQTT broker, e.g., Adafruit IO) and receives
-commands that may target A or be forwarded to B.
+Imported by: main.py
+Imports: umqtt.simple, ujson, time, core.timers, core.wifi, core.state, 
+         debug.debug, config.config, config.wifi_config
 
-Non-blocking design: all work happens in update() using elapsed() timers.
-If disabled or MQTT is unavailable, the module stays inert without
-impacting the rest of the firmware.
+Board A acts as the sole northbound gateway:
+- Publishes sensor data + alarm state to Node-RED
+- Publishes Board B actuator state (forwarded from ESP-NOW)
+- Receives commands from Node-RED/mobile app
+- Forwards commands to Board B via ESP-NOW when target="B"
+
+Non-blocking design: All operations in update() using elapsed() timers.
+If disabled or MQTT unavailable, module stays inert without impacting firmware.
 """
 
 from time import ticks_ms, ticks_diff  # type: ignore

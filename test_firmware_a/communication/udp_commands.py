@@ -1,9 +1,18 @@
-"""UDP command listener for ESP32-A.
+"""UDP command listener for development and testing.
 
-Listens for incoming UDP commands and passes them to command_handler.
-Uses non-blocking sockets to integrate with main loop.
+Imported by: main.py
+Imports: socket (MicroPython), ujson, debug.debug, communication.command_handler
 
-Protocol: JSON messages
+Listens for incoming UDP commands on port 37022 and passes them to command_handler.
+Uses non-blocking socket to integrate seamlessly with main loop.
+
+Primary use cases:
+- Development testing (send_command.py tool)
+- Quick sensor value override for demos
+- System control without MQTT/Node-RED
+- Emergency commands if MQTT is down
+
+Protocol: JSON messages on UDP port 37022
 {
     "target": "A",
     "command": "simulate",

@@ -1,11 +1,25 @@
 """Emergency SOS system for ESP32-B.
 
-Monitors button press patterns to detect emergency situations:
-- Hold button for 5 seconds → activate SOS call
-- Press button 5 times within 2 seconds → activate SOS call
+Imported by: core.actuator_loop
+Imports: time, core.state, debug.debug
 
-Once in SOS state, display emergency message and lock actuators.
-Exit SOS state by pressing button again (single click).
+Monitors button press patterns to detect emergency situations:
+1. Hold button for 5 seconds → activate SOS call
+2. Press button 5 times within 2 seconds → activate SOS call
+
+SOS state effects:
+- Display emergency message on LCD
+- Lock servo in closed position (security override)
+- Red LED flashing rapidly
+- Buzzer plays danger alarm
+
+Exit SOS state: Single press button (press + release)
+
+Special feature: First button click during alarm temporarily mutes buzzer
+without deactivating alarm (allows user to silence false alarms briefly).
+
+SOS call simulation: Logs "SOS CALL ACTIVATED" - in production this would
+trigger actual emergency call via GSM module or MQTT notification.
 """
 from time import ticks_ms, ticks_diff  # type: ignore
 from core import state

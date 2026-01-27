@@ -1,9 +1,39 @@
-"""Alarm logic module: evaluates sensor thresholds and manages multi-level alarms.
+"""Multi-level alarm logic evaluation module.
 
-Each sensor can have states: normal, warning, danger (based on configured thresholds and timings).
-Computes an overall alarm level based on all sensor states.
-Sends commands to ESP32-B to update actuators when alarm level changes.
-"""
+Imported by: core.sensor_loop
+Imports: time (MicroPython), config.config, core.state, core.timers, debug.debug
+
+Evaluates sensor readings against thresholds and manages three-level alarms:
+- normal: All values within safe ranges
+- warning: Value exceeded threshold for warning_time duration
+- danger: Value exceeded threshold for danger_time duration
+
+Key features:
+- Per-sensor alarm levels (CO, temperature, heart rate tracked separately)
+- Time-based windows prevent false alarms from transient spikes
+- Recovery delays prevent alarm flapping
+- Overall system alarm computed from worst individual sensor state
+- Presence detection for gate automation (not alarm-based)
+- Event notifications sent to Board B on critical state changes
+
+Architecture:
+1. evaluate_logic() called periodically (200ms default) from sensor_loop
+2. Each sensor checked against instant thresholds (CO PPM, temp range, HR range, SpO2)
+3. _update_alarm_level() tracks how long threshold exceeded
+4. After warning_time: sensor enters "warning" state
+5. After danger_time: sensor enters "danger" state
+6. Recovery timer required before returning to "normal"
+7. _update_overall_alarm() aggregates worst state (danger > warning > normal)
+8. Urgent publish requested to Node-RED when entering warning/danger
+
+Thresholds (configurable in config.json):
+- CO: 50 PPM critical (warning 5s, danger 30s, recovery 10s)
+- Temperature: <10\u00b0C or >35\u00b0C critical (warning 10s, danger 60s, recovery 15s)
+- Heart rate: <50 or >120 BPM, or SpO2 <90% (warning 10s, danger 60s, recovery 15s)
+
+Ultrasonic presence is tracked but does NOT trigger alarms.
+It sets presence_detected flag used by Board B for gate automation.
+\"\"\"
 from time import ticks_ms, ticks_diff  # type: ignore
 
 from config import config

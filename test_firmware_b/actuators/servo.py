@@ -1,3 +1,27 @@
+"""SG90 9g Servo motor driver for ESP32-B automatic gate control.
+
+Imported by: core.actuator_loop
+Imports: machine (Pin, PWM), time, config.config, core.state, debug.debug
+
+Controls SG90 servo for automatic gate opening/closing based on:
+1. Presence detection from ultrasonic sensor (Board A)
+2. Alarm level from alarm logic (Board A)
+
+Gate automation logic (SECURITY ENHANCED):
+- presence_detected=True + alarm_level="danger" → Open gate (90°)
+- presence lost for 5s → Close gate (0°)
+- Manual control via commands overrides automation temporarily
+
+SECURITY: Gate only opens automatically in "danger" mode to prevent
+unauthorized entry (e.g., burglar triggering ultrasonic sensor).
+
+Servo control features:
+- Smooth motion: Moves at configurable speed (default 2°/50ms = ~40°/s)
+- PWM parameters: 50Hz, 0.5-2.5ms pulse width, 0-180° range
+- Non-blocking: Updates called from actuator_loop every 100ms
+
+Hardware: SG90 servo on GPIO configured in config.SERVO_PIN
+"""
 from machine import Pin, PWM  # type: ignore
 from time import ticks_ms, ticks_diff  # type: ignore
 from config import config
@@ -169,32 +193,54 @@ def update_servo_test():
 
 
 def update_gate_automation():
-    """Update gate based on presence detection from ESP32-A (called from main loop)."""
+    """Update gate based on presence detection from ESP32-A (called from main loop).
+    
+    SECURITY ENHANCEMENT: Gate only opens automatically if:
+    1. Presence is detected (distance < threshold)
+    2. System is in DANGER mode (alarm_level == "danger")
+    
+    In NORMAL or WARNING modes, presence_detected remains True but servo does not open.
+    """
     global _presence_detected, _gate_open, _presence_lost_time_ms, _target_angle
     
     if _pwm is None:
         return
     
-    # Read presence state from received sensor data
+    # Read presence state and alarm level from received sensor data
     presence = state.received_sensor_state.get("presence_detected", False)
+    alarm_level = state.received_sensor_state.get("alarm_level", "normal")
     
-    # State change: presence detected -> open gate
-    if presence and not _gate_open:
+    # SECURITY CHECK: Only allow automatic gate opening in DANGER mode
+    # In NORMAL or WARNING modes, presence flag stays True but gate does NOT open
+    allow_auto_open = (alarm_level == "danger")
+    
+    # State change: presence detected in DANGER mode -> open gate
+    if presence and allow_auto_open and not _gate_open:
         _gate_open = True
         _presence_lost_time_ms = None
         set_servo_angle(90)  # Open gate
-        log("actuator.servo.gate", "Gate: presence detected, opening...")
+        log("actuator.servo.gate", "Gate: presence detected in DANGER mode, opening...")
     
-    # Presence still active -> keep gate open
-    elif presence and _gate_open:
+    # Presence detected but NOT in danger mode -> keep gate closed (do not open)
+    elif presence and not allow_auto_open and not _gate_open:
+        # Presence is detected but system is in normal/warning mode
+        # Log this security action for monitoring
+        log("actuator.servo.gate", "Gate: presence detected but in {} mode (not opening)".format(alarm_level))
+        pass
+    
+    # Presence still active in danger mode -> keep gate open
+    elif presence and allow_auto_open and _gate_open:
         # Gate already open and presence still detected, nothing to do
         pass
     
-    # Presence lost -> start countdown to close
-    elif not presence and _gate_open:
+    # Presence lost OR not in danger mode -> start countdown to close
+    elif (not presence or not allow_auto_open) and _gate_open:
         if _presence_lost_time_ms is None:
+            if not presence:
+                log("actuator.servo.gate", "Gate: presence lost, countdown to close started")
+            else:
+                log("actuator.servo.gate", "Gate: system left DANGER mode, countdown to close started")
             _presence_lost_time_ms = ticks_ms()
-            log("actuator.servo.gate", "Gate: presence lost, countdown to close started")
         else:
             # Check if delay has elapsed
             close_delay_ms = getattr(config, "GATE_CLOSE_DELAY_MS", 10000)

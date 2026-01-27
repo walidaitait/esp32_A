@@ -1,8 +1,25 @@
-"""Accelerometer sensor module.
+"""3-axis accelerometer sensor driver module.
 
-Reads 3-axis accelerometer data via ADC. Board A currently has no
-accelerometer wired; init/read safely no-op if the hardware is absent.
+Imported by: core.sensor_loop
+Imports: machine.ADC, machine.Pin, config.config, core.state, 
+         core.timers, debug.debug
+
+Reads analog 3-axis accelerometer data and converts to g-force values.
+- Auto-detects sensor presence (checks for valid voltage ranges)
+- Reads X, Y, Z axes via ADC
+- Converts voltage to g-force: g = (V - 1.65) / 0.3
+- Updates core.state.sensor_data["acc"]["x", "y", "z"]
+
+Note: Board A currently has NO accelerometer hardware wired.
+Init will safely fail and subsequent reads are no-ops.
+This module exists for future hardware expansion or Board B compatibility.
+
+Typical accelerometer specs:
+- Supply: 3.3V
+- Output: 0.8V to 2.5V (1.65V = 0g center point)
+- Sensitivity: 300mV/g (0.3V/g)
 """
+
 from machine import ADC, Pin  # type: ignore
 from config import config
 from core import state

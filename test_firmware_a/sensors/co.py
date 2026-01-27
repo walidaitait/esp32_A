@@ -1,10 +1,30 @@
-"""Carbon monoxide sensor module (DFRobot MQ-7).
+"""Carbon monoxide (CO) sensor driver module (DFRobot MQ-7).
 
-Goal: provide stable readings even if the board stays on only a few
-seconds. We take a short startup baseline and compute ppm as delta from
-that baseline. This avoids the fixed ~100 ppm offset without requiring
-long burn-in.
+Imported by: core.sensor_loop
+Imports: machine.ADC, machine.Pin, time, config.config, core.state, 
+         core.timers, debug.debug
+
+Reads analog CO levels from MQ-7 sensor and converts to PPM (parts per million).
+
+Key features:
+- Fast baseline calibration: Takes short initial baseline (2s default) instead
+  of requiring long burn-in time
+- Adaptive baseline: Slowly tracks sensor drift over time (1% per reading)
+- Configurable sensitivity: PPM/V ratio, baseline window, guard threshold
+- Clamping: Prevents unrealistic high readings
+- Offset correction: Optional static offset for calibration
+
+Algorithm:
+1. During baseline window: Average raw readings, report 0 PPM
+2. After baseline: Calculate delta from baseline voltage
+3. Apply guard threshold to ignore noise
+4. Convert voltage delta to PPM using linear scaling
+5. Clamp to maximum realistic value
+
+This approach provides stable readings even with short boot times,
+avoiding the fixed ~100 PPM offset without requiring long warm-up.
 """
+
 from machine import ADC, Pin  # type: ignore
 from time import ticks_ms, ticks_diff  # type: ignore
 from config import config

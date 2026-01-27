@@ -1,6 +1,20 @@
-"""Actuator system controller for ESP32-B.
+"""Actuator system orchestration for ESP32-B.
 
-Manages all actuator updates in non-blocking fashion using elapsed() timers.
+Imported by: main.py
+Imports: core.timers, core.state, debug.debug, actuators.*, logic.emergency
+
+Non-blocking orchestrator for all actuator updates using elapsed() timers.
+Each subsystem updates at its own interval:
+- LEDs: 50ms (blinking state)
+- Servo: 100ms (smooth gate motion)
+- LCD: 500ms (display updates)
+- Audio: 100ms (playback status)
+- Alarm: 200ms (alarm buzzer/LEDs coordination)
+- Emergency: 50ms (SOS button detection)
+- Heartbeat: 5000ms (system status logging)
+
+Lazy imports actuator drivers to allow simulation mode (using actuators.simulation).
+ESP-NOW timeout detection: No message from Board A for 10s → alarm indicators off.
 """
 
 from core.timers import elapsed, user_override_active

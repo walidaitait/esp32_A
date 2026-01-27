@@ -1,7 +1,22 @@
-"""Actuator simulation module for testing.
+"""Actuator simulation module for ESP32-B testing without hardware.
 
-Provides simulated actuator values without requiring actual hardware.
-Used when SIMULATE_ACTUATORS is True in main.py.
+Imported by: core.actuator_loop (when SIMULATE_ACTUATORS=True)
+Imports: core.state, debug.debug
+
+Provides simulated actuator values for development/testing without physical hardware:
+- LEDs: Fixed modes (green=on, blue=blinking, red=off)
+- Servo: Fixed angle (90°)
+- LCD: Fixed text ("Simulation" / "Mode Active")
+- Buzzer: Off
+- Audio: Not playing
+
+Allows remote commands to override defaults via state dictionary.
+Used when SIMULATE_ACTUATORS flag is enabled in config.
+
+Enable simulation in config.json:
+{
+    "SIMULATE_ACTUATORS": true
+}
 """
 
 from core import state

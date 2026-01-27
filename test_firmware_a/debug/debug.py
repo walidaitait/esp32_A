@@ -1,3 +1,41 @@
+"""Hierarchical logging system with remote UDP support.
+
+Imported by: All modules (main, core.*, sensors.*, communication.*, logic.*, actuators.*)
+Imports: time (MicroPython), debug.remote_log (optional)
+
+Provides flexible per-channel logging with hierarchical enable/disable.
+
+Features:
+- Hierarchical channel names: "module.component.action"
+- Per-channel and wildcard enable/disable
+- Remote UDP logging for centralized monitoring (optional)
+- Prefix matching for granular control
+- Millisecond timestamps for performance analysis
+
+Channel naming convention:
+  sensor.<sensor_name>.<action>     e.g., "sensor.co.read"
+  actuator.<actuator_name>.<action> e.g., "actuator.servo.update"
+  communication.<board>.<protocol>  e.g., "communication.espnow"
+  alarm.<action>                    e.g., "alarm.logic"
+  core.<module>                     e.g., "core.sensor"
+
+Hierarchy examples:
+  set_log_enabled("sensor", False)      # Disables ALL sensor logs
+  set_log_enabled("sensor.co", True)    # Re-enables CO sensor only
+  set_log_enabled("*", False)           # Disables everything (wildcard)
+  set_all_logs(False)                   # Same as above
+
+Remote logging:
+  - Sends logs via UDP to centralized log_listener.py tool
+  - Requires WiFi connection
+  - Falls back gracefully if remote logging fails
+  - Device ID ('A' or 'B') prefix for multi-board monitoring
+
+Usage:
+  from debug.debug import log
+  log("sensor.co", "CO reading: {} PPM".format(value))
+"""
+
 from time import ticks_ms  # type: ignore
 
 # Remote logging (optional, for centralized monitoring)

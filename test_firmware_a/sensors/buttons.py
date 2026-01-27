@@ -1,7 +1,23 @@
-"""Button input module.
+"""Digital button input driver module.
 
-Reads button states with debouncing.
+Imported by: core.sensor_loop
+Imports: machine.Pin, time, config.config, core.state, core.timers, debug.debug
+
+Reads up to 3 digital button inputs with debouncing and per-button enable/disable.
+- Supports selective button initialization (only enabled buttons are read)
+- Pin wiring: HIGH (1) = pressed, LOW (0) = released
+- Debouncing via state change detection
+- Updates core.state.button_state["b1", "b2", "b3"]
+- 50ms stabilization delay during init
+
+Board A wiring:
+- Button 1: GPIO 16 (configurable via config.BUTTON_PINS)
+- Button 2: GPIO 17
+- Button 3: GPIO 19
+
+Pull-up resistors are enabled internally.
 """
+
 from machine import Pin  # type: ignore
 from time import sleep_ms  # type: ignore
 from config import config

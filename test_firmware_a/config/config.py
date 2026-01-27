@@ -1,7 +1,26 @@
-"""Configuration for sensor firmware on ESP32-A.
+"""Main configuration module for ESP32-A (Sensor Board).
 
-Loads configuration from config.json at startup.
-All values below are set from config.json to maintain consistency.
+Imported by: All modules requiring configuration
+Imports: json (MicroPython)
+
+Loads configuration from config.json at import time.
+All settings exposed as module-level constants.
+
+Configuration categories:
+- Firmware metadata (version, simulation mode)
+- Pin assignments (all sensors)
+- Enable/disable flags (per sensor, per button, per alarm)
+- Timing intervals (read intervals, logic interval)
+- Sensor-specific parameters (CO calibration, etc.)
+- Alarm thresholds (instant critical values, time windows)
+- Node-RED/MQTT settings
+
+Config file locations (tried in order):
+1. config/config.json (preferred)
+2. config.json (fallback)
+3. Defaults (if not found)
+
+Changes require ESP32 reboot to take effect.
 """
 
 import json

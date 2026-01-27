@@ -1,3 +1,29 @@
+"""Hierarchical logging system for ESP32-B.
+
+Imported by: All modules
+Imports: time, debug.remote_log (optional)
+
+Provides channel-based logging with hierarchical prefix matching.
+Example hierarchy:
+- actuator.*
+  - actuator.servo.*
+    - actuator.servo.gate
+    - actuator.servo.motion
+  - actuator.leds
+  - actuator.lcd
+- communication.*
+  - communication.espnow
+  - communication.udp
+- alarm.*
+- core.*
+
+Hierarchical control:
+- set_log_enabled("actuator.servo", False) → disables all servo logs
+- set_log_enabled("actuator.servo.gate", True) → re-enables only gate logs
+- set_all_logs(False) → disables all (wildcard "*")
+
+Optional remote logging: UDP forwarding to development PC via debug.remote_log.
+"""
 from time import ticks_ms  # type: ignore
 
 # Remote logging (optional, for centralized monitoring)

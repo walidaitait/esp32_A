@@ -1,3 +1,19 @@
+"""DS18B20 temperature sensor driver module.
+
+Imported by: core.sensor_loop
+Imports: onewire, ds18x20 (MicroPython), machine.Pin, time, config.config, 
+         core.state, core.timers, debug.debug
+
+Reads temperature from DS18B20 OneWire digital temperature sensor.
+- Non-blocking: Uses two-step read (trigger conversion, wait 750ms, read value)
+- Auto-detects all DS18B20 devices on the OneWire bus
+- Updates core.state.sensor_data["temperature"] with Celsius values
+- Handles conversion timing to avoid blocking the main loop
+
+Note: Conversion takes 750ms. First call triggers conversion, second call
+(after 750ms) reads the result. This prevents blocking during conversion.
+"""
+
 import onewire, ds18x20  # type: ignore
 from machine import Pin  # type: ignore
 from time import ticks_ms, ticks_diff  # type: ignore

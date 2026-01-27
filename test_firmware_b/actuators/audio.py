@@ -1,3 +1,24 @@
+"""DFPlayer Mini MP3 module driver for ESP32-B.
+
+Imported by: core.actuator_loop, communication.command_handler
+Imports: machine (Pin, UART), core.state, debug.debug
+
+Controls DFPlayer Mini for voice announcements via UART.
+Supports basic playback control: play track, stop, volume adjustment.
+
+DFPlayer protocol: 10-byte frames with checksum
+- Start: 0x7E
+- Command byte + parameters
+- Checksum: 0xFFFF - sum(bytes) + 1
+- End: 0xEF
+
+Common usage:
+- play_first(): Play track 001.mp3 from SD card
+- stop(): Stop playback
+- _set_volume(0-30): Adjust speaker volume
+
+Hardware: DFPlayer Mini on UART1, TX=GPIO4, RX=GPIO25, 4Ω 3W speaker
+"""
 from machine import Pin, UART  # type: ignore
 from core import state
 from debug.debug import log

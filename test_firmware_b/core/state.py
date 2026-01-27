@@ -1,7 +1,16 @@
-"""
-Shared state for actuator firmware (ESP32-B).
+"""Shared state module for ESP32-B actuator firmware.
 
-Contains the current state of LED modules, servo, LCD, buzzer and DFPlayer.
+Imported by: All modules
+Imports: None
+
+Centralized state dictionaries:
+1. actuator_state: Current actuator status (LEDs, servo, LCD, buzzer, audio, button)
+2. received_sensor_state: Latest sensor data from Board A (via ESP-NOW)
+3. alarm_level: Overall alarm level from Board A ("normal", "warning", "danger")
+4. packet tracking: ESP-NOW packet IDs to detect duplication/reboot
+
+All modules read and write to these shared dictionaries.
+No locking mechanism - MicroPython GIL protects against race conditions.
 """
 
 actuator_state = {

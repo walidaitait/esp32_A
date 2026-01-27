@@ -1,7 +1,17 @@
-"""Button input module for ESP32-B.
+"""Button input module for ESP32-B (emergency SOS trigger).
 
-Reads button states with debouncing.
-Same functionality as ESP32-A buttons but adapted for actuator board.
+Imported by: logic.emergency
+Imports: machine.Pin, time, config.config, core.state, core.timers, debug.debug
+
+Reads physical button with debouncing (same logic as Board A).
+Primary purpose: Emergency SOS trigger (hold 3s).
+
+Pull-up wiring: HIGH (1) = not pressed, LOW (0) = pressed
+Semantic state: True = button physically pressed
+
+Debouncing: 50ms stabilization delay during init and reading.
+
+Hardware: Tactile button on GPIO configured in config.BUTTON_PIN with internal pull-up
 """
 from machine import Pin  # type: ignore
 from time import sleep_ms  # type: ignore

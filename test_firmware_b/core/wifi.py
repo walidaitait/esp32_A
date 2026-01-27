@@ -1,6 +1,19 @@
-"""WiFi connection management module.
+"""WiFi connection management for ESP32-B.
+
+Imported by: main.py
+Imports: time, network, debug.debug, config.wifi_config
 
 Handles WiFi initialization and connection verification.
+Blocking during init phase (15s timeout), then fully connected.
+
+Used for:
+- Remote UDP logging to development PC
+- OTA updates via GitHub
+- Future MQTT integration (if needed)
+
+WiFi credentials loaded from config.wifi_config (WIFI_SSID, WIFI_PASSWORD).
+Board B doesn't require WiFi for core operation (ESP-NOW works without it),
+but WiFi enables development/monitoring features.
 """
 
 from time import time, sleep  # type: ignore

@@ -1,3 +1,22 @@
+"""Sunfounder passive buzzer driver for ESP32-B.
+
+Imported by: core.actuator_loop
+Imports: machine (Pin, PWM), time, core.state, debug.debug
+
+Controls passive buzzer with PWM to generate alarm tones.
+Two alarm patterns:
+- "warning": 2 short beeps @ 1200Hz, repeat every 2s
+- "danger": 2 long beeps @ 1800Hz, repeat every 1s
+
+Non-blocking state machine:
+Each sound is array of (duration_ms, is_tone_on, frequency_hz) phases.
+update_buzzer() advances through phases without blocking main loop.
+
+Can be muted dynamically via state.actuator_state["buzzer"]["alarm_muted"].
+Continuous tone mode available for testing via set_tone().
+
+Hardware: Sunfounder passive buzzer on GPIO15 (requires PWM for tone generation)
+"""
 from machine import Pin, PWM  # type: ignore
 from time import ticks_ms, ticks_diff  # type: ignore
 from core import state

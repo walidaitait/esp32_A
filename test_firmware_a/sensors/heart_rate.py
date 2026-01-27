@@ -1,8 +1,35 @@
-"""Heart rate sensor module (MAX30102).
+"""MAX30102 heart rate and SpO2 sensor driver module.
 
-Reads IR and RED LED reflectance data, detects finger presence,
-and calculates BPM and SpO2 values.
+Imported by: core.sensor_loop
+Imports: machine.SoftI2C, machine.Pin, time, sensors.libs.max30102, 
+         config.config, core.state, core.timers, debug.debug
+
+Reads IR and RED LED photoplethysmography (PPG) signals to calculate:
+- Heart rate (BPM): Detected from IR signal peaks (pulse detection)
+- Blood oxygen saturation (SpO2): Calculated from IR/RED ratio
+
+Key features:
+- Non-blocking incremental processing (no long delays)
+- Automatic finger detection (IR threshold with baseline calibration)
+- Peak detection for BPM calculation with noise filtering
+- AC/DC component analysis for SpO2 calculation
+- Circular buffers for signal processing (100 samples = 1 second @ 100Hz)
+- Auto-calibration of baseline and finger detection threshold
+
+Algorithm:
+1. Initialize I2C and MAX30102 sensor (100Hz sampling, high power LEDs)
+2. Collect IR/RED samples into buffers
+3. Detect finger presence (IR value > calibrated threshold)
+4. Calculate DC component (average) and AC component (variation)
+5. Detect peaks in IR signal for BPM estimation
+6. Calculate time between peaks for heart rate
+7. Calculate SpO2 from IR/RED AC/DC ratio using calibration formula
+8. Average multiple readings to smooth results
+
+The sensor samples at 100Hz internally, but we read periodically (1000ms)
+to process batches of data without blocking.
 """
+
 from machine import SoftI2C, Pin  # type: ignore
 from time import ticks_ms, ticks_diff  # type: ignore
 from sensors.libs.max30102 import MAX30102, MAX30105_PULSE_AMP_MEDIUM  # type: ignore

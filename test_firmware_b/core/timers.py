@@ -1,3 +1,22 @@
+"""Non-blocking timer system for ESP32-B.
+
+Imported by: core.actuator_loop, all actuator modules
+Imports: time (ticks_ms, ticks_diff)
+
+Provides elapsed() for non-blocking interval timing.
+Usage:
+    if elapsed("led_update", 100):
+        # Runs every 100ms
+        update_leds()
+
+User override system:
+- set_user_lock(name): Prevent elapsed() from returning True (persistent lock)
+- clear_user_lock(name): Resume normal timing
+- user_override_active(name): Check if lock is active
+
+Useful for manual control scenarios where automatic updates should pause.
+Example: User manually controls servo → lock "servo_auto" until timeout.
+"""
 from time import ticks_ms, ticks_diff  # type: ignore
 
 _timers = {}

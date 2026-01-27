@@ -1,14 +1,26 @@
-"""Main loop: sensor reading + alarm logic (independent).
+"""Main entry point for ESP32-A (Sensor Board) firmware.
 
-Reads sensors continuously and evaluates alarm logic.
-No communication with B - sensors and logic are standalone.
+This module orchestrates sensor reading, alarm evaluation, and communication.
+Imported by: None (entry point, executed directly on boot)
+Imports: core.wifi, core.sensor_loop, core.state, communication.espnow_communication,
+         communication.nodered_client, communication.udp_commands, config.config,
+         debug.debug, ota_update
 
 Architecture:
-- core.wifi: WiFi connection management
-- core.sensor_loop: Non-blocking sensor read and alarm evaluation loop
-- sensors.*: Individual sensor drivers
-- logic.alarm_logic: Alarm evaluation
-- debug.*: UDP logging
+- OTA update check runs first before any imports
+- WiFi initialization for UDP logging and MQTT
+- Sensor initialization (real hardware or simulation mode)
+- ESP-NOW communication to Board B
+- UDP command listener for remote control
+- Non-blocking main loop calls update() on all subsystems
+
+Main loop responsibilities:
+- Check system control flags (reboot, OTA)
+- Monitor Board B connection health
+- Update sensors and evaluate alarm logic
+- Handle ESP-NOW bidirectional communication
+- Process Node-RED/MQTT messages
+- Handle UDP commands from external tools
 """
 
 
@@ -27,8 +39,7 @@ from config import config
 
 # === DISABLE UNNECESSARY LOGS FOR TESTING ===
 set_all_logs(False)
-set_log_enabled("sensor.ultrasonic", True)
-set_log_enabled("alarm.logic", True)
+# Main module debug
 set_log_enabled("main", True)
 # Communication debug for ESP-NOW/UDP
 set_log_enabled("espnow_a", True)

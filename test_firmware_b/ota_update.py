@@ -1,3 +1,30 @@
+"""Over-The-Air (OTA) firmware update system for ESP32-B.
+
+Imported by: main.py
+Imports: network, urequests, machine, os, gc, config.wifi_config
+
+Downloads firmware from GitHub (walidaitait/esp32_A/main/test_firmware_b/)
+and overwrites local files to perform OTA update.
+
+Trigger mechanisms:
+1. Physical button: Hold GPIO18 (UPDATE_BUTTON_PIN) for 5 seconds during boot
+2. Command: Call check_and_update() programmatically from command_handler
+
+Update process:
+1. Connect to WiFi using credentials from wifi_config
+2. Fetch filelist.json from GitHub (contains all files + hashes)
+3. Download and overwrite files one by one, streaming in 1KB chunks
+4. Create marker file (ota_updated.txt) for verification
+5. Reboot ESP32 to run new firmware
+
+Safety features:
+- Incremental file replacement (failed downloads don't break working code)
+- Low memory: Stream files in chunks, gc.collect() between operations
+- Timeout protection on WiFi and HTTP requests
+
+Note: No rollback mechanism. If OTA fails mid-update, device may be bricked
+and require manual reflash via USB cable.
+"""
 # ota_update.py - Firmware OTA UPDATE module for ESP32-B
 import network  # type: ignore
 import urequests  # type: ignore

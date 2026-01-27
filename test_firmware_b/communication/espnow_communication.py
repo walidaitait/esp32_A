@@ -1,13 +1,30 @@
-"""ESP-NOW communication module for ESP32-B (Actuators - Server).
+"""ESP-NOW communication module for ESP32-B (Actuator Board - Server).
 
-Scheda B (Server):
-- Waits for incoming connections from Scheda A
-- Receives messages and logs them
-- Can send messages back to Scheda A once connected
+Imported by: main.py
+Imports: espnow, network, time, ujson, debug.debug, core.state, core.timers, config.config
+
+Board B acts as ESP-NOW server:
+- Waits for incoming connections from Board A (client)
+- Receives sensor data and alarm state from Board A
+- Can send acknowledgments or actuator state back to Board A
 
 MAC Addresses:
-- Scheda B (self): 5C:01:3B:4C:2C:34
-- Scheda A: 5C:01:3B:87:53:10
+- Board B (self): 5C:01:3B:4C:2C:34
+- Board A (remote): 5C:01:3B:87:53:10
+
+Message format (JSON):
+{
+    "msg_id": 123,
+    "sensor_state": {...},
+    "alarm_level": "danger"
+}
+
+Connection tracking:
+- Marks Board A as disconnected if no message received for 10s
+- Triggers alarm indicator shutdown on disconnect
+- Auto-reinitializes ESP-NOW every 5s if module fails
+
+Packet ID tracking prevents duplicate processing if Board A reboots.
 """
 
 import espnow  # type: ignore

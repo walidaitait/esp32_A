@@ -1,17 +1,26 @@
-"""Firmware - Actuators (ESP32-B)
+"""ESP32-B Actuator Firmware - Main entry point.
 
-Control module for:
-  - DFRobot LED modules (DFR0021-G/B/R)
-  - SG90 9g Servo
-  - LCD 1602A with I2C backpack
-  - Sunfounder Passive buzzer
-  - DFPlayer Mini + 4Ω 3W speaker
+Imported by: MicroPython runtime
+Imports: ota_update, debug.debug, core.*, communication.*, config.config
+
+Controls actuators based on sensor data received from ESP32-A via ESP-NOW:
+- DFRobot LED modules (DFR0021-G/B/R): Status indicators
+- SG90 9g Servo: Automatic gate control (requires alarm_level="danger")
+- LCD 1602A with I2C: Display status messages
+- Sunfounder Passive buzzer: Alarm tones
+- DFPlayer Mini + 4Ω 3W speaker: Voice announcements
 
 Architecture:
 - core.wifi: WiFi connection management
-- core.actuator_loop: Non-blocking actuator update loop
-- actuators.*: Individual actuator drivers
-- debug.*: UDP logging
+- core.actuator_loop: Non-blocking actuator update orchestration
+- core.state: Shared state between modules
+- actuators.*: Individual actuator drivers (leds, servo, lcd, buzzer, audio)
+- communication.espnow_communication: Receives sensor data from Board A
+- communication.udp_commands: Development commands
+- debug.*: UDP logging to development PC
+- logic.emergency: SOS detection via button press
+
+Main loop is non-blocking: all blocking operations must be avoided.
 """
 
 

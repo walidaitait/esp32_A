@@ -1,3 +1,30 @@
+"""MAX30102 pulse oximetry and heart rate sensor library.
+
+Imported by: sensors.heart_rate
+Imports: machine.SoftI2C, ustruct, utime, .circular_buffer
+
+Third-party library providing full access to Maxim MAX30102 sensor.
+Based on SparkFun MAX3010x library and kandizzy's MicroPython port.
+
+Features:
+- I2C communication with MAX30102/MAX30105 sensors
+- IR and RED LED control
+- FIFO data reading for high-speed sampling
+- Temperature sensing
+- Configurable sample rate, LED power, pulse width
+- Interrupt support (not used in current implementation)
+
+Original sources:
+- https://github.com/sparkfun/SparkFun_MAX3010x_Sensor_Library
+  Written by Peter Jansen and Nathan Seidle (SparkFun)
+  BSD license
+- https://github.com/kandizzy/esp32-micropython/blob/master/PPG/ppg/MAX30105.py
+  MicroPython port by kandizzy
+
+Driver aims at giving almost full access to Maxim MAX30102 functionalities.
+                                                                     n-elia
+"""
+
 # This work is a lot based on:
 # - https://github.com/sparkfun/SparkFun_MAX3010x_Sensor_Library
 #   Written by Peter Jansen and Nathan Seidle (SparkFun)

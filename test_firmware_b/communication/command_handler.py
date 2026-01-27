@@ -1,17 +1,23 @@
-"""Command handler for ESP32-B (Actuators).
+"""Transport-agnostic command handler for ESP32-B (Actuator Board).
 
-Interprets and executes commands from any source (UDP, MQTT, HTTP, etc.).
-Commands are transport-agnostic - this module only cares about command logic.
+Imported by: communication.udp_commands
+Imports: debug.debug, core.state, core.timers
+
+Interprets and executes commands from any source (UDP, MQTT, HTTP).
+Commands are transport-agnostic - this module only handles command logic.
 
 Supported commands:
-- led <color> <state>: Control LED (green/blue/red, on/off/blinking)
-- servo <angle>: Move servo to angle (0-180)
-- lcd <line> <text>: Set LCD text (line1/line2)
-- buzzer <state>: Control buzzer (on/off)
-- audio <action> [track]: Audio control (play/pause/stop/volume/track)
+- led <color> <on|off|blinking>: Control LED (green/blue/red)
+- servo <angle>: Move servo to angle (0-180°)
+- lcd <line1|line2> <text>: Set LCD text
+- buzzer <on|off>: Control buzzer
+- audio <play|pause|stop|volume|track> [param]: Audio control
 - state: Get current actuator state
 - status: Get system status
-- log <channel|all|status> <on|off>: Control logging channels
+- log <channel|all|status> <on|off>: Control logging dynamically
+- reboot: Restart ESP32
+
+All commands return: {"success": bool, "message": str, ...extra_data}
 """
 
 from debug.debug import log, set_log_enabled, set_all_logs, get_log_flags
@@ -151,11 +157,27 @@ def _handle_servo(args):
 
 
 def _handle_lcd(args):
-    """Handle LCD command: lcd <line> <text...>"""
+    """Handle LCD command: lcd <line> <text...> or lcd backlight <on|off>"""
     if len(args) < 2:
-        return {"success": False, "message": "Usage: lcd <line> <text>"}
+        return {"success": False, "message": "Usage: lcd <line> <text> or lcd backlight <on|off>"}
     
-    # Args are already validated and normalized by send_command.py
+    # Check if this is a backlight command
+    if args[0].lower() == "backlight":
+        mode = args[1].lower()
+        if mode not in ["on", "off"]:
+            return {"success": False, "message": "Usage: lcd backlight <on|off>"}
+        
+        enabled = (mode == "on")
+        try:
+            from actuators import lcd as lcd_module
+            lcd_module.set_backlight(enabled)
+        except Exception:
+            pass
+        
+        log("communication.cmd_handler", "LCD backlight set to {}".format(mode))
+        return {"success": True, "message": "LCD backlight set to {}".format(mode)}
+    
+    # Normal LCD text command
     line = args[0]
     text = args[1]
 

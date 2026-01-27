@@ -1,7 +1,20 @@
-"""Remote logging via UDP broadcast.
+"""Remote logging via UDP broadcast for ESP32-B.
 
-Sends log messages to PC via UDP for centralized monitoring.
-Allows viewing logs from both ESP32-A and ESP32-B simultaneously.
+Imported by: debug.debug
+Imports: socket, network
+
+Sends log messages to development PC via UDP broadcast for centralized monitoring.
+Allows viewing logs from both ESP32-A and ESP32-B simultaneously on PC.
+
+PC listener tool: scripts/log_listener.py (runs on port 37021)
+
+Log format: "[B] [channel] message"
+- Device ID prefix (A/B) identifies source board
+- Channel identifies subsystem (actuator.servo, communication.espnow, etc.)
+
+Requires WiFi connection. If WiFi unavailable, logs only to serial console.
+
+Protocol: UDP broadcast to 255.255.255.255:37021
 """
 
 import socket

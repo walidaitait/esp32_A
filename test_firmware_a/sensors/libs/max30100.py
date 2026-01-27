@@ -1,3 +1,20 @@
+"""MAX30100 pulse oximetry sensor library (legacy, not actively used).
+
+Imported by: None currently (MAX30102 is used instead via sensors.heart_rate)
+Imports: time (MicroPython)
+
+Third-party library for Maxim MAX30100 pulse oximeter sensor.
+Based on original C library for Arduino by Connor Huffine/Kontakt.
+Ported to MicroPython/Raspberry Pi.
+
+Note: This library is included for compatibility but is not currently
+used by the firmware. The MAX30102 sensor (more advanced) is used instead.
+See sensors.libs.max30102 for the active library.
+
+Original source: https://github.com/kontakt/MAX30100
+September 2017
+"""
+
 """"
   Library for the Maxim MAX30100 pulse oximetry system on Raspberry Pi
 

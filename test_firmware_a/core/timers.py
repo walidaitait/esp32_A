@@ -1,8 +1,33 @@
+"""Non-blocking timer management module with user override support.
+
+Imported by: core.sensor_loop, core.actuator_loop (B), communication.*, actuators.*, sensors.*
+Imports: time (MicroPython built-in)
+
+Provides interval-based timing without blocking execution.
+Supports persistent user locks to prevent automated updates when user manually controls a resource.
+
+Key features:
+- elapsed(): Returns True when interval has passed, False otherwise
+- User locks: Block automated updates until explicitly cleared
+- Millisecond precision using ticks_ms() for overflow safety
+- No blocking delays - purely interval-based logic
+
+Usage example:
+    if elapsed("sensor_read", 1000):  # Every 1 second
+        read_sensor()
+    
+    # With user lock:
+    if elapsed("led_update", 100, block_when_user_locked=True):
+        update_led()  # Won't run if user manually set LED
+"""
+
 from time import ticks_ms, ticks_diff  # type: ignore
 
+# Timer state: stores last trigger timestamp for each named timer
 _timers = {}
 
-# Track user locks per timer/resource name. A lock stays active until cleared.
+# User lock tracking: prevents automated updates when user takes manual control
+# A lock stays active until explicitly cleared via clear_user_lock()
 _user_actions = {}
 
 

@@ -1,6 +1,21 @@
-"""Shared state for test firmware.
+"""Shared state module for ESP32-A (Sensor Board).
 
-Contains raw sensor data, button states, and alarm levels computed by logic.
+Imported by: main.py, core.sensor_loop, logic.alarm_logic, sensors.*, 
+             communication.espnow_communication, communication.command_handler
+Imports: None (pure data module)
+
+This module provides centralized state storage accessible by all subsystems.
+Contains:
+- Raw sensor readings (temperature, CO, heart rate, ultrasonic, accelerometer)
+- Button states (3 buttons: b1, b2, b3)
+- Per-sensor alarm levels (normal/warning/danger for CO, temp, heart rate)
+- Overall system alarm state (aggregated from all sensors)
+- Gate automation state (presence detection, gate open/closed status)
+- Received actuator state from ESP32-B via ESP-NOW
+- System control flags (OTA, reboot requests)
+- Simulation mode flag
+
+All state variables are mutable dictionaries/values to allow updates from anywhere.
 """
 
 sensor_data = {

@@ -1,13 +1,50 @@
-"""ESP-NOW communication module for ESP32-A (Sensors - Client).
+"""ESP-NOW bidirectional communication module for ESP32-A (Client mode).
 
-Scheda A (Client):
-- Initiates connection to Scheda B (server)
-- Sends messages to Scheda B
-- Receives acknowledgments/responses from Scheda B
+Imported by: main.py, core.sensor_loop
+Imports: espnow, network (MicroPython), time, debug.debug, core.state, 
+         core.timers, config.config, ujson
 
-MAC Addresses:
-- Scheda A (self): 5C:01:3B:87:53:10
-- Scheda B: 5C:01:3B:4C:2C:34
+ESP-NOW provides low-latency peer-to-peer communication between ESP32 boards
+without requiring a WiFi router. This module implements the client side (Board A).
+
+Board A (Client) responsibilities:
+- Sends periodic sensor data snapshots to Board B (every 2.5s)
+- Sends immediate event messages for critical situations
+- Receives actuator status updates from Board B
+- Receives command acknowledgments from Board B
+- Forwards app commands from Node-RED to Board B
+- Monitors connection health (timeout after 15s of no ACKs)
+
+Message types:
+1. "data": Periodic sensor snapshots (temp, CO, HR, ultrasonic, buttons, alarm)
+2. "event": Immediate critical notifications (alarm critical, SOS, etc.)
+3. "ack": Acknowledgments (confirm message receipt, prevent retransmission)
+4. "command": Forwarded commands from Node-RED/app to Board B
+
+MAC Addresses (hard-coded):
+- Board A (self): 5C:01:3B:87:53:10
+- Board B (peer): 5C:01:3B:4C:2C:34
+
+JSON message format (compact keys to reduce packet size):
+{
+  "v": firmware_version,
+  "t": message_type,
+  "id": message_id,
+  "ts": timestamp_ms,
+  "s": {sensors},
+  "B": {buttons},
+  "A": {alarm},
+  "r": reply_to_id (optional)
+}
+
+Connection management:
+- Auto-reconnect if ESP-NOW fails (every 5s retry)
+- Connection timeout detection (15s without ACK)
+- Message ID tracking prevents duplicate processing
+- Event retry (1 retry max for critical messages after 3s timeout)
+
+Note: ESP-NOW requires WiFi to be active but does NOT require connection
+to a router. It uses WiFi radio in peer-to-peer mode.
 """
 
 import espnow  # type: ignore

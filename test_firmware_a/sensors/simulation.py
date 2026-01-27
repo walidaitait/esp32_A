@@ -1,7 +1,32 @@
-"""Sensor simulation module for testing.
+"""Sensor simulation module for hardware-less testing.
 
-Provides simulated sensor values without requiring actual hardware.
-Used when SIMULATE_SENSORS is True in main.py.
+Imported by: core.sensor_loop, main.py
+Imports: core.state, debug.debug
+
+Provides realistic simulated sensor values without requiring physical hardware.
+Used when config.SIMULATE_SENSORS is True in main.py.
+
+Features:
+- Fixed default values that mimic safe/normal sensor readings
+- Values can be overridden at runtime via UDP commands (simulate command)
+- Alarm logic still runs normally using simulated values
+- Useful for:
+  * Development without hardware
+  * Testing alarm logic thresholds
+  * Demo/presentation mode
+  * CI/CD automated testing
+
+Simulated sensors:
+- Temperature: 23.5°C (room temperature)
+- CO: 10 PPM (safe level, well below 50 PPM threshold)
+- Heart rate: 75 BPM (normal resting)
+- SpO2: 98% (healthy oxygen saturation)
+- Ultrasonic: 45cm (within presence detection range)
+- Buttons: B1=off, B2=on, B3=off
+
+Note: Simulated values are initialized ONCE. Remote commands can
+override them dynamically. Alarm logic is NOT mocked - it evaluates
+real alarm conditions based on the simulated sensor values.
 """
 
 from core import state

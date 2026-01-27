@@ -1,6 +1,17 @@
-"""WiFi connection management module.
+"""WiFi connection management module for ESP32.
 
-Handles WiFi initialization and connection verification.
+Imported by: main.py (Board A), main.py (Board B), ota_update.py
+Imports: network (MicroPython), time (MicroPython), debug.debug, config.wifi_config
+
+Provides WiFi station mode initialization and connection health monitoring.
+Used for:
+- UDP logging (remote debug messages)
+- MQTT/Node-RED communication (Board A only)
+- ESP-NOW (requires WiFi active but not necessarily connected)
+- OTA updates (requires internet connection)
+
+Note: WiFi initialization is blocking during startup phase only.
+Once connected, all operations are non-blocking.
 """
 
 from time import time, sleep  # type: ignore

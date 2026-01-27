@@ -1,3 +1,26 @@
+"""DFRobot LED module drivers (DFR0021-G/B/R) for ESP32-B.
+
+Imported by: core.actuator_loop
+Imports: machine.Pin, time, core.state, debug.debug
+
+Controls three LEDs with flexible modes:
+- Green LED (GPIO16): Normal status indicator
+- Blue LED (GPIO17): Warning status indicator
+- Red LED (GPIO19): Danger alarm indicator
+
+LED modes:
+1. "off": LED is off
+2. "on": LED is constantly on
+3. "blinking": LED blinks with configurable interval/duration
+
+Blinking parameters:
+- blink_interval: milliseconds between state toggles
+- on_duration: how long LED stays on per cycle (if < interval, creates duty cycle)
+- total_duration: optional timeout (None = infinite blinking)
+
+Each LED operates independently with its own timing state machine.
+Updates called from actuator_loop every 50ms.
+"""
 from machine import Pin  # type: ignore
 from time import ticks_ms, ticks_diff  # type: ignore
 from core import state
