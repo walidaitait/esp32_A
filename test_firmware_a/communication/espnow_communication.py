@@ -396,22 +396,23 @@ def _validate_message(msg_bytes):
         log("espnow_a", "Empty message received")
         return False
     
-    # Strip null bytes first
-    msg_bytes = bytes(msg_bytes).rstrip(b'\x00')
+    # NOTE: Don't strip null bytes here - let _parse_actuator_state handle it
+    # This function only validates structure, doesn't modify data
+    msg_bytes_for_check = bytes(msg_bytes).rstrip(b'\x00') if isinstance(msg_bytes, (bytes, bytearray)) else msg_bytes
     
     # Check if it starts with '{' (JSON)
-    if msg_bytes[0:1] != b'{':
-        log("espnow_a", "Message doesn't start with '{{': preview={}".format(msg_bytes[:20]))
+    if len(msg_bytes_for_check) > 0 and msg_bytes_for_check[0:1] != b'{':
+        log("espnow_a", "Message doesn't start with '{{': preview={}".format(msg_bytes_for_check[:20]))
         return False
     
     # Check if it ends with '}'
-    if msg_bytes[-1:] != b'}':
-        log("espnow_a", "Message doesn't end with '}}': preview={}".format(msg_bytes[-20:]))
+    if len(msg_bytes_for_check) > 0 and msg_bytes_for_check[-1:] != b'}':
+        log("espnow_a", "Message doesn't end with '}}': preview={}".format(msg_bytes_for_check[-20:]))
         return False
     
     # Basic UTF-8 validation
     try:
-        msg_bytes.decode("utf-8")
+        msg_bytes_for_check.decode("utf-8")
     except UnicodeDecodeError:
         log("espnow_a", "Message is not valid UTF-8")
         return False
@@ -438,8 +439,19 @@ def _parse_actuator_state(msg_bytes):
         if not _validate_message(msg_bytes):
             return None
         
-        # Strip trailing null bytes that ESP-NOW may add
+        # Convert bytearray to bytes if needed
+        if isinstance(msg_bytes, bytearray):
+            msg_bytes = bytes(msg_bytes)
+        
+        # CRITICAL FIX: Strip trailing null bytes that ESP-NOW pads to 250 bytes
+        # ESP-NOW pads every message to 250-byte boundary with zeros
+        # Board B also pads with nulls, so we strip ALL trailing zeros
+        msg_bytes_original = msg_bytes
         msg_bytes = msg_bytes.rstrip(b'\x00')
+        
+        # Only log if padding was actually removed
+        if len(msg_bytes) != len(msg_bytes_original):
+            log("espnow_a", "RX Stripped {} bytes of padding".format(len(msg_bytes_original) - len(msg_bytes)))
         
         # Decode bytes to string
         try:

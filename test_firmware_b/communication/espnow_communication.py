@@ -137,6 +137,12 @@ def _get_actuator_status_string(msg_type="data", msg_id=None, reply_to_id=None):
     json_str = "".join(parts)
     msg_bytes = json_str.encode("utf-8")
     
+    # CRITICAL FIX: Pad to 250 bytes with null terminators
+    # ESP-NOW may add garbage padding, but we control it here
+    # This ensures Board A can safely strip null bytes without losing data
+    if len(msg_bytes) < 250:
+        msg_bytes = msg_bytes + b'\x00' * (250 - len(msg_bytes))
+    
     # Check ESP-NOW size limit (250 bytes max)
     if len(msg_bytes) > 250:
         log("communication.espnow", "WARNING: Message too large ({} bytes, max 250). May be truncated!".format(len(msg_bytes)))
