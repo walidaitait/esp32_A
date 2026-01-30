@@ -9,8 +9,8 @@ Board B acts as ESP-NOW server:
 - Can send acknowledgments or actuator state back to Board A
 
 MAC Addresses:
-- Board B (self): 5C:01:3B:4C:2C:34
-- Board A (remote): 5C:01:3B:87:53:10
+- Board B (self): 5C:01:3B:87:53:10
+- Board A (remote): 5C:01:3B:4C:2C:34
 
 Message format (JSON):
 {
@@ -40,8 +40,8 @@ except ImportError:
     import json  # Fallback
 
 # MAC addresses
-MAC_B = bytes.fromhex("5C013B4C2C34")  # Self (B)
-MAC_A = bytes.fromhex("5C013B875310")  # Remote (A)
+MAC_B = bytes.fromhex("5C013B875310")  # Self (B)
+MAC_A = bytes.fromhex("5C013B4C2C34")  # Remote (A)
 
 # Connection tracking and message IDs
 CONNECTION_TIMEOUT = 10000  # Consider A disconnected if no message for 10 seconds (4x send interval)

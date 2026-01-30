@@ -22,8 +22,8 @@ Message types:
 4. "command": Forwarded commands from Node-RED/app to Board B
 
 MAC Addresses (hard-coded):
-- Board A (self): 5C:01:3B:87:53:10
-- Board B (peer): 5C:01:3B:4C:2C:34
+- Board A (self): 5C:01:3B:4C:2C:34
+- Board B (peer): 5C:01:3B:87:53:10
 
 JSON message format (compact keys to reduce packet size):
 {
@@ -60,8 +60,8 @@ except ImportError:
     import json  # Fallback
 
 # MAC addresses
-MAC_A = bytes.fromhex("5C013B875310")  # Self (A)
-MAC_B = bytes.fromhex("5C013B4C2C34")  # Remote (B)
+MAC_A = bytes.fromhex("5C013B4C2C34")  # Self (A)
+MAC_B = bytes.fromhex("5C013B875310")  # Remote (B)
 
 # Send interval and message tracking
 _send_interval = 2500  # Send sensor data every 2.5 seconds

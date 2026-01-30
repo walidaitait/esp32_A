@@ -38,9 +38,9 @@ SIMULATED_CO = 10  # Safe value (< 50 PPM threshold)
 SIMULATED_HEART_RATE_BPM = 75
 SIMULATED_HEART_RATE_SPO2 = 98
 SIMULATED_ULTRASONIC_DISTANCE = 45
-SIMULATED_ULTRASONIC_PRESENCE = True
+SIMULATED_ULTRASONIC_PRESENCE = False
 SIMULATED_BUTTON_B1 = False
-SIMULATED_BUTTON_B2 = True
+SIMULATED_BUTTON_B2 = False
 SIMULATED_BUTTON_B3 = False
 
 
@@ -71,7 +71,7 @@ def update_simulated_sensors():
     if state.sensor_data.get("ultrasonic_distance_cm") is None:
         state.sensor_data["ultrasonic_distance_cm"] = SIMULATED_ULTRASONIC_DISTANCE
     
-    # Heart rate - initialize only if None
+    # Heart rate - initialize dict if missing, otherwise fill null fields
     if state.sensor_data.get("heart_rate") is None:
         state.sensor_data["heart_rate"] = {
             "ir": 10000,  # Simulated IR value
@@ -80,6 +80,19 @@ def update_simulated_sensors():
             "spo2": SIMULATED_HEART_RATE_SPO2,
             "status": "simulated"
         }
+    else:
+        hr = state.sensor_data.get("heart_rate", {})
+        if hr.get("bpm") is None:
+            hr["bpm"] = SIMULATED_HEART_RATE_BPM
+        if hr.get("spo2") is None:
+            hr["spo2"] = SIMULATED_HEART_RATE_SPO2
+        if hr.get("ir") is None:
+            hr["ir"] = 10000
+        if hr.get("red") is None:
+            hr["red"] = 9500
+        if not hr.get("status"):
+            hr["status"] = "simulated"
+        state.sensor_data["heart_rate"] = hr
     
     if state.sensor_data.get("ultrasonic_presence") is None:
         state.sensor_data["ultrasonic_presence"] = SIMULATED_ULTRASONIC_PRESENCE
