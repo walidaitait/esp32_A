@@ -287,12 +287,16 @@ def check_and_update():
     
     # STEP 3: Check if button is pressed (only if update not already triggered)
     if not should_update:
-        log("ota", "Checking update button (hold for 5 seconds)")
-        if _check_button_pressed():
-            log("ota", "Update button pressed")
-            should_update = True
+        # Check if OTA button is enabled in config
+        if not is_first_install and not config_data.get("ota_button_enabled", True):
+            log("ota", "OTA button disabled in config.json, skipping button check")
         else:
-            log("ota", "Button not pressed, checking remote version")
+            log("ota", "Checking update button (hold for 5 seconds)")
+            if _check_button_pressed():
+                log("ota", "Update button pressed")
+                should_update = True
+            else:
+                log("ota", "Button not pressed, checking remote version")
     
     # STEP 4: Check remote version on GitHub (only if update not already triggered)
     if not should_update and not is_first_install:
