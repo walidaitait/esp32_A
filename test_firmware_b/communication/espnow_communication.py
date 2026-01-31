@@ -40,7 +40,7 @@ except ImportError:
     import json  # Fallback
 
 # MAC addresses
-MAC_B = bytes.fromhex("5C013B875310")  # Self (B)
+MAC_B = bytes.fromhex("d8bc38e470bc")  # Self (B)
 MAC_A = bytes.fromhex("5C013B4C2C34")  # Remote (A)
 
 # Connection tracking and message IDs

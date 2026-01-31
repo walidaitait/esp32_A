@@ -1,5 +1,5 @@
 {
-  "firmware_version": 4.65,
+  "firmware_version": 4.67,
   "ota_update_pending": false,
   "ota_button_enabled": false,
   "simulate_sensors": false,
@@ -21,8 +21,8 @@
     "temp": 4,
     "co": 35,
     "buttons": {
-      "b1": 16,
-      "b2": 17,
+      "b1": 17,
+      "b2": 16,
       "b3": 19
     },
     "ultrasonic_trig": 5,

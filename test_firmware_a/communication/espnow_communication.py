@@ -61,7 +61,7 @@ except ImportError:
 
 # MAC addresses
 MAC_A = bytes.fromhex("5C013B4C2C34")  # Self (A)
-MAC_B = bytes.fromhex("5C013B875310")  # Remote (B)
+MAC_B = bytes.fromhex("d8bc38e470bc")  # Remote (B)
 
 # Send interval and message tracking
 _send_interval = 2500  # Send sensor data every 2.5 seconds

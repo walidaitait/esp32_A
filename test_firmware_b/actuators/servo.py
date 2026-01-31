@@ -41,6 +41,9 @@ _presence_detected = False
 _gate_open = False
 _presence_lost_time_ms = None
 
+# Button B1 toggle tracking
+_last_button_b1_state = False  # Track previous button state to detect press event
+
 # Typical PWM parameters for servo: 50Hz, pulse 0.5-2.5ms
 _PWM_FREQ = 50
 _MIN_US = 500
@@ -192,6 +195,38 @@ def update_servo_test():
     _update_servo_smooth()
 
 
+def _check_button_b1_toggle():
+    """Check if button B1 was pressed and toggle gate state.
+    
+    Detects press event (transition from False to True) and toggles gate open/closed.
+    Compatible with automatic gate control and app commands.
+    """
+    global _gate_open, _last_button_b1_state
+    
+    # Get current button state from received sensor data (from Board A)
+    current_button_state = state.received_sensor_state.get("button_b1", False)
+    
+    # Detect press event: transition from False to True
+    if current_button_state and not _last_button_b1_state:
+        log("actuator.servo.gate", "Button B1 pressed - toggling gate")
+        
+        # Toggle gate state
+        if _gate_open:
+            # Gate is open, close it
+            _gate_open = False
+            set_servo_angle_immediate(0)
+            log("actuator.servo.gate", "Gate: B1 toggle - closing gate")
+        else:
+            # Gate is closed, open it
+            _gate_open = True
+            set_servo_angle_immediate(180)
+            log("actuator.servo.gate", "Gate: B1 toggle - opening gate")
+    
+    # Update last state for next cycle
+    _last_button_b1_state = current_button_state
+
+
+
 def update_gate_automation():
     """Update gate based on presence detection from ESP32-A (called from main loop).
     
@@ -200,11 +235,16 @@ def update_gate_automation():
     2. System is in DANGER mode (alarm_level == "danger")
     
     In NORMAL or WARNING modes, presence_detected remains True but servo does not open.
+    
+    Button B1 override: Can manually toggle gate open/closed regardless of mode.
     """
     global _presence_detected, _gate_open, _presence_lost_time_ms, _target_angle
     
     if _pwm is None:
         return
+    
+    # Check for button B1 press to toggle gate (takes precedence)
+    _check_button_b1_toggle()
     
     # Read presence state and alarm level from received sensor data
     presence = state.received_sensor_state.get("presence_detected", False)
@@ -218,7 +258,7 @@ def update_gate_automation():
     if presence and allow_auto_open and not _gate_open:
         _gate_open = True
         _presence_lost_time_ms = None
-        set_servo_angle(90)  # Open gate
+        set_servo_angle_immediate(180)  # Open gate immediately
         log("actuator.servo.gate", "Gate: presence detected in DANGER mode, opening...")
     
     # Presence detected but NOT in danger mode -> keep gate closed (do not open)
