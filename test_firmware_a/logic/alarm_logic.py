@@ -93,9 +93,22 @@ def _update_alarm_level(kind, is_critical, warning_time, danger_time, recovery_t
 
 
 def _update_overall_alarm():
-    """Computes overall alarm level from individual sensor states."""
+    """Computes overall alarm level from individual sensor states.
+    
+    IMPORTANT: If sos_mode is True, the alarm state is locked to manual control
+    and will NOT be downgraded by sensor readings returning to normal. Only an
+    explicit sos_deactivate command (from app or ESP32-B button) can clear SOS mode.
+    """
     prev_level = state.alarm_state.get("level", "normal")
     prev_source = state.alarm_state.get("source")
+    
+    # Check if SOS mode is active - if so, preserve it and don't allow sensor-based downgrades
+    if state.alarm_state.get("sos_mode", False):
+        # SOS mode active (from app or ESP32-B button) - preserve danger level and manual source
+        # Only sensor-based upgrades allowed (e.g., CO also goes critical)
+        # But never downgrade below danger/manual
+        log("alarm_logic", "SOS mode active - alarm state locked to danger/manual")
+        return
 
     levels = {
         "co": state.system_state.get("co_level", "normal"),

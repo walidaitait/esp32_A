@@ -514,6 +514,7 @@ def _parse_sensor_state(msg_bytes):
             alarm = data.get("A", {})
             state.received_sensor_state["alarm_level"] = alarm.get("L", "normal")
             state.received_sensor_state["alarm_source"] = alarm.get("S")
+            state.received_sensor_state["alarm_sos_mode"] = alarm.get("M", False)
         else:
             # Full format (backward compatibility)
             sensors = data.get("sensors", {})
@@ -537,6 +538,7 @@ def _parse_sensor_state(msg_bytes):
             alarm = data.get("alarm", {})
             state.received_sensor_state["alarm_level"] = alarm.get("level", "normal")
             state.received_sensor_state["alarm_source"] = alarm.get("source")
+            state.received_sensor_state["alarm_sos_mode"] = alarm.get("sos_mode", False)
         
         state.received_sensor_state["last_update"] = ticks_ms()
         state.received_sensor_state["is_stale"] = False

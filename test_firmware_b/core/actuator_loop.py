@@ -253,8 +253,34 @@ def update():
                 if config.LCD_ENABLED and lcd is not None:
                     lcd.display_custom("", "")  # type: ignore
         
-        # If SOS is active, skip normal actuator updates (emergency takes priority)
-        if state.actuator_state.get("sos_mode"):
+        # If SOS is active (either local button or remote from ESP32-A via app), skip normal actuator updates
+        # SOS mode can be:
+        # 1. Local: state.actuator_state["sos_mode"] = True (from physical button on B)
+        # 2. Remote: state.received_sensor_state["alarm_sos_mode"] = True (from app via A)
+        local_sos = state.actuator_state.get("sos_mode", False)
+        remote_sos = state.received_sensor_state.get("alarm_sos_mode", False)
+        sos_active = local_sos or remote_sos
+        
+        # Detect SOS activation from remote (app via ESP32-A)
+        global _last_sos_state
+        if remote_sos and not _last_sos_state:
+            log("core.actuator", "=== SOS CALL ACTIVATED FROM APP (via ESP32-A) ===")
+            # Set SOS display
+            if config.LCD_ENABLED and lcd is not None:
+                lcd.display_custom("SOS call", "Ringing...")  # type: ignore
+            # Set red LED to solid
+            if config.LEDS_ENABLED and leds is not None:
+                leds.set_led_state("red", "on")  # type: ignore
+        elif not remote_sos and _last_sos_state and not local_sos:
+            # Remote SOS deactivated and no local SOS active
+            log("core.actuator", "=== SOS CALL ENDED FROM APP (via ESP32-A) ===")
+            # Clear SOS display
+            if config.LCD_ENABLED and lcd is not None:
+                lcd.display_custom("", "")  # type: ignore
+        
+        _last_sos_state = remote_sos
+        
+        if sos_active:
             # Keep red LED solid in SOS mode
             if config.LEDS_ENABLED and leds is not None:
                 if elapsed("led_update", LED_UPDATE_INTERVAL):

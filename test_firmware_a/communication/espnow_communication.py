@@ -127,6 +127,7 @@ def _get_sensor_data_string(msg_type="data", msg_id=None, reply_to_id=None):
     b3 = state.button_state.get("b3", False)
     alarm_level = state.alarm_state.get("level", "normal")
     alarm_source = state.alarm_state.get("source")
+    sos_mode = state.alarm_state.get("sos_mode", False)
     
     # Manual JSON construction to guarantee field order and minimal size
     # This ensures compatibility with MicroPython ujson which doesn't preserve dict order
@@ -153,7 +154,8 @@ def _get_sensor_data_string(msg_type="data", msg_id=None, reply_to_id=None):
         "},",
         "\"A\":{",
         "\"L\":\"", str(alarm_level), "\",",
-        "\"S\":", ("null" if alarm_source is None else "\"" + str(alarm_source) + "\""),
+        "\"S\":", ("null" if alarm_source is None else "\"" + str(alarm_source) + "\""), ",",
+        "\"M\":", ("true" if sos_mode else "false"),
         "}",
     ]
     
@@ -289,8 +291,6 @@ def send_message(data):
         _initialized = False
         _esp_now = None
         return False
-
-
 def _check_event_retry():
     """Check pending events and retry if no ACK received within timeout (max 1 retry)."""
     global _pending_event_acks
@@ -574,6 +574,47 @@ def _parse_actuator_state(msg_bytes):
         
         state.received_actuator_state["last_update"] = ticks_ms()
         state.received_actuator_state["is_stale"] = False
+        
+        # SYNC: Update local gate_state based on servo angle from ESP32-B
+        # This keeps ESP32-A, ESP32-B, and app in sync
+        servo_angle = state.received_actuator_state.get("servo_angle")
+        if servo_angle is not None:
+            # Gate is open when servo is at 90°, closed at 0°
+            # Use threshold: >45° = open, <=45° = closed
+            gate_is_open = servo_angle > 45
+            if state.gate_state.get("gate_open") != gate_is_open:
+                state.gate_state["gate_open"] = gate_is_open
+                log("espnow_a", "SYNC: gate_open updated to {} (servo={}°)".format(gate_is_open, servo_angle))
+                # Request immediate publish to update app with new gate state
+                try:
+                    from communication import nodered_client
+                    nodered_client.request_publish_now()
+                except Exception:
+                    pass  # Ignore if nodered_client not available
+        
+        # SYNC: Update local alarm_state["sos_mode"] based on sos_mode from ESP32-B
+        # If ESP32-B activates SOS via physical button, propagate it to alarm_state and app
+        sos_from_b = state.received_actuator_state.get("sos_mode", False)
+        if sos_from_b != state.alarm_state.get("sos_mode", False):
+            state.alarm_state["sos_mode"] = sos_from_b
+            if sos_from_b:
+                # SOS activated on board B - set alarm to danger/manual
+                state.alarm_state["level"] = "danger"
+                state.alarm_state["source"] = "manual"
+                log("espnow_a", "SYNC: SOS activated from ESP32-B button - alarm set to danger/manual")
+            else:
+                # SOS deactivated on board B - clear alarm (only if not triggered by sensors)
+                # Check if any sensor is still critical before clearing
+                if state.alarm_state.get("level") == "danger" and state.alarm_state.get("source") == "manual":
+                    state.alarm_state["level"] = "normal"
+                    state.alarm_state["source"] = None
+                    log("espnow_a", "SYNC: SOS deactivated from ESP32-B button - alarm cleared")
+            # Request immediate publish to update app
+            try:
+                from communication import nodered_client
+                nodered_client.request_publish_now()
+            except Exception:
+                pass  # Ignore if nodered_client not available
         
         log("communication.espnow", "Actuator data received (v{}) msg_id={} type={} - LEDs=G:{},B:{},R:{} Servo={}° SOS={}".format(
             remote_version,

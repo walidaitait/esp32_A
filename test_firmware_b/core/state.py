@@ -62,7 +62,8 @@ received_sensor_state = {
     "button_b3": False,
     "presence_detected": False,    # Gate control: presence detected from ultrasonic
     "alarm_level": "normal",       # Alarm level (normal | warning | danger)
-    "alarm_source": None,          # Alarm source (co | temp | heart)
+    "alarm_source": None,          # Alarm source (co | temp | heart | manual)
+    "alarm_sos_mode": False,       # SOS mode active from ESP32-A (app or B's own button)
     "last_update": None,
     "is_stale": True,              # True if no update received within timeout
 }

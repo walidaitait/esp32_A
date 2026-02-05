@@ -43,13 +43,14 @@ system_state = {
 # Overall system alarm state
 alarm_state = {
     "level": "normal",   # normal | warning | danger
-    "source": None,        # co | temp | heart | None
+    "source": None,        # co | temp | heart | manual | None
+    "sos_mode": False,  # True when SOS active (from app or board B button) - prevents auto-clear by sensors
 }
 
 # Gate control state (for presence-based automation)
 gate_state = {
     "presence_detected": False,     # True when ultrasonic detects presence < threshold
-    "gate_open": False,             # True when gate is open (servo at 90°)
+    "gate_open": False,             # True when gate is open (servo at 90°) - synced with app and ESP32-B
     "last_presence_lost_ms": None,  # Timestamp when presence was last lost
 }
 

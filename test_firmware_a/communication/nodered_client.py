@@ -194,11 +194,13 @@ def _build_state_payload():
         },
         "alarm": {
             "level": "normal" | "warning" | "danger",
-            "source": "co" | "temperature" | "heart_rate" | "manual" | null
+            "source": "co" | "temperature" | "heart_rate" | "manual" | null,
+            "sos_mode": <boolean>
         },
         "system": {
             "wifi_connected": <boolean>,
-            "firmware_version": <integer>
+            "firmware_version": <integer>,
+            "gate_open": <boolean>
         }
     }
     """
@@ -221,10 +223,12 @@ def _build_state_payload():
         "alarm": {
             "level": state.alarm_state.get("level", "normal"),
             "source": state.alarm_state.get("source"),
+            "sos_mode": state.alarm_state.get("sos_mode", False),
         },
         "system": {
             "wifi_connected": state.wifi.is_connected() if hasattr(state, "wifi") else True,
             "firmware_version": getattr(config, "FIRMWARE_VERSION", 1),
+            "gate_open": state.gate_state.get("gate_open", False),
         },
     }
 
@@ -285,6 +289,7 @@ def _process_app_command(cmd_payload):
             # Trigger emergency alarm
             state.alarm_state["level"] = "danger"
             state.alarm_state["source"] = "manual"
+            state.alarm_state["sos_mode"] = True
             # Publish immediately
             publish_state_now()
             log("nodered", "CMD: SOS activate from {}".format(session_id))
@@ -294,6 +299,7 @@ def _process_app_command(cmd_payload):
             # Clear alarm
             state.alarm_state["level"] = "normal"
             state.alarm_state["source"] = None
+            state.alarm_state["sos_mode"] = False
             # Publish immediately
             publish_state_now()
             log("nodered", "CMD: SOS deactivate from {}".format(session_id))
@@ -310,6 +316,10 @@ def _process_app_command(cmd_payload):
                 "_session_id": session_id
             }
             if espnow_communication.send_command(espnow_command):
+                # Update local gate state to maintain sync with app
+                state.gate_state["gate_open"] = True
+                # Publish immediately to confirm state change to app
+                publish_state_now()
                 log("nodered", "CMD: Gate open forwarded to B from {}".format(session_id))
                 return {"success": True, "message": "Gate open command sent to B"}
             else:
@@ -327,6 +337,10 @@ def _process_app_command(cmd_payload):
                 "_session_id": session_id
             }
             if espnow_communication.send_command(espnow_command):
+                # Update local gate state to maintain sync with app
+                state.gate_state["gate_open"] = False
+                # Publish immediately to confirm state change to app
+                publish_state_now()
                 log("nodered", "CMD: Gate close forwarded to B from {}".format(session_id))
                 return {"success": True, "message": "Gate close command sent to B"}
             else:
