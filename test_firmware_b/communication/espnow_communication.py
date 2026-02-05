@@ -323,7 +323,7 @@ def _parse_command(msg_bytes):
     """Parse and execute command received via ESP-NOW.
     
     Command format (from Board A forwarding app/Node-RED commands):
-    {"target": "B", "command": "servo", "args": [90], "_source": "app", "_session_id": "..."}
+    {"target": "B", "command": "servo", "args": [180], "_source": "app", "_session_id": "..."}
     
     Returns:
         True if this was a command (parsed and executed)

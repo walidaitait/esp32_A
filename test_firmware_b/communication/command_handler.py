@@ -147,7 +147,6 @@ def _handle_servo(args):
     except Exception:
         # Fallback to state-only
         state.actuator_state["servo"]["angle"] = angle
-        state.actuator_state["servo"]["moving"] = False
 
     # Protect servo from auto overrides for 20s
     timers.set_user_lock("servo_update")

@@ -308,11 +308,11 @@ def _process_app_command(cmd_payload):
         
         elif command == "gate_open":
             # Forward gate open command to ESP32-B via ESPNow
-            # Gate open = servo at 90 degrees
+            # Gate open = servo at 180 degrees
             espnow_command = {
                 "target": "B",
                 "command": "servo",
-                "args": [90],
+                "args": [180],
                 "_source": "app",
                 "_session_id": session_id
             }

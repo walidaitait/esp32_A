@@ -305,7 +305,6 @@ def update():
         # Update servo position
         if config.SERVO_ENABLED and servo is not None:
             if elapsed("servo_update", SERVO_UPDATE_INTERVAL, True):
-                servo.update_servo_test()  # type: ignore
                 servo.update_gate_automation()  # type: ignore
         
         # Update LCD display

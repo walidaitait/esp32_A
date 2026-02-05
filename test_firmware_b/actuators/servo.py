@@ -8,7 +8,7 @@ Controls SG90 servo for automatic gate opening/closing based on:
 2. Alarm level from alarm logic (Board A)
 
 Gate automation logic (SECURITY ENHANCED):
-- presence_detected=True + alarm_level="danger" → Open gate (90°)
+- presence_detected=True + alarm_level="danger" → Open gate (180°)
 - presence lost for 5s → Close gate (0°)
 - Manual control via commands overrides automation temporarily
 
@@ -16,9 +16,8 @@ SECURITY: Gate only opens automatically in "danger" mode to prevent
 unauthorized entry (e.g., burglar triggering ultrasonic sensor).
 
 Servo control features:
-- Smooth motion: Moves at configurable speed (default 2°/50ms = ~40°/s)
+- Immediate motion: Servo moves instantly to target angle
 - PWM parameters: 50Hz, 0.5-2.5ms pulse width, 0-180° range
-- Non-blocking: Updates called from actuator_loop every 100ms
 
 Hardware: SG90 servo on GPIO configured in config.SERVO_PIN
 """
@@ -31,10 +30,6 @@ from debug.debug import log
 _pwm = None
 _angle = 0
 _initialized = False
-_target_angle = 0
-_moving = False
-_last_update = 0
-_move_speed = 2  # Degrees per 50ms update cycle (max ~90°/s)
 
 # Gate automation state (received from ESP32-A)
 _presence_detected = False
@@ -80,84 +75,19 @@ def _set_angle_immediate(angle):
         log("actuator.servo", "Set angle error: {}".format(e))
 
 
-def set_servo_angle(angle):
-    """Set servo target angle (moves smoothly to target)."""
-    global _target_angle, _moving, _last_update
-    
-    if _pwm is None:
-        log("actuator.servo", "set_servo_angle ignored (PWM not initialized)")
-        return
-    
-    # Limit to allowed range
-    angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
-    log("actuator.servo", "set_servo_angle target={}".format(angle))
-    _target_angle = angle
-    _moving = True
-    _last_update = ticks_ms()
-    
-    # Mark as moving in state
-    state.actuator_state["servo"]["moving"] = True
-
-
 def set_servo_angle_immediate(angle):
-    """Set servo angle instantly (no smoothing)."""
-    global _target_angle, _moving
-
+    """Set servo angle instantly."""
     if _pwm is None:
         log("actuator.servo", "set_servo_angle_immediate ignored (PWM not initialized)")
         return
 
     angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
-    _target_angle = angle
-    _moving = False
-    state.actuator_state["servo"]["moving"] = False
     _set_angle_immediate(angle)
     log("actuator.servo", "set_servo_angle_immediate angle={}".format(angle))
 
 
-def _update_servo_smooth():
-    """Update servo angle smoothly (call periodically)."""
-    global _angle, _moving, _target_angle, _last_update
-    
-    if _pwm is None or not _moving:
-        return
-    log("actuator.servo", "_update_servo_smooth angle={} target={} moving={}".format(_angle, _target_angle, _moving))
-    
-    now = ticks_ms()
-    elapsed = ticks_diff(now, _last_update)
-    
-    # Update every 50ms (20Hz update rate)
-    if elapsed < 50:
-        return
-    
-    _last_update = now
-    
-    # Calculate delta
-    delta = _target_angle - _angle
-    
-    if delta == 0:
-        # Reached target
-        _moving = False
-        state.actuator_state["servo"]["moving"] = False
-        return
-    
-    # Move towards target at _move_speed degrees per cycle
-    if abs(delta) <= _move_speed:
-        # Close enough, snap to target
-        _set_angle_immediate(_target_angle)
-        _moving = False
-        state.actuator_state["servo"]["moving"] = False
-    else:
-        # Move one step towards target
-        if delta > 0:
-            new_angle = _angle + _move_speed
-        else:
-            new_angle = _angle - _move_speed
-        _set_angle_immediate(new_angle)
-
-
 def init_servo():
-    global _pwm, _angle, _target_angle, _initialized
+    global _pwm, _angle, _initialized
     log("actuator.servo", "init_servo() called")
     try:
         servo_pin = config.SERVO_PIN
@@ -169,17 +99,14 @@ def init_servo():
 
         # Start always at 0°
         _angle = 0
-        _target_angle = 0
         state.actuator_state["servo"]["angle"] = 0
-        state.actuator_state["servo"]["moving"] = False
 
         # Mark initialized before first duty set so guard does not block
         _initialized = True
         log("actuator.servo", "init_servo: about to call _set_angle_immediate(0)")
         _set_angle_immediate(_angle)
-        state.actuator_state["servo"]["moving"] = False
 
-        log("actuator.servo", "Servo initialized at 0° (smooth movement enabled)")
+        log("actuator.servo", "Servo initialized at 0° (immediate movement mode)")
         return True
     except Exception as e:
         log("actuator.servo", "Initialization failed: {}".format(e))
@@ -188,11 +115,6 @@ def init_servo():
         _pwm = None
         _initialized = False
         return False
-
-
-def update_servo_test():
-    """Update servo: handle smooth movement."""
-    _update_servo_smooth()
 
 
 def _check_button_b1_toggle():
@@ -290,7 +212,7 @@ def update_gate_automation():
                 # Close gate
                 _gate_open = False
                 _presence_lost_time_ms = None
-                set_servo_angle(0)  # Close gate
+                set_servo_angle_immediate(0)  # Close gate
                 log("actuator.servo.gate", "Gate: closing after delay ({} ms)".format(close_delay_ms))
     
     # No presence and gate already closed -> nothing to do

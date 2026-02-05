@@ -27,7 +27,6 @@ actuator_state = {
     },
     "servo": {
         "angle": 0,
-        "moving": False,
     },
     "lcd": {
         "line1": "",

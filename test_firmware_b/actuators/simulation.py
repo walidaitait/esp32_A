@@ -5,7 +5,7 @@ Imports: core.state, debug.debug
 
 Provides simulated actuator values for development/testing without physical hardware:
 - LEDs: Fixed modes (green=on, blue=blinking, red=off)
-- Servo: Fixed angle (90°)
+- Servo: Fixed angle (180°)
 - LCD: Fixed text ("Simulation" / "Mode Active")
 - Buzzer: Off
 - Audio: Not playing
@@ -26,7 +26,7 @@ from debug.debug import log
 SIMULATED_LED_GREEN_MODE = "on"
 SIMULATED_LED_BLUE_MODE = "blinking"
 SIMULATED_LED_RED_MODE = "off"
-SIMULATED_SERVO_ANGLE = 90
+SIMULATED_SERVO_ANGLE = 180
 SIMULATED_LCD_LINE1 = "Simulation"
 SIMULATED_LCD_LINE2 = "Mode Active"
 SIMULATED_BUZZER_ACTIVE = False
@@ -68,8 +68,6 @@ def update_simulated_actuators():
     # Update servo only if not already customized by command
     if state.actuator_state["servo"].get("angle") == SIMULATED_SERVO_ANGLE or state.actuator_state["servo"].get("angle") is None:
         state.actuator_state["servo"]["angle"] = SIMULATED_SERVO_ANGLE
-    
-    state.actuator_state["servo"]["moving"] = False
     
     # Update LCD only if not already customized by command
     if state.actuator_state["lcd"].get("line1") == SIMULATED_LCD_LINE1 or state.actuator_state["lcd"].get("line1") is None:

@@ -426,10 +426,10 @@ def _parse_actuator_state(msg_bytes):
     Supports both compact and full JSON formats:
     
     Compact format (v=version, t=type, id=msg_id, L=leds, etc.):
-    {"v":1,"t":"data","id":1,"ts":9622,"L":{"g":"on","b":"off","r":"off"},"S":{"a":90},"D":{"1":"Line 1","2":"Line 2"},"B":"OFF","A":"STOP","O":false}
+    {"v":1,"t":"data","id":1,"ts":9622,"L":{"g":"on","b":"off","r":"off"},"S":{"a":180},"D":{"1":"Line 1","2":"Line 2"},"B":"OFF","A":"STOP","O":false}
     
     Full format (for backward compatibility):
-    {"version":1,"msg_type":"data","msg_id":1,"timestamp":12345,"leds":{"green":"on","blue":"off","red":"off"},"servo":{"angle":90},"lcd":{"line1":"Line 1","line2":"Line 2"},"buzzer":"OFF","audio":"STOP","sos_active":false}
+    {"version":1,"msg_type":"data","msg_id":1,"timestamp":12345,"leds":{"green":"on","blue":"off","red":"off"},"servo":{"angle":180},"lcd":{"line1":"Line 1","line2":"Line 2"},"buzzer":"OFF","audio":"STOP","sos_active":false}
     
     Or heartbeat message:
     {"v":1,"t":"heartbeat","ts":12345678} or {"version":1,"type":"heartbeat","timestamp":12345678}
@@ -579,9 +579,9 @@ def _parse_actuator_state(msg_bytes):
         # This keeps ESP32-A, ESP32-B, and app in sync
         servo_angle = state.received_actuator_state.get("servo_angle")
         if servo_angle is not None:
-            # Gate is open when servo is at 90°, closed at 0°
-            # Use threshold: >45° = open, <=45° = closed
-            gate_is_open = servo_angle > 45
+            # Gate is open when servo is at 180°, closed at 0°
+            # Use threshold: >90° = open, <=90° = closed
+            gate_is_open = servo_angle > 90
             if state.gate_state.get("gate_open") != gate_is_open:
                 state.gate_state["gate_open"] = gate_is_open
                 log("espnow_a", "SYNC: gate_open updated to {} (servo={}°)".format(gate_is_open, servo_angle))
@@ -673,7 +673,7 @@ def _log_complete_state():
 def _parse_actuator_state_v0_fallback(msg_str):
     """Fallback parser for old string format (for backward compatibility).
     
-    Old format: "V:1 ACTUATORS: LEDs=G:on,B:blinking,R:off Servo=90° LCD1='...' LCD2='...' Buzz=OFF Audio=STOP"
+    Old format: "V:1 ACTUATORS: LEDs=G:on,B:blinking,R:off Servo=180° LCD1='...' LCD2='...' Buzz=OFF Audio=STOP"
     """
     try:
         if "LEDs=G:" in msg_str:
