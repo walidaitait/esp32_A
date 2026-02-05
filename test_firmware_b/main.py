@@ -11,7 +11,7 @@ Controls actuators based on sensor data received from ESP32-A via ESP-NOW:
 - DFPlayer Mini + 4Ω 3W speaker: Voice announcements
 
 Architecture:
-- core.wifi: WiFi connection management
+- communication.wifi: WiFi connection management
 - core.actuator_loop: Non-blocking actuator update orchestration
 - core.state: Shared state between modules
 - actuators.*: Individual actuator drivers (leds, servo, lcd, buzzer, audio)
@@ -29,7 +29,7 @@ import ota_update
 ota_update.check_and_update()
 
 from debug.debug import log, init_remote_logging, set_log_enabled, set_all_logs
-from core import wifi
+from communication import wifi
 from core import actuator_loop
 from core import state
 from communication import espnow_communication
@@ -39,7 +39,7 @@ from config import config
 # === DISABLE UNNECESSARY LOGS FOR TESTING ===
 set_all_logs(False)
 set_log_enabled("main", True)
-set_log_enabled("communication.udp_cmd", True)
+#set_log_enabled("communication.udp_cmd", True)
 # === SIMULATION MODE (loaded from config) ===
 SIMULATE_ACTUATORS = config.SIMULATE_ACTUATORS
 

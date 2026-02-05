@@ -2,7 +2,7 @@
 
 This module orchestrates sensor reading, alarm evaluation, and communication.
 Imported by: None (entry point, executed directly on boot)
-Imports: core.wifi, core.sensor_loop, core.state, communication.espnow_communication,
+Imports: communication.wifi, core.sensor_loop, core.state, communication.espnow_communication,
          communication.nodered_client, communication.udp_commands, config.config,
          debug.debug, ota_update
 
@@ -29,7 +29,7 @@ import ota_update
 ota_update.check_and_update()
 
 from debug.debug import log, init_remote_logging, set_log_enabled, set_all_logs
-from core import wifi
+from communication import wifi
 from core import sensor_loop
 from core import state
 from communication import espnow_communication
@@ -41,11 +41,7 @@ from config import config
 set_all_logs(False)  # disable global spam
 # Keep only what we need for TX/RX + MQTT/UDP + WiFi bring-up
 set_log_enabled("main", True)
-set_log_enabled("espnow_a", True)
-set_log_enabled("communication.espnow", True)
-set_log_enabled("communication.udp_cmd", True)
 set_log_enabled("nodered", True)
-set_log_enabled("wifi", True)
 set_log_enabled("core.sensor", True)
 
 # === SIMULATION MODE (loaded from config) ===
