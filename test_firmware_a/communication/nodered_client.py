@@ -16,7 +16,8 @@ If disabled or MQTT unavailable, module stays inert without impacting firmware.
 
 from time import ticks_ms, ticks_diff  # type: ignore
 from core.timers import elapsed
-from core import wifi, state
+from communication import wifi
+from core import state
 from debug.debug import log
 from config import config
 from config.wifi_config import ADA_USERNAME, ADA_KEY

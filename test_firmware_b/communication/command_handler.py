@@ -308,7 +308,7 @@ def _handle_state(args):
 
 def _handle_status(args):
     """Handle status command: Get system status"""
-    from core import wifi
+    from communication import wifi
     from config.config import FIRMWARE_VERSION
     
     status_info = {
