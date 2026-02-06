@@ -21,8 +21,8 @@ from core import state, timers
 from debug.debug import log
 
 # Default display text for idle state
-DEFAULT_LINE1 = "System Ready"
-DEFAULT_LINE2 = "Standby..."
+DEFAULT_LINE1 = "Life Guardian"
+DEFAULT_LINE2 = "Active"
 
 _i2c = None
 _addr = None
