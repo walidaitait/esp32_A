@@ -407,7 +407,7 @@ def _handle_reboot(args):
     return {
         "success": True,
         "message": "System will reboot shortly."
-    })
+    }
 
 
 def _handle_mode(args):
