@@ -7,8 +7,8 @@ Controls 16x2 character LCD display via I2C PCF8574 backpack.
 Displays system status, alarm levels, and sensor readings.
 
 Default idle text:
-- Line 1: "System Ready"
-- Line 2: "Standby..."
+- Line 1: "Life Guardian"
+- Line 2: "Active"
 
 In alarm states, displays relevant sensor data and alarm level.
 
