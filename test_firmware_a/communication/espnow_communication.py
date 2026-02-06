@@ -64,18 +64,9 @@ MAC_A = bytes.fromhex("5C013B4C2C34")  # Self (A)
 MAC_B = bytes.fromhex("d8bc38e470bc")  # Remote (B)
 
 # Send interval and message tracking
-_send_interval = 2500  # Send sensor data every 2.5 seconds
+_send_interval = 200  # Send sensor data every 200ms (was 2.5s - now responsive)
 REINIT_INTERVAL = 5000      # Try to recover ESP-NOW every 5 seconds when down
-_state_log_interval = None  # Disabled snapshots
 _message_count = 0
-_version_mismatch_logged = False  # Prevent log spam
-
-# Communication quality tracking
-_stats_tx_total = 0      # Total messages sent
-_stats_rx_total = 0      # Total valid messages received
-_stats_rx_corrupted = 0  # Messages failed validation or JSON parse
-_stats_last_log = 0      # Last time stats were logged
-STATS_LOG_INTERVAL = 60000  # Log stats every 60 seconds
 
 # Message ID tracking (prevent loops)
 _next_msg_id = 1
@@ -268,22 +259,8 @@ def send_message(data):
             return False
         
         # Log after successful send with full context
-        msg_id = "?"
-        msg_type = "?"
-        try:
-            msg_dict = json.loads(data.decode("utf-8"))
-            msg_id = msg_dict.get("id", "?")
-            msg_type = msg_dict.get("t", msg_dict.get("msg_type", "?"))
-        except Exception:
-            pass  # Best-effort parsing only for logging
-
         _esp_now.send(MAC_B, data)
-        log("espnow_a", "TX OK -> B id={} type={} len={}".format(msg_id, msg_type, len(data)))
-        
-        # Update stats
-        global _stats_tx_total
-        _stats_tx_total += 1
-        
+        log("espnow_a", "TX: type={} len={}".format(msg_type, len(data)))
         return True
     except Exception as e:
         log("communication.espnow", "Send error: {}".format(e))
@@ -305,13 +282,11 @@ def _check_event_retry():
         if elapsed_time > EVENT_RETRY_TIMEOUT:
             if event_info["retry_count"] < 1:
                 # Retry once
-                log("espnow_a", "Event msg_id={} timeout, retrying (attempt 2/2)".format(msg_id))
                 send_message(event_info["msg"])
                 event_info["sent_at"] = now
                 event_info["retry_count"] += 1
             else:
                 # Max retry reached, give up
-                log("espnow_a", "Event msg_id={} failed after 1 retry, giving up".format(msg_id))
                 to_remove.append(msg_id)
     
     # Clean up failed events
@@ -481,15 +456,10 @@ def _parse_actuator_state(msg_bytes):
         # Detect format (compact uses 'v', full uses 'version')
         is_compact = "v" in data
         
-        # Extract message metadata
-        if is_compact:
-            msg_id = data.get("id", 0)
-            msg_type = data.get("t", "data")
-            remote_version = data.get("v")
-        else:
-            msg_id = data.get("msg_id", 0)
-            msg_type = data.get("msg_type", "data")
-            remote_version = data.get("version")
+        # Extract message metadata (only compact format now)
+        msg_id = data.get("id", 0)
+        msg_type = data.get("t", "data")
+        remote_version = data.get("v")
         
         # Track received message ID to prevent duplicates
         global _last_received_msg_id
@@ -499,7 +469,7 @@ def _parse_actuator_state(msg_bytes):
         if msg_type != "ack":
             _last_received_msg_id = msg_id
         
-        log("espnow_a", "RX msg_id={} type={} fmt={}".format(msg_id, msg_type, "compact" if is_compact else "full"))
+        log("espnow_a", "RX: msg_id={} type={}".format(msg_id, msg_type))
         
         # If this is just an ACK, don't update state and DON'T send another ACK back
         if msg_type == "ack":
@@ -520,57 +490,30 @@ def _parse_actuator_state(msg_bytes):
         
         # Check version (warning only, don't block communication)
         if remote_version != config.FIRMWARE_VERSION:
-            global _version_mismatch_logged
-            if not _version_mismatch_logged:
-                log("communication.espnow", "WARNING: Firmware version mismatch! Local=v{}, Remote=v{}".format(
-                    config.FIRMWARE_VERSION, remote_version
-                ))
-                _version_mismatch_logged = True
-        else:
-            _version_mismatch_logged = False
+            log("communication.espnow", "WARNING: Firmware version mismatch! Local=v{}, Remote=v{}".format(
+                config.FIRMWARE_VERSION, remote_version
+            ))
         
-        # Parse actuators (support both formats)
-        if is_compact:
-            leds = data.get("L", {})
-            state.received_actuator_state["leds"]["green"] = leds.get("g", "off")
-            state.received_actuator_state["leds"]["blue"] = leds.get("b", "off")
-            state.received_actuator_state["leds"]["red"] = leds.get("r", "off")
-            
-            # Parse servo (compact)
-            servo = data.get("S", {})
-            state.received_actuator_state["servo_angle"] = servo.get("a")
-            
-            # Parse LCD (compact)
-            lcd = data.get("D", {})
-            state.received_actuator_state["lcd_line1"] = lcd.get("1", "")
-            state.received_actuator_state["lcd_line2"] = lcd.get("2", "")
-            
-            # Parse audio devices (compact)
-            state.received_actuator_state["buzzer"] = data.get("B", "OFF")
-            state.received_actuator_state["audio"] = data.get("A", "STOP")
-            # Parse SOS mode (compact)
-            state.received_actuator_state["sos_mode"] = bool(data.get("O", False))
-        else:
-            # Full format (backward compatibility)
-            leds = data.get("leds", {})
-            state.received_actuator_state["leds"]["green"] = leds.get("green", "off")
-            state.received_actuator_state["leds"]["blue"] = leds.get("blue", "off")
-            state.received_actuator_state["leds"]["red"] = leds.get("red", "off")
-            
-            # Parse servo
-            servo = data.get("servo", {})
-            state.received_actuator_state["servo_angle"] = servo.get("angle")
-            
-            # Parse LCD
-            lcd = data.get("lcd", {})
-            state.received_actuator_state["lcd_line1"] = lcd.get("line1", "")
-            state.received_actuator_state["lcd_line2"] = lcd.get("line2", "")
-            
-            # Parse audio devices
-            state.received_actuator_state["buzzer"] = data.get("buzzer", "OFF")
-            state.received_actuator_state["audio"] = data.get("audio", "STOP")
-            # Parse SOS mode (full format)
-            state.received_actuator_state["sos_mode"] = bool(data.get("sos_active", False))
+        # Parse actuators (compact format only)
+        leds = data.get("L", {})
+        state.received_actuator_state["leds"]["green"] = leds.get("g", "off")
+        state.received_actuator_state["leds"]["blue"] = leds.get("b", "off")
+        state.received_actuator_state["leds"]["red"] = leds.get("r", "off")
+        
+        # Parse servo (compact)
+        servo = data.get("S", {})
+        state.received_actuator_state["servo_angle"] = servo.get("a")
+        
+        # Parse LCD (compact)
+        lcd = data.get("D", {})
+        state.received_actuator_state["lcd_line1"] = lcd.get("1", "")
+        state.received_actuator_state["lcd_line2"] = lcd.get("2", "")
+        
+        # Parse audio devices (compact)
+        state.received_actuator_state["buzzer"] = data.get("B", "OFF")
+        state.received_actuator_state["audio"] = data.get("A", "STOP")
+        # Parse SOS mode (compact)
+        state.received_actuator_state["sos_mode"] = bool(data.get("O", False))
         
         state.received_actuator_state["last_update"] = ticks_ms()
         state.received_actuator_state["is_stale"] = False
@@ -616,17 +559,12 @@ def _parse_actuator_state(msg_bytes):
             except Exception:
                 pass  # Ignore if nodered_client not available
         
-        log("communication.espnow", "Actuator data received (v{}) msg_id={} type={} - LEDs=G:{},B:{},R:{} Servo={}° SOS={}".format(
-            remote_version,
-            msg_id,
-            msg_type,
+        log("communication.espnow", "RX: Actuators - LEDs=G:{},B:{},R:{} Servo={}°".format(
             state.received_actuator_state["leds"]["green"],
             state.received_actuator_state["leds"]["blue"],
             state.received_actuator_state["leds"]["red"],
-            state.received_actuator_state["servo_angle"],
-            state.received_actuator_state.get("sos_mode")
+            state.received_actuator_state["servo_angle"]
         ))
-        log("espnow_a", "RX OK - Actuator state updated")
         return msg_id  # Return msg_id to send ACK
     except Exception as e:
         log("communication.espnow", "Parse error: {}".format(e))
@@ -636,82 +574,8 @@ def _parse_actuator_state(msg_bytes):
 
 def _log_complete_state():
     """Log complete state including local sensors and received actuators."""
-    log("espnow_a", "=" * 60)
-    log("espnow_a", "COMPLETE STATE SNAPSHOT (Board A)")
-    log("espnow_a", "=" * 60)
-    
-    # Local sensor data (sent to B)
-    hr = state.sensor_data.get("heart_rate", {})
-    log("espnow_a", "LOCAL SENSORS (sent to B):")
-    log("espnow_a", "  Temperature: {}°C".format(state.sensor_data.get("temperature", "N/A")))
-    log("espnow_a", "  CO: {} ppm".format(state.sensor_data.get("co", "N/A")))
-    log("espnow_a", "  Heart Rate: {} bpm, SpO2: {}%".format(
-        hr.get("bpm", "N/A") if hr else "N/A",
-        hr.get("spo2", "N/A") if hr else "N/A"
-    ))
-    log("espnow_a", "  Ultrasonic: {} cm".format(state.sensor_data.get("ultrasonic_distance_cm", "N/A")))
-    log("espnow_a", "  Buttons: B1={}, B2={}, B3={}".format(
-        state.button_state.get("b1", False),
-        state.button_state.get("b2", False),
-        state.button_state.get("b3", False)
-    ))
-    
-    # Received actuator data from B
-    log("espnow_a", "")
-    log("espnow_a", "RECEIVED ACTUATORS (from B):")
-    recv = state.received_actuator_state
-    log("espnow_a", "  LEDs: G={}, B={}, R={}".format(
-        recv["leds"]["green"], recv["leds"]["blue"], recv["leds"]["red"]
-    ))
-    log("espnow_a", "  Servo: {}°".format(recv["servo_angle"] if recv["servo_angle"] is not None else "N/A"))
-    log("espnow_a", "  LCD: '{}' / '{}'".format(recv["lcd_line1"], recv["lcd_line2"]))
-    log("espnow_a", "  Buzzer: {}, Audio: {}".format(recv["buzzer"], recv["audio"]))
-    log("espnow_a", "  SOS Mode: {}".format(recv.get("sos_mode", False)))
-    log("espnow_a", "=" * 60)
+    # Removed - logging functionality simplified
 
-
-def _parse_actuator_state_v0_fallback(msg_str):
-    """Fallback parser for old string format (for backward compatibility).
-    
-    Old format: "V:1 ACTUATORS: LEDs=G:on,B:blinking,R:off Servo=180° LCD1='...' LCD2='...' Buzz=OFF Audio=STOP"
-    """
-    try:
-        if "LEDs=G:" in msg_str:
-            parts = msg_str.split("LEDs=G:")[1].split(",B:")
-            state.received_actuator_state["leds"]["green"] = parts[0].strip()
-            
-            parts2 = parts[1].split(",R:")
-            state.received_actuator_state["leds"]["blue"] = parts2[0].strip()
-            state.received_actuator_state["leds"]["red"] = parts2[1].split()[0].strip()
-        
-        if "Servo=" in msg_str:
-            servo_str = msg_str.split("Servo=")[1].split("°")[0].strip()
-            try:
-                state.received_actuator_state["servo_angle"] = int(servo_str) if servo_str != "N/A" else None
-            except:
-                state.received_actuator_state["servo_angle"] = None
-        
-        if "LCD1='" in msg_str:
-            lcd1_str = msg_str.split("LCD1='")[1].split("'")[0]
-            state.received_actuator_state["lcd_line1"] = lcd1_str
-        
-        if "LCD2='" in msg_str:
-            lcd2_str = msg_str.split("LCD2='")[1].split("'")[0]
-            state.received_actuator_state["lcd_line2"] = lcd2_str
-        
-        if "Buzz=" in msg_str:
-            buzz_str = msg_str.split("Buzz=")[1].split()[0].strip()
-            state.received_actuator_state["buzzer"] = buzz_str
-        
-        if "Audio=" in msg_str:
-            audio_str = msg_str.split("Audio=")[1].strip()
-            state.received_actuator_state["audio"] = audio_str
-        
-        state.received_actuator_state["last_update"] = ticks_ms()
-        state.received_actuator_state["is_stale"] = False
-        log("communication.espnow", "Parsed with v0 fallback format")
-    except Exception as e:
-        log("communication.espnow", "Fallback parse error: {}".format(e))
 
 
 def update():
@@ -767,19 +631,13 @@ def update():
                 mac_str = ":".join("{:02X}".format(b) for b in mac)
             except Exception:
                 mac_str = str(mac)
-            log("espnow_a", "RX from {} len={} preview={}".format(mac_str, len(msg), msg[:40]))
+            log("espnow_a", "RX len={}".format(len(msg)))
             
             # Validate message before storing
             if _validate_message(msg):
                 valid_messages.append(msg)
-                # Update stats: valid message received
-                global _stats_rx_total
-                _stats_rx_total += 1
             else:
-                log("espnow_a", "Message validation failed, skipping")
-                # Update stats: corrupted message
-                global _stats_rx_corrupted
-                _stats_rx_corrupted += 1
+                log("espnow_a", "RX: Message validation failed")
             
         except OSError:
             # OSError is normal when buffer is empty - silent break
@@ -788,8 +646,7 @@ def update():
     # Process the FIRST valid message (most likely to be complete)
     if valid_messages:
         if messages_processed > 1:
-            log("espnow_a", "Drained {} messages ({} valid), using first valid".format(
-                messages_processed, len(valid_messages)))
+            log("espnow_a", "RX: Drained {} messages, using first".format(messages_processed))
         
         # Use first valid message
         msg_to_process = valid_messages[0]
@@ -802,7 +659,6 @@ def update():
             if received_msg_id is not None and received_msg_id > 0:
                 ack_msg = _get_sensor_data_string(msg_type="ack", reply_to_id=received_msg_id)
                 send_message(ack_msg)
-                log("espnow_a", "Sent ACK for msg_id={}".format(received_msg_id))
         except Exception as e:
             log("communication.espnow", "Parse error: {}".format(e))
     
@@ -852,7 +708,7 @@ def update():
             log("espnow_a", "Stats: TX={} RX=0 (no messages received)".format(_stats_tx_total))
     
     # Snapshot logging disabled
-    if _state_log_interval and elapsed("espnow_state_log", _state_log_interval):
+    if elapsed("espnow_state_log", 60000):
         try:
             _log_complete_state()
         except Exception as e:

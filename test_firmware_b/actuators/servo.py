@@ -122,6 +122,8 @@ def _check_button_b1_toggle():
     
     Detects press event (transition from False to True) and toggles gate open/closed.
     Compatible with automatic gate control and app commands.
+    
+    NOTE: Button press detection requires release between presses (False -> True -> False required).
     """
     global _gate_open, _last_button_b1_state
     
@@ -129,6 +131,7 @@ def _check_button_b1_toggle():
     current_button_state = state.received_sensor_state.get("button_b1", False)
     
     # Detect press event: transition from False to True
+    # This requires that the button was released (False) before being pressed again (True)
     if current_button_state and not _last_button_b1_state:
         log("actuator.servo.gate", "Button B1 pressed - toggling gate")
         
@@ -144,7 +147,7 @@ def _check_button_b1_toggle():
             set_servo_angle_immediate(180)
             log("actuator.servo.gate", "Gate: B1 toggle - opening gate")
     
-    # Update last state for next cycle
+    # Update last state for next cycle (this tracks the button state over time)
     _last_button_b1_state = current_button_state
 
 
@@ -160,7 +163,7 @@ def update_gate_automation():
     
     Button B1 override: Can manually toggle gate open/closed regardless of mode.
     """
-    global _presence_detected, _gate_open, _presence_lost_time_ms, _target_angle
+    global _presence_detected, _gate_open, _presence_lost_time_ms
     
     if _pwm is None:
         return

@@ -48,9 +48,7 @@ CONNECTION_TIMEOUT = 10000  # Consider A disconnected if no message for 10 secon
 REINIT_INTERVAL = 5000      # Try to recover ESP-NOW every 5 seconds when down
 _last_message_from_a = 0
 _a_is_connected = False
-_version_mismatch_logged = False  # Prevent log spam
 _messages_received = 0
-_state_log_interval = None  # Disabled snapshots
 
 # Message ID tracking (prevent loops)
 _next_msg_id = 1
@@ -249,17 +247,7 @@ def send_message(data):
             data = data.encode("utf-8")
         
         # Log after successful send with full context
-        msg_id = "?"
-        msg_type = "?"
-        try:
-            msg_dict = json.loads(data.decode("utf-8"))
-            msg_id = msg_dict.get("id", "?")
-            msg_type = msg_dict.get("t", msg_dict.get("msg_type", "?"))
-        except Exception:
-            pass  # Best-effort parsing only for logging
-        
         _esp_now.send(MAC_A, data)
-        log("espnow_b", "TX OK -> A id={} type={} len={}".format(msg_id, msg_type, len(data)))
         return True
     except Exception as e:
         log("communication.espnow", "Send error: {}".format(e))
@@ -283,13 +271,11 @@ def _check_event_retry():
         if elapsed_time > EVENT_RETRY_TIMEOUT:
             if event_info["retry_count"] < 1:
                 # Retry once
-                log("espnow_b", "Event msg_id={} timeout, retrying (attempt 2/2)".format(msg_id))
                 send_message(event_info["msg"])
                 event_info["sent_at"] = now
                 event_info["retry_count"] += 1
             else:
                 # Max retry reached, give up
-                log("espnow_b", "Event msg_id={} failed after 1 retry, giving up".format(msg_id))
                 to_remove.append(msg_id)
     
     # Clean up failed events
@@ -340,7 +326,6 @@ def _parse_command(msg_bytes):
             
             # Ignore if not for us
             if target != "B":
-                log("espnow_b", "Command not for us (target={})".format(target))
                 return None  # Parsing succeeded but not for us, don't try sensor parsing
             
             command = data.get("command", "")
@@ -482,195 +467,47 @@ def _parse_sensor_state(msg_bytes):
         
         # Check version (warning only, don't block communication)
         if remote_version != config.FIRMWARE_VERSION:
-            global _version_mismatch_logged
-            if not _version_mismatch_logged:
-                log("communication.espnow", "WARNING: Firmware version mismatch! Local=v{}, Remote=v{}".format(
-                    config.FIRMWARE_VERSION, remote_version
-                ))
-                _version_mismatch_logged = True
-        else:
-            _version_mismatch_logged = False
+            log("communication.espnow", "WARNING: Firmware version mismatch! Local=v{}, Remote=v{}".format(
+                config.FIRMWARE_VERSION, remote_version
+            ))
         
-        # Parse sensors (support both formats)
-        if is_compact:
-            sensors = data.get("s", {})
-            state.received_sensor_state["temperature"] = sensors.get("T")
-            state.received_sensor_state["co"] = sensors.get("C")
-            state.received_sensor_state["ultrasonic_distance"] = sensors.get("U")
-            state.received_sensor_state["presence_detected"] = sensors.get("P", False)
-            
-            # Parse heart rate (compact)
-            hr = sensors.get("H", {})
-            state.received_sensor_state["heart_rate_bpm"] = hr.get("b")
-            state.received_sensor_state["heart_rate_spo2"] = hr.get("o")
-            
-            # Parse buttons (compact)
-            buttons = data.get("B", {})
-            state.received_sensor_state["button_b1"] = buttons.get("1", False)
-            state.received_sensor_state["button_b2"] = buttons.get("2", False)
-            state.received_sensor_state["button_b3"] = buttons.get("3", False)
-            
-            # Parse alarm (compact)
-            alarm = data.get("A", {})
-            state.received_sensor_state["alarm_level"] = alarm.get("L", "normal")
-            state.received_sensor_state["alarm_source"] = alarm.get("S")
-            state.received_sensor_state["alarm_sos_mode"] = alarm.get("M", False)
-        else:
-            # Full format (backward compatibility)
-            sensors = data.get("sensors", {})
-            state.received_sensor_state["temperature"] = sensors.get("temperature")
-            state.received_sensor_state["co"] = sensors.get("co")
-            state.received_sensor_state["ultrasonic_distance"] = sensors.get("ultrasonic_distance")
-            state.received_sensor_state["presence_detected"] = sensors.get("presence_detected", False)
-            
-            # Parse heart rate
-            hr = sensors.get("heart_rate", {})
-            state.received_sensor_state["heart_rate_bpm"] = hr.get("bpm")
-            state.received_sensor_state["heart_rate_spo2"] = hr.get("spo2")
-            
-            # Parse buttons
-            buttons = data.get("buttons", {})
-            state.received_sensor_state["button_b1"] = buttons.get("b1", False)
-            state.received_sensor_state["button_b2"] = buttons.get("b2", False)
-            state.received_sensor_state["button_b3"] = buttons.get("b3", False)
-            
-            # Parse alarm
-            alarm = data.get("alarm", {})
-            state.received_sensor_state["alarm_level"] = alarm.get("level", "normal")
-            state.received_sensor_state["alarm_source"] = alarm.get("source")
-            state.received_sensor_state["alarm_sos_mode"] = alarm.get("sos_mode", False)
+        # Parse sensors (compact format only)
+        sensors = data.get("s", {})
+        state.received_sensor_state["temperature"] = sensors.get("T")
+        state.received_sensor_state["co"] = sensors.get("C")
+        state.received_sensor_state["ultrasonic_distance"] = sensors.get("U")
+        state.received_sensor_state["presence_detected"] = sensors.get("P", False)
+        
+        # Parse heart rate (compact)
+        hr = sensors.get("H", {})
+        state.received_sensor_state["heart_rate_bpm"] = hr.get("b")
+        state.received_sensor_state["heart_rate_spo2"] = hr.get("o")
+        
+        # Parse buttons (compact)
+        buttons = data.get("B", {})
+        state.received_sensor_state["button_b1"] = buttons.get("1", False)
+        state.received_sensor_state["button_b2"] = buttons.get("2", False)
+        state.received_sensor_state["button_b3"] = buttons.get("3", False)
+        
+        # Parse alarm (compact)
+        alarm = data.get("A", {})
+        state.received_sensor_state["alarm_level"] = alarm.get("L", "normal")
+        state.received_sensor_state["alarm_source"] = alarm.get("S")
+        state.received_sensor_state["alarm_sos_mode"] = alarm.get("M", False)
         
         state.received_sensor_state["last_update"] = ticks_ms()
         state.received_sensor_state["is_stale"] = False
         
-        log("communication.espnow", "Sensor data received (v{}) msg_id={} type={} - Temp={}, CO={}, Alarm={}".format(
-            remote_version,
-            msg_id,
-            msg_type,
-            state.received_sensor_state["temperature"],
-            state.received_sensor_state["co"],
-            state.received_sensor_state["alarm_level"]
-        ))
-        log("espnow_b", "RX OK - Sensor state updated")
         return msg_id  # Return msg_id to send ACK
     except Exception as e:
-        log("communication.espnow", "Parse error: {}".format(e))
-        log("espnow_b", "RX Parse FAILED: {}".format(e))
+        # Silent failure - handle parse errors without verbose logging
+        pass
         return None
 
 
 def _log_complete_state():
     """Log complete state including local actuators and received sensors."""
-    log("communication.espnow", "=" * 60)
-    log("communication.espnow", "COMPLETE STATE SNAPSHOT (Board B)")
-    log("communication.espnow", "=" * 60)
-    
-    # Local actuator data (sent to A)
-    modes = state.actuator_state["led_modes"]
-    log("communication.espnow", "LOCAL ACTUATORS (sent to A):")
-    log("communication.espnow", "  LEDs: Green={}, Blue={}, Red={}".format(
-        modes.get("green", "off"), modes.get("blue", "off"), modes.get("red", "off")
-    ))
-    log("communication.espnow", "  Servo: {}°".format(
-        state.actuator_state["servo"].get("angle", "N/A")
-    ))
-    log("communication.espnow", "  LCD: '{}' / '{}'".format(
-        state.actuator_state["lcd"].get("line1", ""),
-        state.actuator_state["lcd"].get("line2", "")
-    ))
-    log("communication.espnow", "  Buzzer: {}, Audio: {}".format(
-        "ON" if state.actuator_state["buzzer"].get("active", False) else "OFF",
-        "PLAY" if state.actuator_state["audio"].get("playing", False) else "STOP"
-    ))
-    
-    # Received sensor data from A
-    log("communication.espnow", "")
-    log("communication.espnow", "RECEIVED SENSORS (from A):")
-    recv = state.received_sensor_state
-    log("communication.espnow", "  Temperature: {}°C".format(recv["temperature"] if recv["temperature"] is not None else "N/A"))
-    log("communication.espnow", "  CO: {} ppm".format(recv["co"] if recv["co"] is not None else "N/A"))
-    log("communication.espnow", "  Heart Rate: {} bpm, SpO2: {}%".format(
-        recv["heart_rate_bpm"] if recv["heart_rate_bpm"] is not None else "N/A",
-        recv["heart_rate_spo2"] if recv["heart_rate_spo2"] is not None else "N/A"
-    ))
-    log("communication.espnow", "  Ultrasonic: {} cm".format(
-        recv["ultrasonic_distance"] if recv["ultrasonic_distance"] is not None else "N/A"
-    ))
-    log("communication.espnow", "  Buttons: B1={}, B2={}, B3={}".format(
-        recv["button_b1"], recv["button_b2"], recv["button_b3"]
-    ))
-    log("communication.espnow", "=" * 60)
-
-
-def _parse_sensor_state_v0_fallback(msg_str):
-    """Fallback parser for old string format (for backward compatibility).
-    
-    Old format: "V:1 SENSORS: Temp=23.5 CO=150 HR=75 SpO2=98 Dist=45 Btns=False|True|False"
-    """
-    try:
-        if "Temp=" in msg_str:
-            temp_str = msg_str.split("Temp=")[1].split()[0].strip()
-            try:
-                state.received_sensor_state["temperature"] = float(temp_str) if temp_str != "N/A" else None
-            except:
-                state.received_sensor_state["temperature"] = None
-        
-        if "CO=" in msg_str:
-            co_str = msg_str.split("CO=")[1].split()[0].strip()
-            try:
-                state.received_sensor_state["co"] = float(co_str) if co_str != "N/A" else None
-            except:
-                state.received_sensor_state["co"] = None
-        
-        if "HR=" in msg_str:
-            hr_str = msg_str.split("HR=")[1].split()[0].strip()
-            try:
-                state.received_sensor_state["heart_rate_bpm"] = int(hr_str) if hr_str != "N/A" else None
-            except:
-                state.received_sensor_state["heart_rate_bpm"] = None
-        
-        if "SpO2=" in msg_str:
-            spo2_str = msg_str.split("SpO2=")[1].split()[0].strip()
-            try:
-                state.received_sensor_state["heart_rate_spo2"] = int(spo2_str) if spo2_str != "N/A" else None
-            except:
-                state.received_sensor_state["heart_rate_spo2"] = None
-        
-        if "Dist=" in msg_str:
-            dist_str = msg_str.split("Dist=")[1].split()[0].strip()
-            try:
-                state.received_sensor_state["ultrasonic_distance"] = float(dist_str) if dist_str != "N/A" else None
-            except:
-                state.received_sensor_state["ultrasonic_distance"] = None
-
-        if "Presence=" in msg_str:
-            pres_str = msg_str.split("Presence=")[1].split()[0].strip()
-            state.received_sensor_state["presence_detected"] = (pres_str.lower() == "true")
-
-        if "Alarm=" in msg_str:
-            alarm_str = msg_str.split("Alarm=")[1].split()[0].strip()
-            if ":" in alarm_str:
-                level_part, source_part = alarm_str.split(":", 1)
-                state.received_sensor_state["alarm_level"] = level_part
-                state.received_sensor_state["alarm_source"] = source_part
-            else:
-                state.received_sensor_state["alarm_level"] = alarm_str
-                state.received_sensor_state["alarm_source"] = None
-        
-        if "Btns=" in msg_str:
-            btns_str = msg_str.split("Btns=")[1].strip()
-            btns = btns_str.split("|")
-            if len(btns) >= 3:
-                state.received_sensor_state["button_b1"] = (btns[0].strip().lower() == "true")
-                state.received_sensor_state["button_b2"] = (btns[1].strip().lower() == "true")
-                state.received_sensor_state["button_b3"] = (btns[2].strip().lower() == "true")
-        
-        state.received_sensor_state["last_update"] = ticks_ms()
-        state.received_sensor_state["is_stale"] = False
-        log("communication.espnow", "Parsed with v0 fallback format")
-    except Exception as e:
-        log("communication.espnow", "Fallback parse error: {}".format(e))
-
+    # Removed - logging functionality simplified
 
 def update():
     """Non-blocking update for ESP-NOW communication.
@@ -816,7 +653,6 @@ def update():
         global _pending_events, _pending_event_acks
         if _pending_events:
             event = _pending_events.pop(0)
-            log("espnow_b", "Sending event: {}".format(event.get("event_type")))
             
             # Get message ID for tracking
             msg_id = _next_msg_id
@@ -832,11 +668,4 @@ def update():
             send_message(event_msg)
     except Exception as e:
         log("communication.espnow", "Event send error: {}".format(e))
-    
-    # Log complete state every 15 seconds
-    if _state_log_interval and elapsed("espnow_state_log", _state_log_interval):
-        try:
-            _log_complete_state()
-        except Exception as e:
-            log("communication.espnow", "Log state error: {}".format(e))
 
