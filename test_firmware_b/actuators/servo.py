@@ -25,6 +25,7 @@ from machine import Pin, PWM  # type: ignore
 from time import ticks_ms, ticks_diff, sleep_ms  # type: ignore
 from config import config
 from core import state
+from core.timers import elapsed
 from debug.debug import log
 
 _pwm = None
@@ -79,14 +80,21 @@ def _set_angle_immediate(angle):
 
 
 def set_servo_angle_immediate(angle):
-    """Set servo angle instantly - single PWM command, no intermediate steps."""
+    """Set servo angle instantly - single PWM command, no intermediate steps.
+    
+    Locks automation for 500ms to prevent interference during movement.
+    """
     if _pwm is None:
         log("actuator.servo", "set_servo_angle_immediate ignored (PWM not initialized)")
         return
 
     angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
     _set_angle_immediate(angle)
-    log("actuator.servo", "Servo commanded to {}°".format(angle))
+    
+    # Reset movement timer to lock automation for 500ms
+    elapsed("servo_movement", 0)
+    
+    log("actuator.servo", "Servo commanded to {}° (automation locked for 500ms)".format(angle))
 
 
 def init_servo():
@@ -109,15 +117,7 @@ def init_servo():
         log("actuator.servo", "init_servo: setting initial position to 0°")
         _set_angle_immediate(_angle)
         
-        # TEST: Immediately command 180° then back to 0° to test full range
-        sleep_ms(1000)  # Wait 1s at 0°
-        log("actuator.servo.test", "TEST: Opening to 180°")
-        _set_angle_immediate(180)
-        sleep_ms(2000)  # Wait 2s at 180°
-        log("actuator.servo.test", "TEST: Closing to 0°")
-        _set_angle_immediate(0)
-        
-        log("actuator.servo", "Servo initialized and range tested (0° → 180° → 0°)")
+        log("actuator.servo", "Servo initialized at 0°")
         return True
     except Exception as e:
         log("actuator.servo", "Initialization failed: {}".format(e))
@@ -177,6 +177,10 @@ def update_gate_automation():
     global _presence_detected, _gate_open, _presence_lost_time_ms
     
     if _pwm is None:
+        return
+    
+    # Skip automation if movement lock is active (prevents interference during commanded movements)
+    if not elapsed("servo_movement", 500):
         return
     
     # Check for button B1 press to toggle gate (takes precedence)
