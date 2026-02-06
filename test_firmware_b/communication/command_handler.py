@@ -143,7 +143,7 @@ def _handle_servo(args):
     # Apply immediately to hardware if available
     try:
         from actuators import servo as servo_module
-        servo_module.set_servo_angle_immediate(angle)
+        servo_module.set_servo_angle_immediate(angle, source="command")
     except Exception:
         # Fallback to state-only
         state.actuator_state["servo"]["angle"] = angle

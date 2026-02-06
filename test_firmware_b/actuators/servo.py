@@ -40,8 +40,10 @@ _presence_lost_time_ms = None
 # Button B1 toggle tracking
 _last_button_b1_state = False  # Track previous button state to detect press event
 
-# Movement protection
-_last_command_time_ms = 0  # Track last command to prevent rapid-fire commands
+# Movement protection and command queue
+_last_command_time_ms = 0  # Track last command execution time
+_command_queue = []  # Queue for pending servo commands: [(angle, source_info), ...]
+_MIN_COMMAND_INTERVAL_MS = 1000  # Minimum time between command executions (reduced from 2500ms)
 
 # Typical PWM parameters for servo: 50Hz, pulse 0.5-2.5ms
 _PWM_FREQ = 50
@@ -82,39 +84,60 @@ def _set_angle_immediate(angle):
         log("actuator.servo", "Set angle error: {}".format(e))
 
 
-def set_servo_angle_immediate(angle):
-    """Set servo angle instantly - single PWM command, no intermediate steps.
+def _execute_servo_command(angle, source):
+    """Execute a servo command immediately (internal use).
     
-    Locks automation for 2500ms to prevent interference during movement.
-    Ignores commands sent within 2500ms of previous command to prevent rapid-fire.
+    Updates hardware, timestamp, and locks automation.
     """
     global _last_command_time_ms
+    
+    old_angle = _angle
+    _set_angle_immediate(angle)
+    _last_command_time_ms = ticks_ms()
+    
+    # Reset movement timer to lock automation for 1000ms
+    elapsed("servo_movement", 0)
+    
+    log("actuator.servo", "Servo: {}° → {}° from {} (automation LOCKED for {}ms)".format(
+        old_angle, angle, source, _MIN_COMMAND_INTERVAL_MS))
+
+
+def set_servo_angle_immediate(angle, source="unknown"):
+    """Set servo angle instantly - single PWM command, no intermediate steps.
+    
+    If called too soon after previous command, enqueues the command instead of ignoring it.
+    Commands are processed sequentially from the queue.
+    
+    Args:
+        angle: Target angle (0-180)
+        source: Command source for logging ("app", "automation", "button", etc.)
+    """
+    global _last_command_time_ms, _command_queue
     
     if _pwm is None:
         log("actuator.servo", "set_servo_angle_immediate ignored (PWM not initialized)")
         return
 
-    # Prevent rapid-fire commands: ignore if less than 2500ms since last command
-    now = ticks_ms()
-    if _last_command_time_ms > 0 and ticks_diff(now, _last_command_time_ms) < 2500:
-        log("actuator.servo", "Servo command IGNORED (too soon: {}ms since last)".format(ticks_diff(now, _last_command_time_ms)))
-        return
-    
     angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
-    old_angle = _angle
+    now = ticks_ms()
     
-    # Only proceed if angle actually changes
-    if old_angle == angle:
-        log("actuator.servo.debug", "Servo already at {}° (no movement needed)".format(angle))
+    # Check if we can execute immediately
+    time_since_last = ticks_diff(now, _last_command_time_ms) if _last_command_time_ms > 0 else 9999
+    can_execute_now = time_since_last >= _MIN_COMMAND_INTERVAL_MS
+    
+    # Check if command is redundant (same angle as current)
+    if angle == _angle:
+        log("actuator.servo.debug", "Servo already at {}° (redundant from {})".format(angle, source))
         return
     
-    _set_angle_immediate(angle)
-    _last_command_time_ms = now
-    
-    # Reset movement timer to lock automation for 2500ms
-    elapsed("servo_movement", 0)
-    
-    log("actuator.servo", "Servo: {}° → {}° (automation LOCKED for 2500ms)".format(old_angle, angle))
+    # If we can execute now and queue is empty, execute immediately
+    if can_execute_now and not _command_queue:
+        _execute_servo_command(angle, source)
+    else:
+        # Otherwise, enqueue the command
+        _command_queue.append((angle, source))
+        log("actuator.servo", "Servo command QUEUED: {}° from {} (wait {}ms, queue size: {})".format(
+            angle, source, _MIN_COMMAND_INTERVAL_MS - time_since_last, len(_command_queue)))
 
 
 def init_servo():
@@ -170,17 +193,46 @@ def _check_button_b1_toggle():
         if _gate_open:
             # Gate is open, close it
             _gate_open = False
-            set_servo_angle_immediate(0)
+            set_servo_angle_immediate(0, source="button_B1")
             log("actuator.servo.gate", "Gate: B1 toggle - closing gate")
         else:
             # Gate is closed, open it
             _gate_open = True
-            set_servo_angle_immediate(180)
+            set_servo_angle_immediate(180, source="button_B1")
             log("actuator.servo.gate", "Gate: B1 toggle - opening gate")
     
     # Update last state for next cycle (this tracks the button state over time)
     _last_button_b1_state = current_button_state
 
+
+
+def _process_command_queue():
+    """Process pending servo commands from the queue.
+    
+    Executes next command if enough time has passed since last execution.
+    Should be called regularly from main loop.
+    """
+    global _command_queue, _last_command_time_ms
+    
+    if not _command_queue:
+        return
+    
+    now = ticks_ms()
+    time_since_last = ticks_diff(now, _last_command_time_ms) if _last_command_time_ms > 0 else 9999
+    
+    # Check if we can execute next command
+    if time_since_last >= _MIN_COMMAND_INTERVAL_MS:
+        # Pop and execute next command
+        angle, source = _command_queue.pop(0)
+        
+        # Check if command is still relevant (not redundant)
+        if angle != _angle:
+            _execute_servo_command(angle, source)
+            log("actuator.servo", "Queue processed: {}° from {} (remaining: {})".format(
+                angle, source, len(_command_queue)))
+        else:
+            log("actuator.servo.debug", "Queue command skipped: already at {}° (remaining: {})".format(
+                angle, len(_command_queue)))
 
 
 def update_gate_automation():
@@ -199,9 +251,12 @@ def update_gate_automation():
     if _pwm is None:
         return
     
+    # Process command queue first (always runs)
+    _process_command_queue()
+    
     # Skip automation if movement lock is active (prevents interference during commanded movements)
-    if not elapsed("servo_movement", 2500):
-        # Log that automation isblocked (only first time to avoid spam)
+    if not elapsed("servo_movement", _MIN_COMMAND_INTERVAL_MS):
+        # Log that automation is blocked (only first time to avoid spam)
         return
     
     # Check for button B1 press to toggle gate (takes precedence)
@@ -219,7 +274,7 @@ def update_gate_automation():
     if presence and allow_auto_open and not _gate_open:
         _gate_open = True
         _presence_lost_time_ms = None
-        set_servo_angle_immediate(180)  # Open gate immediately
+        set_servo_angle_immediate(180, source="automation_danger")  # Open gate immediately
         log("actuator.servo.gate", "Gate: presence detected in DANGER mode, opening...")
     
     # Presence detected but NOT in danger mode -> keep gate closed (do not open)
@@ -253,7 +308,7 @@ def update_gate_automation():
                     close_delay_ms/1000.0, presence, alarm_level, _gate_open))
                 _gate_open = False
                 _presence_lost_time_ms = None
-                set_servo_angle_immediate(0)  # Single command to close
+                set_servo_angle_immediate(0, source="automation_timeout")  # Single command to close
     
     # No presence and gate already closed -> nothing to do
     else:

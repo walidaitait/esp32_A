@@ -503,20 +503,30 @@ def _parse_actuator_state(msg_bytes):
         
         # SYNC: Update local gate_state based on servo angle from ESP32-B
         # This keeps ESP32-A, ESP32-B, and app in sync
+        # Skip sync if gate command was recently sent (prevents race condition during queue processing)
+        from core import timers
+        gate_sync_locked = not timers.elapsed("gate_sync_lock", 1500)  # Lock for 1.5s after command
+        
         servo_angle = state.received_actuator_state.get("servo_angle")
         if servo_angle is not None:
             # Gate is open when servo is at 180°, closed at 0°
             # Use threshold: >90° = open, <=90° = closed
             gate_is_open = servo_angle > 90
             if state.gate_state.get("gate_open") != gate_is_open:
-                state.gate_state["gate_open"] = gate_is_open
-                log("espnow_a", "SYNC: gate_open updated to {} (servo={}°)".format(gate_is_open, servo_angle))
-                # Request immediate publish to update app with new gate state
-                try:
-                    from communication import nodered_client
-                    nodered_client.request_publish_now()
-                except Exception:
-                    pass  # Ignore if nodered_client not available
+                if gate_sync_locked:
+                    # Ignore sync updates during lock period to prevent race condition
+                    log("espnow_a", "SYNC: gate_open sync IGNORED (locked) - servo={}° would set gate_open={}".format(
+                        servo_angle, gate_is_open))
+                else:
+                    # Normal sync update
+                    state.gate_state["gate_open"] = gate_is_open
+                    log("espnow_a", "SYNC: gate_open updated to {} (servo={}°)".format(gate_is_open, servo_angle))
+                    # Request immediate publish to update app with new gate state
+                    try:
+                        from communication import nodered_client
+                        nodered_client.request_publish_now()
+                    except Exception:
+                        pass  # Ignore if nodered_client not available
         
         # SYNC: Update local alarm_state["sos_mode"] based on sos_mode from ESP32-B
         # If ESP32-B activates SOS via physical button, propagate it to alarm_state and app

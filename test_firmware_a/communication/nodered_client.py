@@ -317,11 +317,15 @@ def _process_app_command(cmd_payload):
                 "_session_id": session_id
             }
             if espnow_communication.send_command(espnow_command):
-                # Update local gate state to maintain sync with app
+                # Update local gate state optimistically
                 state.gate_state["gate_open"] = True
+                # Lock gate sync for 1.5s to prevent race condition
+                # (prevents ESP32-B's queued state from overwriting before execution)
+                from core import timers
+                timers.elapsed("gate_sync_lock", 0)  # Reset timer
                 # Publish immediately to confirm state change to app
                 publish_state_now()
-                log("nodered", "CMD: Gate open forwarded to B from {}".format(session_id))
+                log("nodered", "CMD: Gate open forwarded to B from {} (sync locked 1.5s)".format(session_id))
                 return {"success": True, "message": "Gate open command sent to B"}
             else:
                 log("nodered", "CMD: Gate open forward failed from {}".format(session_id))
@@ -338,11 +342,14 @@ def _process_app_command(cmd_payload):
                 "_session_id": session_id
             }
             if espnow_communication.send_command(espnow_command):
-                # Update local gate state to maintain sync with app
+                # Update local gate state optimistically
                 state.gate_state["gate_open"] = False
+                # Lock gate sync for 1.5s to prevent race condition
+                from core import timers
+                timers.elapsed("gate_sync_lock", 0)  # Reset timer
                 # Publish immediately to confirm state change to app
                 publish_state_now()
-                log("nodered", "CMD: Gate close forwarded to B from {}".format(session_id))
+                log("nodered", "CMD: Gate close forwarded to B from {} (sync locked 1.5s)".format(session_id))
                 return {"success": True, "message": "Gate close command sent to B"}
             else:
                 log("nodered", "CMD: Gate close forward failed from {}".format(session_id))
