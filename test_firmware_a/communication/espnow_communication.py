@@ -258,9 +258,8 @@ def send_message(data):
             log("communication.espnow", "ERROR: Message too large ({} bytes, max 250)".format(len(data)))
             return False
         
-        # Log after successful send with full context
+        # Send immediately
         _esp_now.send(MAC_B, data)
-        log("espnow_a", "TX: type={} len={}".format(msg_type, len(data)))
         return True
     except Exception as e:
         log("communication.espnow", "Send error: {}".format(e))
@@ -398,16 +397,11 @@ def _validate_message(msg_bytes):
 def _parse_actuator_state(msg_bytes):
     """Parse received actuator state from Board B (JSON format) and update state.
     
-    Supports both compact and full JSON formats:
-    
-    Compact format (v=version, t=type, id=msg_id, L=leds, etc.):
+    Compact format only (v=version, t=type, id=msg_id, L=leds, etc.):
     {"v":1,"t":"data","id":1,"ts":9622,"L":{"g":"on","b":"off","r":"off"},"S":{"a":180},"D":{"1":"Line 1","2":"Line 2"},"B":"OFF","A":"STOP","O":false}
     
-    Full format (for backward compatibility):
-    {"version":1,"msg_type":"data","msg_id":1,"timestamp":12345,"leds":{"green":"on","blue":"off","red":"off"},"servo":{"angle":180},"lcd":{"line1":"Line 1","line2":"Line 2"},"buzzer":"OFF","audio":"STOP","sos_active":false}
-    
     Or heartbeat message:
-    {"v":1,"t":"heartbeat","ts":12345678} or {"version":1,"type":"heartbeat","timestamp":12345678}
+    {"v":1,"t":"heartbeat","ts":12345678}
     """
     try:
         # Validate message structure first
@@ -442,21 +436,10 @@ def _parse_actuator_state(msg_bytes):
         try:
             data = json.loads(msg_str)
         except ValueError as e:  # json.JSONDecodeError inherits from ValueError
-            log("espnow_a", "RX JSON parse error: {} | JSON preview: {}".format(str(e), msg_str[:100]))
-            # Check if JSON is truncated (missing closing brace)
-            if not msg_str.rstrip().endswith('}'):
-                log("espnow_a", "JSON appears truncated (no closing brace), len={}".format(len(msg_str)))
-            # Update stats: JSON parse failed
-            global _stats_rx_corrupted
-            _stats_rx_corrupted += 1
-            # Try fallback parser for old format
-            _parse_actuator_state_v0_fallback(msg_str)
+            log("espnow_a", "RX JSON parse error: {}".format(str(e)))
             return None
         
-        # Detect format (compact uses 'v', full uses 'version')
-        is_compact = "v" in data
-        
-        # Extract message metadata (only compact format now)
+        # Extract message metadata (compact format only)
         msg_id = data.get("id", 0)
         msg_type = data.get("t", "data")
         remote_version = data.get("v")
@@ -473,7 +456,7 @@ def _parse_actuator_state(msg_bytes):
         
         # If this is just an ACK, don't update state and DON'T send another ACK back
         if msg_type == "ack":
-            reply_to = data.get("r" if is_compact else "reply_to_id")
+            reply_to = data.get("r")
             log("espnow_a", "ACK received for msg_id={}".format(reply_to))
             
             # Update connection heartbeat
@@ -570,11 +553,6 @@ def _parse_actuator_state(msg_bytes):
         log("communication.espnow", "Parse error: {}".format(e))
         log("espnow_a", "RX Parse FAILED: {}".format(e))
         return None
-
-
-def _log_complete_state():
-    """Log complete state including local sensors and received actuators."""
-    # Removed - logging functionality simplified
 
 
 
@@ -695,22 +673,4 @@ def update():
     
     # Note: A does NOT go into standby if B disconnects.
     # Sensor reading and alarm logic continue normally.
-    
-    # Log communication quality stats periodically
-    global _stats_last_log, _stats_tx_total, _stats_rx_total, _stats_rx_corrupted
-    if elapsed("espnow_stats_log", STATS_LOG_INTERVAL):
-        total_rx = _stats_rx_total + _stats_rx_corrupted
-        if total_rx > 0:
-            success_rate = (_stats_rx_total / total_rx) * 100
-            log("espnow_a", "Stats: TX={} RX={} Corrupted={} Success={:.1f}%".format(
-                _stats_tx_total, _stats_rx_total, _stats_rx_corrupted, success_rate))
-        else:
-            log("espnow_a", "Stats: TX={} RX=0 (no messages received)".format(_stats_tx_total))
-    
-    # Snapshot logging disabled
-    if elapsed("espnow_state_log", 60000):
-        try:
-            _log_complete_state()
-        except Exception as e:
-            log("communication.espnow", "Log state error: {}".format(e))
 

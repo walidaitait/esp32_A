@@ -403,11 +403,8 @@ def _parse_sensor_state(msg_bytes):
     
     Supports both compact and full JSON formats:
     
-    Compact format (v=version, t=type, id=msg_id, etc.):
+    Compact format only (v=version, t=type, id=msg_id, etc.):
     {"v":1,"t":"data","id":1,"ts":9622,"s":{"T":25,"C":150,"U":50,"P":false,"H":{"b":75,"o":98}},"B":{"1":false,"2":false,"3":false},"A":{"L":"normal","S":null}}
-    
-    Full format (for backward compatibility):
-    {"version":1,"msg_type":"data","msg_id":1,"timestamp":12345,"sensors":{"temperature":25,"co":150,...},"buttons":{"b1":false,...},"alarm":{"level":"normal",...}}
     """
     try:
         # Validate message structure first
@@ -429,20 +426,12 @@ def _parse_sensor_state(msg_bytes):
             log("communication.espnow", "Last 50 chars: " + msg_str[-50:])
             return None
         
-        # Detect format (compact uses 'v', full uses 'version')
-        is_compact = "v" in data
+        # Extract message metadata (compact format only)
+        msg_id = data.get("id", 0)
+        msg_type = data.get("t", "data")
+        remote_version = data.get("v")
         
-        # Extract message metadata (support both formats)
-        if is_compact:
-            msg_id = data.get("id", 0)
-            msg_type = data.get("t", "data")
-            remote_version = data.get("v")
-        else:
-            msg_id = data.get("msg_id", 0)
-            msg_type = data.get("msg_type", "data")
-            remote_version = data.get("version")
-        
-        log("espnow_b", "RX OK: msg_id={} type={} fmt={}".format(msg_id, msg_type, "compact" if is_compact else "full"))
+        log("espnow_b", "RX: msg_id={} type={}".format(msg_id, msg_type))
         
         # Track received message ID to prevent duplicates
         global _last_received_msg_id
@@ -454,7 +443,7 @@ def _parse_sensor_state(msg_bytes):
         
         # If this is just an ACK, don't update state and DON'T send another ACK back
         if msg_type == "ack":
-            reply_to = data.get("r" if is_compact else "reply_to_id")
+            reply_to = data.get("r")
             log("espnow_b", "ACK received for msg_id={}".format(reply_to))
             
             # Remove from pending events if it was an event waiting for ACK
@@ -504,10 +493,6 @@ def _parse_sensor_state(msg_bytes):
         pass
         return None
 
-
-def _log_complete_state():
-    """Log complete state including local actuators and received sensors."""
-    # Removed - logging functionality simplified
 
 def update():
     """Non-blocking update for ESP-NOW communication.

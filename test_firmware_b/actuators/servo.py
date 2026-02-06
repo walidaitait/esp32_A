@@ -22,7 +22,7 @@ Servo control features:
 Hardware: SG90 servo on GPIO configured in config.SERVO_PIN
 """
 from machine import Pin, PWM  # type: ignore
-from time import ticks_ms, ticks_diff  # type: ignore
+from time import ticks_ms, ticks_diff, sleep_ms  # type: ignore
 from config import config
 from core import state
 from debug.debug import log
@@ -54,7 +54,6 @@ def _angle_to_duty(angle):
     duty_10bit = (_MAX_DUTY * pulse_us) // _PERIOD_US
     # Convert to 16-bit for duty_u16()
     duty_16bit = duty_10bit * 64
-    log("actuator.servo", "_angle_to_duty angle={} -> pulse_us={} -> duty_10bit={} -> duty_u16={}".format(angle, pulse_us, duty_10bit, duty_16bit))
     return duty_16bit
 
 
@@ -62,28 +61,32 @@ def _set_angle_immediate(angle):
     """Set servo angle directly (internal use)."""
     global _angle
     if _pwm is None:
-        log("actuator.servo", "_set_angle_immediate ignored (PWM not initialized)")
         return
     
+    old_angle = _angle
     _angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
+    
+    # Log only if angle actually changes to detect repeated commands
+    if old_angle != _angle:
+        log("actuator.servo.debug", "PWM: {}° → {}°".format(old_angle, _angle))
+    
     try:
         duty_val = _angle_to_duty(_angle)
         _pwm.duty_u16(duty_val)
-        log("actuator.servo", "_set_angle_immediate duty_u16({})={}".format(_angle, duty_val))
         state.actuator_state["servo"]["angle"] = _angle
     except Exception as e:
         log("actuator.servo", "Set angle error: {}".format(e))
 
 
 def set_servo_angle_immediate(angle):
-    """Set servo angle instantly."""
+    """Set servo angle instantly - single PWM command, no intermediate steps."""
     if _pwm is None:
         log("actuator.servo", "set_servo_angle_immediate ignored (PWM not initialized)")
         return
 
     angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
     _set_angle_immediate(angle)
-    log("actuator.servo", "set_servo_angle_immediate angle={}".format(angle))
+    log("actuator.servo", "Servo commanded to {}°".format(angle))
 
 
 def init_servo():
@@ -103,10 +106,18 @@ def init_servo():
 
         # Mark initialized before first duty set so guard does not block
         _initialized = True
-        log("actuator.servo", "init_servo: about to call _set_angle_immediate(0)")
+        log("actuator.servo", "init_servo: setting initial position to 0°")
         _set_angle_immediate(_angle)
-
-        log("actuator.servo", "Servo initialized at 0° (immediate movement mode)")
+        
+        # TEST: Immediately command 180° then back to 0° to test full range
+        sleep_ms(1000)  # Wait 1s at 0°
+        log("actuator.servo.test", "TEST: Opening to 180°")
+        _set_angle_immediate(180)
+        sleep_ms(2000)  # Wait 2s at 180°
+        log("actuator.servo.test", "TEST: Closing to 0°")
+        _set_angle_immediate(0)
+        
+        log("actuator.servo", "Servo initialized and range tested (0° → 180° → 0°)")
         return True
     except Exception as e:
         log("actuator.servo", "Initialization failed: {}".format(e))
@@ -213,10 +224,11 @@ def update_gate_automation():
             
             if elapsed >= close_delay_ms:
                 # Close gate
+                log("actuator.servo.gate", "Gate: CLOSING NOW after {:.1f}s delay (presence={}, alarm={}, _gate_open={})".format(
+                    close_delay_ms/1000.0, presence, alarm_level, _gate_open))
                 _gate_open = False
                 _presence_lost_time_ms = None
-                set_servo_angle_immediate(0)  # Close gate
-                log("actuator.servo.gate", "Gate: closing after delay ({} ms)".format(close_delay_ms))
+                set_servo_angle_immediate(0)  # Single command to close
     
     # No presence and gate already closed -> nothing to do
     else:

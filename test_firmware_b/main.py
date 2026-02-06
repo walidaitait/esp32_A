@@ -39,6 +39,10 @@ from config import config
 # === DISABLE UNNECESSARY LOGS FOR TESTING ===
 set_all_logs(False)
 set_log_enabled("main", True)
+set_log_enabled("actuator.servo", True)
+set_log_enabled("actuator.servo.gate", True)
+set_log_enabled("actuator.servo.debug", True)
+set_log_enabled("actuator.servo.test", True)
 #set_log_enabled("communication.udp_cmd", True)
 # === SIMULATION MODE (loaded from config) ===
 SIMULATE_ACTUATORS = config.SIMULATE_ACTUATORS
