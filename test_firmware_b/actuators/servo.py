@@ -88,12 +88,37 @@ def _execute_servo_command(angle, source):
     """Execute a servo command immediately (internal use).
     
     Updates hardware, timestamp, and locks automation.
+    BROWNOUT PROTECTION: Disables high-current peripherals during movement.
     """
     global _last_command_time_ms
+    
+    # BROWNOUT MITIGATION: Disable LCD backlight during servo movement
+    # Servo can draw 500mA peaks which combined with LCD causes brownout
+    lcd_was_on = False
+    try:
+        from actuators import lcd as lcd_module
+        if hasattr(lcd_module, '_backlight_on') and lcd_module._backlight_on:
+            lcd_was_on = True
+            lcd_module.set_backlight(False)
+            log("actuator.servo.debug", "LCD backlight OFF (brownout protection)")
+    except Exception:
+        pass
     
     old_angle = _angle
     _set_angle_immediate(angle)
     _last_command_time_ms = ticks_ms()
+    
+    # Wait for servo to complete movement (reduce overlap with other loads)
+    sleep_ms(100)
+    
+    # Re-enable LCD backlight if it was on
+    if lcd_was_on:
+        try:
+            from actuators import lcd as lcd_module
+            lcd_module.set_backlight(True)
+            log("actuator.servo.debug", "LCD backlight restored")
+        except Exception:
+            pass
     
     # Reset movement timer to lock automation for 1000ms
     elapsed("servo_movement", 0)
