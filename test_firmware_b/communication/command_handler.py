@@ -378,11 +378,13 @@ def _handle_update(args):
             with open("config.json", "w") as f:
                 json.dump(config_data, f)
         
-        log("communication.cmd_handler", "OTA update flag set - rebooting")
+        log("communication.cmd_handler", "=== OTA UPDATE COMMAND RECEIVED ===")
+        log("communication.cmd_handler", "OTA flag set - rebooting in 1 second")
         
         # Reboot to trigger OTA update on startup
         import time  # type: ignore
         time.sleep(1)
+        log("communication.cmd_handler", "Rebooting now for OTA...")
         machine.reset()
         
         return {
@@ -400,11 +402,12 @@ def _handle_update(args):
 def _handle_reboot(args):
     """Handle reboot command: Trigger system reboot"""
     state.system_control["reboot_requested"] = True
-    log("communication.cmd_handler", "System reboot requested via command")
+    log("communication.cmd_handler", "=== REBOOT COMMAND RECEIVED ===")
+    log("communication.cmd_handler", "System will reboot on next main loop iteration")
     return {
         "success": True,
         "message": "System will reboot shortly."
-    }
+    })
 
 
 def _handle_mode(args):

@@ -43,6 +43,7 @@ set_log_enabled("actuator.servo", True)
 set_log_enabled("actuator.servo.gate", True)
 set_log_enabled("actuator.servo.debug", True)
 set_log_enabled("actuator.servo.test", True)
+set_log_enabled("communication.cmd_handler", True)  # Enable to track commands
 #set_log_enabled("communication.udp_cmd", True)
 # === SIMULATION MODE (loaded from config) ===
 SIMULATE_ACTUATORS = config.SIMULATE_ACTUATORS
@@ -50,6 +51,23 @@ SIMULATE_ACTUATORS = config.SIMULATE_ACTUATORS
 
 def main():
     """Main entry point for actuator firmware."""
+    log("main", "=" * 50)
+    log("main", "ESP32-B BOOT - Firmware v{}".format(config.FIRMWARE_VERSION))
+    
+    # Check reset cause
+    import machine  # type: ignore
+    reset_cause = machine.reset_cause()
+    reset_causes = {
+        machine.PWRON_RESET: "POWER ON",
+        machine.HARD_RESET: "HARD RESET (button)",
+        machine.WDT_RESET: "WATCHDOG TIMEOUT",
+        machine.DEEPSLEEP_RESET: "DEEP SLEEP",
+        machine.SOFT_RESET: "SOFT RESET (code)"
+    }
+    cause_str = reset_causes.get(reset_cause, "UNKNOWN ({})".format(reset_cause))
+    log("main", "Reset cause: {}".format(cause_str))
+    log("main", "=" * 50)
+    
     log("main", "Starting actuator firmware (B)")
     
     # === INITIALIZATION PHASE (blocking allowed here) ===
@@ -100,6 +118,9 @@ def main():
 
     # === MAIN LOOP (non-blocking only) ===
     
+    # Heartbeat counter for monitoring
+    heartbeat_counter = 0
+    
     while True:
         try:
             # === PRIORITY CHECK: System control commands ===
@@ -107,10 +128,12 @@ def main():
             
             # Check for reboot request
             if state.system_control["reboot_requested"]:
-                log("main", "Reboot requested - stopping all processes")
+                log("main", "=== REBOOT REQUESTED VIA COMMAND ===")
+                log("main", "Reboot triggered by: command handler")
                 state.system_control["reboot_requested"] = False
                 import machine #type: ignore
-                log("main", "Rebooting now...")
+                from time import sleep_ms  # type: ignore
+                sleep_ms(500)  # Give time for log to be sent
                 machine.reset()
             
             # === NORMAL OPERATION ===
@@ -138,6 +161,12 @@ def main():
             # Check for incoming UDP commands
             udp_commands.update()
             
+            # Heartbeat every 30 seconds
+            from core.timers import elapsed
+            if elapsed("main_heartbeat", 30000):
+                heartbeat_counter += 1
+                log("main", "Heartbeat #{} - System running OK".format(heartbeat_counter))
+            
             # Minimal CPU usage - yield to other tasks
             # The update() function uses elapsed() timers internally
             # so it's OK to call this very frequently (near-zero overhead)
@@ -146,7 +175,11 @@ def main():
             log("main", "Firmware stopped by user")
             break
         except Exception as e:
-            log("main", "ERROR in main loop: {}".format(e))
+            log("main", "=== CRITICAL ERROR IN MAIN LOOP ===")
+            log("main", "Exception: {}".format(e))
+            import sys
+            sys.print_exception(e)
+            log("main", "Continuing main loop (not rebooting)...")
             # Loop continues, no blocking sleep
 
 
