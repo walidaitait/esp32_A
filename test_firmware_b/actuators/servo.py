@@ -40,6 +40,9 @@ _presence_lost_time_ms = None
 # Button B1 toggle tracking
 _last_button_b1_state = False  # Track previous button state to detect press event
 
+# Movement protection
+_last_command_time_ms = 0  # Track last command to prevent rapid-fire commands
+
 # Typical PWM parameters for servo: 50Hz, pulse 0.5-2.5ms
 _PWM_FREQ = 50
 _MIN_US = 500
@@ -82,19 +85,36 @@ def _set_angle_immediate(angle):
 def set_servo_angle_immediate(angle):
     """Set servo angle instantly - single PWM command, no intermediate steps.
     
-    Locks automation for 500ms to prevent interference during movement.
+    Locks automation for 2500ms to prevent interference during movement.
+    Ignores commands sent within 2500ms of previous command to prevent rapid-fire.
     """
+    global _last_command_time_ms
+    
     if _pwm is None:
         log("actuator.servo", "set_servo_angle_immediate ignored (PWM not initialized)")
         return
 
-    angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
-    _set_angle_immediate(angle)
+    # Prevent rapid-fire commands: ignore if less than 2500ms since last command
+    now = ticks_ms()
+    if _last_command_time_ms > 0 and ticks_diff(now, _last_command_time_ms) < 2500:
+        log("actuator.servo", "Servo command IGNORED (too soon: {}ms since last)".format(ticks_diff(now, _last_command_time_ms)))
+        return
     
-    # Reset movement timer to lock automation for 500ms
+    angle = max(0, min(config.SERVO_MAX_ANGLE, angle))
+    old_angle = _angle
+    
+    # Only proceed if angle actually changes
+    if old_angle == angle:
+        log("actuator.servo.debug", "Servo already at {}° (no movement needed)".format(angle))
+        return
+    
+    _set_angle_immediate(angle)
+    _last_command_time_ms = now
+    
+    # Reset movement timer to lock automation for 2500ms
     elapsed("servo_movement", 0)
     
-    log("actuator.servo", "Servo commanded to {}° (automation locked for 500ms)".format(angle))
+    log("actuator.servo", "Servo: {}° → {}° (automation LOCKED for 2500ms)".format(old_angle, angle))
 
 
 def init_servo():
@@ -180,7 +200,8 @@ def update_gate_automation():
         return
     
     # Skip automation if movement lock is active (prevents interference during commanded movements)
-    if not elapsed("servo_movement", 500):
+    if not elapsed("servo_movement", 2500):
+        # Log that automation isblocked (only first time to avoid spam)
         return
     
     # Check for button B1 press to toggle gate (takes precedence)
@@ -224,9 +245,9 @@ def update_gate_automation():
         else:
             # Check if delay has elapsed
             close_delay_ms = getattr(config, "GATE_CLOSE_DELAY_MS", 10000)
-            elapsed = ticks_diff(ticks_ms(), _presence_lost_time_ms)
+            elapsed_time = ticks_diff(ticks_ms(), _presence_lost_time_ms)
             
-            if elapsed >= close_delay_ms:
+            if elapsed_time >= close_delay_ms:
                 # Close gate
                 log("actuator.servo.gate", "Gate: CLOSING NOW after {:.1f}s delay (presence={}, alarm={}, _gate_open={})".format(
                     close_delay_ms/1000.0, presence, alarm_level, _gate_open))
